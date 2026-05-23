@@ -16,6 +16,7 @@ const TopCarsPage = () => {
   const [showFavsOnly, setShowFavsOnly] = useState(false);
   const [favCars, setFavCars] = useState([]);
   const { t } = useLanguage();
+  const [localTitle, setLocalTitle] = useState('');
   
   const [topParams, setTopParams] = useState({
     limit: '10',
@@ -36,6 +37,19 @@ const TopCarsPage = () => {
   useEffect(() => {
     fetchProvinces().then(setProvinces).catch(console.error);
   }, []);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setTopParams(p => {
+        if (p.title === localTitle) return p;
+        return { ...p, title: localTitle };
+      });
+    }, 300);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [localTitle]);
 
   // Dynamically load only brands that have cars matching the non-brand filters
   useEffect(() => {
@@ -138,7 +152,7 @@ const TopCarsPage = () => {
           
           <div className="filter-group">
             <label style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>{t('brand')} / {t('title')}</label>
-            <input type="text" name="title" className="input-field" style={{ height: '42px' }} placeholder={t('searchPlaceholder')} value={topParams.title} onChange={handleChange} />
+            <input type="text" name="title" className="input-field" style={{ height: '42px' }} placeholder={t('searchPlaceholder')} value={localTitle} onChange={(e) => setLocalTitle(e.target.value)} />
           </div>
         </div>
 

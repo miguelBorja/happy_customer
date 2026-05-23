@@ -24,8 +24,10 @@ const CarsPage = () => {
   const [showFavsOnly, setShowFavsOnly] = useState(false);
   const [favCars, setFavCars] = useState([]);
   const { t } = useLanguage();
+  const [localTitle, setLocalTitle] = useState('');
   
   const [filters, setFilters] = useState({
+    title: '',
     brand: '',
     provincia: '',
     yearMin: '',
@@ -45,6 +47,19 @@ const CarsPage = () => {
     fetchBrands().then(setBrands).catch(console.error);
     fetchProvinces().then(setProvinces).catch(console.error);
   }, []);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setFilters(f => {
+        if (f.title === localTitle) return f;
+        return { ...f, title: localTitle };
+      });
+    }, 300);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [localTitle]);
 
   const loadCars = useCallback(async () => {
     setLoading(true);
@@ -109,6 +124,18 @@ const CarsPage = () => {
       <aside className="filter-panel">
         <h3>{t('filtersHeader')}</h3>
         
+        <div className="filter-group">
+          <label>{t('brand')} / {t('title')}</label>
+          <input 
+            type="text" 
+            name="title" 
+            className="input-field" 
+            placeholder={t('searchPlaceholder')} 
+            value={localTitle} 
+            onChange={(e) => setLocalTitle(e.target.value)} 
+          />
+        </div>
+
         <div className="filter-group">
           <label>{t('brand')}</label>
           <select name="brand" className="select-field" value={filters.brand} onChange={handleFilterChange}>

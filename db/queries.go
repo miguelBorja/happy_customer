@@ -243,7 +243,7 @@ func (d *DB) GetCars(f FilterParams) ([]Car, error) {
 	var args []interface{}
 	
 	if f.TitleQuery != "" {
-		q += " AND title LIKE ?"
+		q += " AND (LOWER(title) LIKE ? OR LOWER(brand) LIKE ?)"
 		
 		// Convert * to % and ? to _
 		query := strings.ReplaceAll(f.TitleQuery, "*", "%")
@@ -254,7 +254,8 @@ func (d *DB) GetCars(f FilterParams) ([]Car, error) {
 			query = "%" + query + "%"
 		}
 		
-		args = append(args, query)
+		query = strings.ToLower(query)
+		args = append(args, query, query)
 	}
 	
 	if f.Brand != "" {
@@ -492,13 +493,14 @@ func (d *DB) GetFilteredBrands(f FilterParams) ([]string, error) {
 	var args []interface{}
 
 	if f.TitleQuery != "" {
-		q += " AND title LIKE ?"
+		q += " AND (LOWER(title) LIKE ? OR LOWER(brand) LIKE ?)"
 		query := strings.ReplaceAll(f.TitleQuery, "*", "%")
 		query = strings.ReplaceAll(query, "?", "_")
 		if !strings.Contains(query, "%") && !strings.Contains(query, "_") {
 			query = "%" + query + "%"
 		}
-		args = append(args, query)
+		query = strings.ToLower(query)
+		args = append(args, query, query)
 	}
 	if f.KmMax > 0 {
 		q += " AND kilometraje <= ?"
