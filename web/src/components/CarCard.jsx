@@ -12,8 +12,6 @@ const formatPrice = (price, text) => {
 const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice }) => {
   return (
     <div className={`car-card ${car.IsSold ? 'sold' : ''} ${isNew ? 'new-car-card' : ''} ${isFav ? 'fav-car-card' : ''}`}>
-      {isNew && <div className="new-card-badge">NEW</div>}
-      {car.IsSold && <div className="sold-badge">Sold</div>}
       <button
         className={`fav-btn-card ${isFav ? 'active' : ''}`}
         onClick={(e) => { e.stopPropagation(); onToggleFav && onToggleFav(car.URL); }}
@@ -22,8 +20,12 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice }) => {
         {isFav ? '★' : '☆'}
       </button>
       
-      <div className="car-header">
-        <h3 className="car-title">{car.Title}</h3>
+      <div className="car-header" style={{ paddingRight: '3.5rem' }}>
+        <h3 className="car-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+          {isNew && <span className="badge-inline new">NEW</span>}
+          {car.IsSold && <span className="badge-inline sold">Sold</span>}
+          <span>{car.Title}</span>
+        </h3>
         <div style={{ display: 'flex', alignItems: 'baseline' }}>
           <span className="car-price">{formatPrice(car.Price, car.PriceText)}</span>
           {car.Price > 0 && car.PriceText.includes('¢') && (

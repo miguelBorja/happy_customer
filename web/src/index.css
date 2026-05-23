@@ -443,6 +443,31 @@ body {
   text-transform: uppercase;
 }
 
+/* General inline badge styling */
+.badge-inline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  line-height: 1;
+  white-space: nowrap;
+  text-transform: uppercase;
+}
+
+.badge-inline.new {
+  background: linear-gradient(135deg, #10b981, #059669);
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.badge-inline.sold {
+  background: linear-gradient(135deg, #ef4444, #b91c1c);
+}
+
 .new-badge-pulse {
   display: inline-flex;
   align-items: center;
@@ -701,4 +726,60 @@ body {
 /* Sold row in favorites table */
 .data-table tr.sold-row td {
   opacity: 0.5;
+}
+
+/* Responsive Filter Card for Top Cars Page */
+.top-cars-filters {
+  background-color: var(--bg-card);
+  border-radius: 12px;
+  padding: 1.75rem;
+  border: 1px solid var(--border);
+  margin-bottom: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  box-shadow: var(--shadow);
+}
+
+.filters-row-primary {
+  display: grid;
+  grid-template-columns: 1fr 1fr 2fr;
+  gap: 1.5rem;
+}
+
+.filters-row-secondary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+}
+
+.filters-row-tertiary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  padding-top: 1rem;
+}
+
+/* Responsive Media Queries for Tablets & Mobile */
+@media (max-width: 900px) {
+  .filters-row-primary {
+    grid-template-columns: 1fr 1fr;
+  }
+  .filters-row-primary .filter-group:last-child {
+    grid-column: span 2; /* Make search input take full width when columns wrap */
+  }
+}
+
+@media (max-width: 600px) {
+  .filters-row-primary {
+    grid-template-columns: 1fr;
+  }
+  .filters-row-primary .filter-group:last-child {
+    grid-column: span 1;
+  }
+  .top-cars-filters {
+    padding: 1.25rem;
+    gap: 1.25rem;
+  }
 }

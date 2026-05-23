@@ -115,19 +115,9 @@ const TopCarsPage = () => {
   return (
     <div className="top-cars-page" style={{ paddingBottom: '4rem' }}>
       {/* Search & Filters Card */}
-      <div style={{
-        backgroundColor: 'var(--bg-card)',
-        borderRadius: '12px',
-        padding: '1.75rem',
-        border: '1px solid var(--border)',
-        marginBottom: '2rem',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '1.5rem',
-        boxShadow: 'var(--shadow)'
-      }}>
+      <div className="top-cars-filters">
         {/* Row 1: Brand, Province, Model / Title */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: '1.5rem' }}>
+        <div className="filters-row-primary">
           <div className="filter-group">
             <label style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Brand</label>
             <select name="brand" className="select-field" style={{ height: '42px' }} value={topParams.brand} onChange={handleChange}>
@@ -151,7 +141,7 @@ const TopCarsPage = () => {
         </div>
 
         {/* Row 2: Max km, Max Price, Dates, Limit */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '1rem' }}>
+        <div className="filters-row-secondary">
           <div className="filter-group">
             <label style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Max km</label>
             <input type="number" name="kmMax" className="input-field" value={topParams.kmMax} onChange={handleChange} />
@@ -184,13 +174,7 @@ const TopCarsPage = () => {
         </div>
         
         {/* Row 3: Sorting Options */}
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', 
-          gap: '1rem', 
-          borderTop: '1px solid rgba(255, 255, 255, 0.05)', 
-          paddingTop: '1rem' 
-        }}>
+        <div className="filters-row-tertiary">
           <div className="filter-group">
             <label style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Title Sort</label>
             <select name="sortTitle" className="select-field" value={topParams.sortTitle} onChange={handleChange}>
