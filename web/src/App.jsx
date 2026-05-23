@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import CarsPage from './pages/CarsPage';
 import TopCarsPage from './pages/TopCarsPage';
 import FavoritesPage from './pages/FavoritesPage';
+import AboutPage from './pages/AboutPage';
 import { fetchStats } from './api/client';
 import { useFavorites } from './hooks/useFavorites';
 
@@ -24,6 +25,7 @@ function App() {
     switch (activeTab) {
       case 'top': return <TopCarsPage />;
       case 'favorites': return <FavoritesPage />;
+      case 'about': return <AboutPage />;
       default: return <CarsPage />;
     }
   };
@@ -61,6 +63,12 @@ function App() {
             >
               <span style={{ color: '#fbbf24' }}>★</span> Favorites
               {favCount > 0 && <span className="nav-fav-count">{favCount}</span>}
+            </button>
+            <button 
+              className={activeTab === 'about' ? 'active' : ''} 
+              onClick={() => setActiveTab('about')}
+            >
+              About
             </button>
           </div>
         </div>
