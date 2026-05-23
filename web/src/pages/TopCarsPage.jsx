@@ -17,6 +17,7 @@ const TopCarsPage = () => {
   const [favCars, setFavCars] = useState([]);
   const { t } = useLanguage();
   const [localTitle, setLocalTitle] = useState('');
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
   
   const [topParams, setTopParams] = useState({
     limit: '10',
@@ -130,8 +131,15 @@ const TopCarsPage = () => {
 
   return (
     <div className="top-cars-page" style={{ paddingBottom: '4rem' }}>
+      <button 
+        className="top-cars-filters-toggle" 
+        onClick={() => setShowMobileFilters(!showMobileFilters)}
+      >
+        <span>🔍</span> {showMobileFilters ? t('hideFilters') : t('showFilters')}
+      </button>
+
       {/* Search & Filters Card */}
-      <div className="top-cars-filters">
+      <div className={`top-cars-filters ${showMobileFilters ? 'open' : ''}`}>
         {/* Row 1: Brand, Province, Model / Title */}
         <div className="filters-row-primary">
           <div className="filter-group">
@@ -263,73 +271,130 @@ const TopCarsPage = () => {
         {loading && <div style={{ padding: '2rem', display: 'flex', justifyContent: 'center' }}><div className="loader"></div></div>}
         
         {!loading && cars.length > 0 && (
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th></th>
-                <th>{t('rank')}</th>
-                <th>{t('title')}</th>
-                <th>{t('brand')}</th>
-                <th>{t('year')}</th>
-                <th>{t('priceHeader')}</th>
-                <th>{t('mileageHeader')}</th>
-                <th>{t('province')}</th>
-                <th>{t('action')}</th>
-              </tr>
-            </thead>
-            <tbody>
+          <>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>{t('rank')}</th>
+                  <th>{t('title')}</th>
+                  <th>{t('brand')}</th>
+                  <th>{t('year')}</th>
+                  <th>{t('priceHeader')}</th>
+                  <th>{t('mileageHeader')}</th>
+                  <th>{t('province')}</th>
+                  <th>{t('action')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {displayCars.map((car, idx) => {
+                  const carIsNew = newCarUrls.has(car.URL);
+                  const carIsFav = isFavorite(car.URL);
+                  return (
+                    <tr key={car.URL} className={`${carIsNew ? 'new-car-row' : ''} ${carIsFav ? 'fav-car-row' : ''}`}>
+                      <td>
+                        <button
+                          className={`fav-btn-table ${carIsFav ? 'active' : ''}`}
+                          onClick={() => toggleFavorite(car.URL)}
+                          title={carIsFav ? 'Remove from favorites' : 'Add to favorites'}
+                        >
+                          {carIsFav ? '★' : '☆'}
+                        </button>
+                      </td>
+                      <td style={{ fontWeight: 'bold', color: 'var(--accent)' }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          #{idx + 1}
+                          {carIsNew && <span className="new-badge-inline">{t('newBadge')}</span>}
+                        </span>
+                      </td>
+                      <td style={{ fontWeight: '500' }}>{car.Title}</td>
+                      <td>{car.Brand}</td>
+                      <td>{car.Year}</td>
+                      <td style={{ color: 'var(--success)', fontWeight: '600' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <span>{car.Price > 0 ? `$${car.Price.toLocaleString()}` : car.PriceText}</span>
+                          <PriceBar price={car.Price} maxPrice={topParams.priceMax ? Number(topParams.priceMax) : 0} />
+                        </div>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <span>{car.Kilometraje > 0 ? car.Kilometraje.toLocaleString() : 'N/A'}</span>
+                          <MileageBar km={car.Kilometraje} />
+                        </div>
+                      </td>
+                      <td>{car.Provincia}</td>
+                      <td>
+                        <a 
+                          href={car.URL} 
+                          target="_blank" 
+                          rel="noreferrer" 
+                          style={{ color: 'var(--accent)', textDecoration: 'none' }}
+                          onClick={() => markSeen(car.URL)}
+                        >
+                          {t('view')}
+                        </a>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+
+            <div className="top-car-mobile-list">
               {displayCars.map((car, idx) => {
                 const carIsNew = newCarUrls.has(car.URL);
                 const carIsFav = isFavorite(car.URL);
                 return (
-                  <tr key={car.URL} className={`${carIsNew ? 'new-car-row' : ''} ${carIsFav ? 'fav-car-row' : ''}`}>
-                    <td>
-                      <button
-                        className={`fav-btn-table ${carIsFav ? 'active' : ''}`}
-                        onClick={() => toggleFavorite(car.URL)}
-                        title={carIsFav ? 'Remove from favorites' : 'Add to favorites'}
-                      >
-                        {carIsFav ? '★' : '☆'}
-                      </button>
-                    </td>
-                    <td style={{ fontWeight: 'bold', color: 'var(--accent)' }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        #{idx + 1}
-                        {carIsNew && <span className="new-badge-inline">{t('newBadge')}</span>}
-                      </span>
-                    </td>
-                    <td style={{ fontWeight: '500' }}>{car.Title}</td>
-                    <td>{car.Brand}</td>
-                    <td>{car.Year}</td>
-                    <td style={{ color: 'var(--success)', fontWeight: '600' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <span>{car.Price > 0 ? `$${car.Price.toLocaleString()}` : car.PriceText}</span>
-                        <PriceBar price={car.Price} maxPrice={topParams.priceMax ? Number(topParams.priceMax) : 0} />
+                  <div key={car.URL} className={`top-car-mobile-card ${carIsNew ? 'new-car-row' : ''} ${carIsFav ? 'fav-car-row' : ''}`}>
+                    <button
+                      className={`top-car-mobile-fav-btn ${carIsFav ? 'active' : ''}`}
+                      onClick={() => toggleFavorite(car.URL)}
+                      title={carIsFav ? 'Remove from favorites' : 'Add to favorites'}
+                    >
+                      {carIsFav ? '★' : '☆'}
+                    </button>
+                    
+                    <div className="top-car-mobile-header">
+                      <div className="top-car-mobile-title">
+                        <span className="top-car-mobile-rank">#{idx + 1}</span>
+                        {carIsNew && <span className="badge-inline new" style={{ marginLeft: '0.5rem' }}>{t('newBadge')}</span>}
+                        <span style={{ marginTop: '0.25rem' }}>{car.Title}</span>
                       </div>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <span>{car.Kilometraje > 0 ? car.Kilometraje.toLocaleString() : 'N/A'}</span>
+                    </div>
+
+                    <div className="top-car-mobile-price">
+                      {car.Price > 0 ? `$${car.Price.toLocaleString()}` : car.PriceText}
+                    </div>
+
+                    <div className="top-car-mobile-details">
+                      <div><strong>{t('brand')}:</strong> {car.Brand}</div>
+                      <div><strong>{t('year')}:</strong> {car.Year}</div>
+                      <div><strong>{t('province')}:</strong> {car.Provincia}</div>
+                      <div>
+                        <strong>{t('mileageHeader').replace(' (km)', '')}:</strong> {car.Kilometraje > 0 ? `${car.Kilometraje.toLocaleString()} km` : 'N/A'}
+                      </div>
+                    </div>
+
+                    <div className="top-car-mobile-footer">
+                      <div style={{ display: 'flex', gap: '0.25rem', flex: 1, marginRight: '1rem' }}>
+                        <PriceBar price={car.Price} maxPrice={topParams.priceMax ? Number(topParams.priceMax) : 0} />
                         <MileageBar km={car.Kilometraje} />
                       </div>
-                    </td>
-                    <td>{car.Provincia}</td>
-                    <td>
                       <a 
                         href={car.URL} 
                         target="_blank" 
                         rel="noreferrer" 
-                        style={{ color: 'var(--accent)', textDecoration: 'none' }}
+                        style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: '600', fontSize: '0.9rem' }}
                         onClick={() => markSeen(car.URL)}
                       >
-                        {t('view')}
+                        {t('view')} →
                       </a>
-                    </td>
-                  </tr>
+                    </div>
+                  </div>
                 );
               })}
-            </tbody>
-          </table>
+            </div>
+          </>
         )}
         
         {!loading && cars.length === 0 && (

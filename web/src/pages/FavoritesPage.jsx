@@ -89,77 +89,77 @@ const FavoritesPage = () => {
         </div>
       )}
 
-      {!loading && displayCars.length > 0 && viewMode === 'cards' && (
-        <div className="results-grid">
-          {displayCars.map(car => (
-            <CarCard
-              key={car.URL}
-              car={car}
-              isNew={isNew(car.URL)}
-              isFav={true}
-              onToggleFav={toggleFavorite}
-            />
-          ))}
-        </div>
-      )}
+      {!loading && displayCars.length > 0 && (
+        <>
+          <div className={`results-grid fav-cards-container ${viewMode === 'cards' ? 'active-view' : ''}`}>
+            {displayCars.map(car => (
+              <CarCard
+                key={car.URL}
+                car={car}
+                isNew={isNew(car.URL)}
+                isFav={true}
+                onToggleFav={toggleFavorite}
+              />
+            ))}
+          </div>
 
-      {!loading && displayCars.length > 0 && viewMode === 'table' && (
-        <div className="table-container">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th></th>
-                <th>{t('title')}</th>
-                <th>{t('brand')}</th>
-                <th>{t('year')}</th>
-                <th>{t('priceHeader')}</th>
-                <th>{t('mileageHeader')}</th>
-                <th>{t('province')}</th>
-                <th>{t('status')}</th>
-                <th>{t('action')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {displayCars.map(car => (
-                <tr key={car.URL} className={car.IsSold ? 'sold-row' : ''}>
-                  <td>
-                    <button
-                      className="fav-btn-table active"
-                      onClick={() => toggleFavorite(car.URL)}
-                      title={t('noFavoritesText')} // fallback tooltips or similar
-                    >
-                      ★
-                    </button>
-                  </td>
-                  <td style={{ fontWeight: '500' }}>{car.Title}</td>
-                  <td>{car.Brand}</td>
-                  <td>{car.Year}</td>
-                  <td style={{ color: 'var(--success)', fontWeight: '600' }}>
-                    {car.Price > 0 ? `$${car.Price.toLocaleString()}` : car.PriceText}
-                  </td>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <span>{car.Kilometraje > 0 ? car.Kilometraje.toLocaleString() : 'N/A'}</span>
-                      <MileageBar km={car.Kilometraje} />
-                    </div>
-                  </td>
-                  <td>{car.Provincia}</td>
-                  <td>
-                    {car.IsSold
-                      ? <span style={{ color: 'var(--danger)', fontWeight: '600' }}>{t('soldStatus')}</span>
-                      : <span style={{ color: 'var(--success)' }}>{t('activeStatus')}</span>
-                    }
-                  </td>
-                  <td>
-                    <a href={car.URL} target="_blank" rel="noreferrer" style={{ color: 'var(--accent)', textDecoration: 'none' }}>
-                      {t('view')}
-                    </a>
-                  </td>
+          <div className={`table-container fav-table-container ${viewMode === 'table' ? 'active-view' : ''}`}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>{t('title')}</th>
+                  <th>{t('brand')}</th>
+                  <th>{t('year')}</th>
+                  <th>{t('priceHeader')}</th>
+                  <th>{t('mileageHeader')}</th>
+                  <th>{t('province')}</th>
+                  <th>{t('status')}</th>
+                  <th>{t('action')}</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {displayCars.map(car => (
+                  <tr key={car.URL} className={car.IsSold ? 'sold-row' : ''}>
+                    <td>
+                      <button
+                        className="fav-btn-table active"
+                        onClick={() => toggleFavorite(car.URL)}
+                        title={t('noFavoritesText')}
+                      >
+                        ★
+                      </button>
+                    </td>
+                    <td style={{ fontWeight: '500' }}>{car.Title}</td>
+                    <td>{car.Brand}</td>
+                    <td>{car.Year}</td>
+                    <td style={{ color: 'var(--success)', fontWeight: '600' }}>
+                      {car.Price > 0 ? `$${car.Price.toLocaleString()}` : car.PriceText}
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span>{car.Kilometraje > 0 ? car.Kilometraje.toLocaleString() : 'N/A'}</span>
+                        <MileageBar km={car.Kilometraje} />
+                      </div>
+                    </td>
+                    <td>{car.Provincia}</td>
+                    <td>
+                      {car.IsSold
+                        ? <span style={{ color: 'var(--danger)', fontWeight: '600' }}>{t('soldStatus')}</span>
+                        : <span style={{ color: 'var(--success)' }}>{t('activeStatus')}</span>
+                      }
+                    </td>
+                    <td>
+                      <a href={car.URL} target="_blank" rel="noreferrer" style={{ color: 'var(--accent)', textDecoration: 'none' }}>
+                        {t('view')}
+                      </a>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </div>
   );

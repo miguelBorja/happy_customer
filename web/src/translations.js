@@ -8,6 +8,15 @@ export const translations = {
     about: "Acerca de",
     active: "Activos",
     sold: "Vendidos",
+    filtersButton: "Filtros",
+    applyFilters: "Aplicar Filtros",
+    close: "Cerrar",
+    showFilters: "Mostrar Filtros",
+    hideFilters: "Ocultar Filtros",
+    navBrowse: "Buscar",
+    navTop: "Mejores",
+    navFavs: "Favoritos",
+    navAbout: "Acerca",
 
     // General Banners & Bages
     newBadge: "NUEVO",
@@ -120,6 +129,15 @@ export const translations = {
     about: "About",
     active: "Active",
     sold: "Sold",
+    filtersButton: "Filters",
+    applyFilters: "Apply Filters",
+    close: "Close",
+    showFilters: "Show Filters",
+    hideFilters: "Hide Filters",
+    navBrowse: "Browse",
+    navTop: "Top",
+    navFavs: "Favorites",
+    navAbout: "About",
 
     // General Banners & Bages
     newBadge: "NEW",

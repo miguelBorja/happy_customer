@@ -25,7 +25,18 @@ const CarsPage = () => {
   const [favCars, setFavCars] = useState([]);
   const { t } = useLanguage();
   const [localTitle, setLocalTitle] = useState('');
-  
+  const [isMobile, setIsMobile] = useState(false);
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const [filters, setFilters] = useState({
     title: '',
     brand: '',
@@ -119,127 +130,153 @@ const CarsPage = () => {
 
   const newCarsCountVisible = cars.filter(c => isNew(c.URL)).length;
 
+  const renderFilterFields = () => (
+    <>
+      <div className="filter-group">
+        <label>{t('brand')} / {t('title')}</label>
+        <input 
+          type="text" 
+          name="title" 
+          className="input-field" 
+          placeholder={t('searchPlaceholder')} 
+          value={localTitle} 
+          onChange={(e) => setLocalTitle(e.target.value)} 
+        />
+      </div>
+
+      <div className="filter-group">
+        <label>{t('brand')}</label>
+        <select name="brand" className="select-field" value={filters.brand} onChange={handleFilterChange}>
+          <option value="">{t('allBrands')}</option>
+          {brands.map(b => <option key={b} value={b}>{b}</option>)}
+        </select>
+      </div>
+
+      <div className="filter-group">
+        <label>{t('province')}</label>
+        <select name="provincia" className="select-field" value={filters.provincia} onChange={handleFilterChange}>
+          <option value="">{t('allProvinces')}</option>
+          {provinces.map(p => <option key={p} value={p}>{p}</option>)}
+        </select>
+      </div>
+
+      <div className="filter-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+        <div>
+          <label>{t('minYear')}</label>
+          <input type="number" name="yearMin" className="input-field" placeholder="2010" value={filters.yearMin} onChange={handleFilterChange} />
+        </div>
+        <div>
+          <label>{t('maxYear')}</label>
+          <input type="number" name="yearMax" className="input-field" placeholder="2025" value={filters.yearMax} onChange={handleFilterChange} />
+        </div>
+      </div>
+
+      <div className="filter-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+        <div>
+          <label>{t('minPrice')}</label>
+          <input type="number" name="priceMin" className="input-field" placeholder="0" value={filters.priceMin} onChange={handleFilterChange} />
+        </div>
+        <div>
+          <label>{t('maxPrice')}</label>
+          <input type="number" name="priceMax" className="input-field" placeholder="100000" value={filters.priceMax} onChange={handleFilterChange} />
+        </div>
+      </div>
+
+      <div className="filter-group">
+        <label>{t('maxMileage')}</label>
+        <input type="number" name="kmMax" className="input-field" placeholder="150000" value={filters.kmMax} onChange={handleFilterChange} />
+      </div>
+
+      <div className="filter-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+        <div>
+          <label>{t('scrapedFrom')}</label>
+          <input type="date" name="scrapedFrom" className="input-field" value={filters.scrapedFrom} onChange={handleFilterChange} />
+        </div>
+        <div>
+          <label>{t('scrapedTo')}</label>
+          <input type="date" name="scrapedTo" className="input-field" value={filters.scrapedTo} onChange={handleFilterChange} />
+        </div>
+      </div>
+
+      <div className="filter-group">
+        <label>{t('transmission')}</label>
+        <select name="transmision" className="select-field" value={filters.transmision} onChange={handleFilterChange}>
+          <option value="">{t('any')}</option>
+          <option value="Manual">{t('manual')}</option>
+          <option value="Automática">{t('automatic')}</option>
+          <option value="Dual">{t('dual')}</option>
+        </select>
+      </div>
+      
+      <div className="filter-group">
+        <label>{t('fuel')}</label>
+        <select name="combustible" className="select-field" value={filters.combustible} onChange={handleFilterChange}>
+          <option value="">{t('any')}</option>
+          <option value="Gasolina">{t('gasoline')}</option>
+          <option value="Diesel">{t('diesel')}</option>
+          <option value="Eléctrico">{t('electric')}</option>
+          <option value="Híbrido">{t('hybrid')}</option>
+        </select>
+      </div>
+
+      <div className="filter-group" style={{ marginTop: '1rem' }}>
+        <label>{t('equipment')}</label>
+        {commonEquipments.map(eq => (
+          <label key={eq.id} className="checkbox-group">
+            <input type="checkbox" name={eq.id} checked={filters.equipments.includes(eq.id)} onChange={handleFilterChange} />
+            <span>{t(eq.labelKey)}</span>
+          </label>
+        ))}
+      </div>
+
+      <div className="filter-group" style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
+        <label className="checkbox-group">
+          <input type="checkbox" name="isSold" checked={filters.isSold !== 'false'} onChange={handleFilterChange} />
+          <span>{t('showSold')}</span>
+        </label>
+      </div>
+
+      <div className="filter-group">
+        <label className="checkbox-group fav-filter-label">
+          <input type="checkbox" checked={showFavsOnly} onChange={(e) => setShowFavsOnly(e.target.checked)} />
+          <span>{t('showFavsOnly')}</span>
+        </label>
+        {favCount > 0 && (
+          <span className="fav-hint">
+            {t('favsInView', { visible: displayCars.filter(c => isFavorite(c.URL)).length, total: favCount })}
+          </span>
+        )}
+      </div>
+    </>
+  );
+
   return (
     <div className="browse-page">
-      <aside className="filter-panel">
-        <h3>{t('filtersHeader')}</h3>
-        
-        <div className="filter-group">
-          <label>{t('brand')} / {t('title')}</label>
-          <input 
-            type="text" 
-            name="title" 
-            className="input-field" 
-            placeholder={t('searchPlaceholder')} 
-            value={localTitle} 
-            onChange={(e) => setLocalTitle(e.target.value)} 
-          />
-        </div>
-
-        <div className="filter-group">
-          <label>{t('brand')}</label>
-          <select name="brand" className="select-field" value={filters.brand} onChange={handleFilterChange}>
-            <option value="">{t('allBrands')}</option>
-            {brands.map(b => <option key={b} value={b}>{b}</option>)}
-          </select>
-        </div>
-
-        <div className="filter-group">
-          <label>{t('province')}</label>
-          <select name="provincia" className="select-field" value={filters.provincia} onChange={handleFilterChange}>
-            <option value="">{t('allProvinces')}</option>
-            {provinces.map(p => <option key={p} value={p}>{p}</option>)}
-          </select>
-        </div>
-
-        <div className="filter-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-          <div>
-            <label>{t('minYear')}</label>
-            <input type="number" name="yearMin" className="input-field" placeholder="2010" value={filters.yearMin} onChange={handleFilterChange} />
-          </div>
-          <div>
-            <label>{t('maxYear')}</label>
-            <input type="number" name="yearMax" className="input-field" placeholder="2025" value={filters.yearMax} onChange={handleFilterChange} />
+      {isMobile ? (
+        <div className={`filter-drawer-overlay ${isFilterDrawerOpen ? 'open' : ''}`} onClick={() => setIsFilterDrawerOpen(false)}>
+          <div className="filter-drawer" onClick={(e) => e.stopPropagation()}>
+            <div className="filter-drawer-header">
+              <h3>{t('filtersHeader')}</h3>
+              <button className="filter-drawer-close" onClick={() => setIsFilterDrawerOpen(false)}>×</button>
+            </div>
+            
+            <div className="filter-drawer-content">
+              {renderFilterFields()}
+            </div>
+            
+            <div className="filter-drawer-footer">
+              <button className="btn-primary" onClick={() => setIsFilterDrawerOpen(false)} style={{ width: '100%' }}>
+                {t('applyFilters')}
+              </button>
+            </div>
           </div>
         </div>
-
-        <div className="filter-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-          <div>
-            <label>{t('minPrice')}</label>
-            <input type="number" name="priceMin" className="input-field" placeholder="0" value={filters.priceMin} onChange={handleFilterChange} />
-          </div>
-          <div>
-            <label>{t('maxPrice')}</label>
-            <input type="number" name="priceMax" className="input-field" placeholder="100000" value={filters.priceMax} onChange={handleFilterChange} />
-          </div>
-        </div>
-
-        <div className="filter-group">
-          <label>{t('maxMileage')}</label>
-          <input type="number" name="kmMax" className="input-field" placeholder="150000" value={filters.kmMax} onChange={handleFilterChange} />
-        </div>
-
-        <div className="filter-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-          <div>
-            <label>{t('scrapedFrom')}</label>
-            <input type="date" name="scrapedFrom" className="input-field" value={filters.scrapedFrom} onChange={handleFilterChange} />
-          </div>
-          <div>
-            <label>{t('scrapedTo')}</label>
-            <input type="date" name="scrapedTo" className="input-field" value={filters.scrapedTo} onChange={handleFilterChange} />
-          </div>
-        </div>
-
-        <div className="filter-group">
-          <label>{t('transmission')}</label>
-          <select name="transmision" className="select-field" value={filters.transmision} onChange={handleFilterChange}>
-            <option value="">{t('any')}</option>
-            <option value="Manual">{t('manual')}</option>
-            <option value="Automática">{t('automatic')}</option>
-            <option value="Dual">{t('dual')}</option>
-          </select>
-        </div>
-        
-        <div className="filter-group">
-          <label>{t('fuel')}</label>
-          <select name="combustible" className="select-field" value={filters.combustible} onChange={handleFilterChange}>
-            <option value="">{t('any')}</option>
-            <option value="Gasolina">{t('gasoline')}</option>
-            <option value="Diesel">{t('diesel')}</option>
-            <option value="Eléctrico">{t('electric')}</option>
-            <option value="Híbrido">{t('hybrid')}</option>
-          </select>
-        </div>
-
-        <div className="filter-group" style={{ marginTop: '1rem' }}>
-          <label>{t('equipment')}</label>
-          {commonEquipments.map(eq => (
-            <label key={eq.id} className="checkbox-group">
-              <input type="checkbox" name={eq.id} checked={filters.equipments.includes(eq.id)} onChange={handleFilterChange} />
-              <span>{t(eq.labelKey)}</span>
-            </label>
-          ))}
-        </div>
-
-        <div className="filter-group" style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
-          <label className="checkbox-group">
-            <input type="checkbox" name="isSold" checked={filters.isSold !== 'false'} onChange={handleFilterChange} />
-            <span>{t('showSold')}</span>
-          </label>
-        </div>
-
-        <div className="filter-group">
-          <label className="checkbox-group fav-filter-label">
-            <input type="checkbox" checked={showFavsOnly} onChange={(e) => setShowFavsOnly(e.target.checked)} />
-            <span>{t('showFavsOnly')}</span>
-          </label>
-          {favCount > 0 && (
-            <span className="fav-hint">
-              {t('favsInView', { visible: displayCars.filter(c => isFavorite(c.URL)).length, total: favCount })}
-            </span>
-          )}
-        </div>
-      </aside>
+      ) : (
+        <aside className="filter-panel">
+          <h3>{t('filtersHeader')}</h3>
+          {renderFilterFields()}
+        </aside>
+      )}
 
       <div className="results-container">
         <div className="results-header">
@@ -278,6 +315,10 @@ const CarsPage = () => {
           </div>
         )}
       </div>
+
+      <button className="floating-filter-btn" onClick={() => setIsFilterDrawerOpen(true)}>
+        <span>🔍</span> {t('filtersButton')}
+      </button>
     </div>
   );
 };

@@ -22,7 +22,6 @@ function App() {
     }, 30000);
     return () => clearInterval(interval);
   }, []);
-
   const renderPage = () => {
     switch (activeTab) {
       case 'top': return <TopCarsPage />;
@@ -39,11 +38,13 @@ function App() {
           {t('logo')}
         </div>
         
-        <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'center' }}>
           <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
-            <span style={{ color: 'var(--success)' }}>{stats.active}</span> {t('active')}
-            <span style={{ margin: '0 0.5rem' }}>•</span>
-            <span style={{ color: 'var(--danger)' }}>{stats.sold}</span> {t('sold')}
+            <span style={{ color: 'var(--success)' }}>{stats.active}</span>
+            <span className="nav-stats-label"> {t('active')}</span>
+            <span style={{ margin: '0 0.4rem' }}>•</span>
+            <span style={{ color: 'var(--danger)' }}>{stats.sold}</span>
+            <span className="nav-stats-label"> {t('sold')}</span>
           </div>
           
           <button 
@@ -101,6 +102,38 @@ function App() {
       <main className="main-content">
         {renderPage()}
       </main>
+
+      <nav className="bottom-nav">
+        <button 
+          className={`bottom-nav-btn ${activeTab === 'browse' ? 'active' : ''}`}
+          onClick={() => setActiveTab('browse')}
+        >
+          <span className="bottom-nav-icon">🔍</span>
+          <span>{t('navBrowse')}</span>
+        </button>
+        <button 
+          className={`bottom-nav-btn ${activeTab === 'top' ? 'active' : ''}`}
+          onClick={() => setActiveTab('top')}
+        >
+          <span className="bottom-nav-icon">🏆</span>
+          <span>{t('navTop')}</span>
+        </button>
+        <button 
+          className={`bottom-nav-btn ${activeTab === 'favorites' ? 'active' : ''}`}
+          onClick={() => setActiveTab('favorites')}
+        >
+          <span className="bottom-nav-icon">★</span>
+          <span>{t('navFavs')}</span>
+          {favCount > 0 && <span className="bottom-nav-badge">{favCount}</span>}
+        </button>
+        <button 
+          className={`bottom-nav-btn ${activeTab === 'about' ? 'active' : ''}`}
+          onClick={() => setActiveTab('about')}
+        >
+          <span className="bottom-nav-icon">ℹ️</span>
+          <span>{t('navAbout')}</span>
+        </button>
+      </nav>
     </div>
   );
 }
