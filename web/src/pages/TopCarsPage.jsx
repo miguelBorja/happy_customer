@@ -4,6 +4,7 @@ import { useSeenCars } from '../hooks/useSeenCars';
 import { useFavorites } from '../hooks/useFavorites';
 import MileageBar from '../components/MileageBar';
 import PriceBar from '../components/PriceBar';
+import { useLanguage } from '../context/LanguageContext';
 
 const TopCarsPage = () => {
   const [cars, setCars] = useState([]);
@@ -14,6 +15,7 @@ const TopCarsPage = () => {
   const { isFavorite, toggleFavorite, favCount, getAllUrls } = useFavorites();
   const [showFavsOnly, setShowFavsOnly] = useState(false);
   const [favCars, setFavCars] = useState([]);
+  const { t } = useLanguage();
   
   const [topParams, setTopParams] = useState({
     limit: '10',
@@ -119,51 +121,51 @@ const TopCarsPage = () => {
         {/* Row 1: Brand, Province, Model / Title */}
         <div className="filters-row-primary">
           <div className="filter-group">
-            <label style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Brand</label>
+            <label style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>{t('brand')}</label>
             <select name="brand" className="select-field" style={{ height: '42px' }} value={topParams.brand} onChange={handleChange}>
-              <option value="">All Brands</option>
+              <option value="">{t('allBrands')}</option>
               {brands.map(b => <option key={b} value={b}>{b}</option>)}
             </select>
           </div>
 
           <div className="filter-group">
-            <label style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Province</label>
+            <label style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>{t('province')}</label>
             <select name="provincia" className="select-field" style={{ height: '42px' }} value={topParams.provincia} onChange={handleChange}>
-              <option value="">All Provinces</option>
+              <option value="">{t('allProvinces')}</option>
               {provinces.map(p => <option key={p} value={p}>{p}</option>)}
             </select>
           </div>
           
           <div className="filter-group">
-            <label style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Model / Title</label>
-            <input type="text" name="title" className="input-field" style={{ height: '42px' }} placeholder="Search e.g. Hilux, Accent, Civic..." value={topParams.title} onChange={handleChange} />
+            <label style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>{t('brand')} / {t('title')}</label>
+            <input type="text" name="title" className="input-field" style={{ height: '42px' }} placeholder={t('searchPlaceholder')} value={topParams.title} onChange={handleChange} />
           </div>
         </div>
 
         {/* Row 2: Max km, Max Price, Dates, Limit */}
         <div className="filters-row-secondary">
           <div className="filter-group">
-            <label style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Max km</label>
+            <label style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>{t('maxMileage')}</label>
             <input type="number" name="kmMax" className="input-field" value={topParams.kmMax} onChange={handleChange} />
           </div>
           
           <div className="filter-group">
-            <label style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Max Price ($)</label>
-            <input type="number" name="priceMax" className="input-field" placeholder="Any Price" value={topParams.priceMax} onChange={handleChange} />
+            <label style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>{t('maxPrice')}</label>
+            <input type="number" name="priceMax" className="input-field" placeholder={t('any')} value={topParams.priceMax} onChange={handleChange} />
           </div>
 
           <div className="filter-group">
-            <label style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Scraped From</label>
+            <label style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>{t('scrapedFrom')}</label>
             <input type="date" name="scrapedFrom" className="input-field" value={topParams.scrapedFrom} onChange={handleChange} />
           </div>
           
           <div className="filter-group">
-            <label style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Scraped To</label>
+            <label style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>{t('scrapedTo')}</label>
             <input type="date" name="scrapedTo" className="input-field" value={topParams.scrapedTo} onChange={handleChange} />
           </div>
           
           <div className="filter-group">
-            <label style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Limit</label>
+            <label style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>{t('limit')}</label>
             <select name="limit" className="select-field" value={topParams.limit} onChange={handleChange}>
               <option value="5">Top 5</option>
               <option value="10">Top 10</option>
@@ -176,38 +178,38 @@ const TopCarsPage = () => {
         {/* Row 3: Sorting Options */}
         <div className="filters-row-tertiary">
           <div className="filter-group">
-            <label style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Title Sort</label>
+            <label style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>{t('titleSort')}</label>
             <select name="sortTitle" className="select-field" value={topParams.sortTitle} onChange={handleChange}>
-              <option value="">None</option>
-              <option value="asc">A → Z</option>
-              <option value="desc">Z → A</option>
+              <option value="">{t('none')}</option>
+              <option value="asc">{t('aToZ')}</option>
+              <option value="desc">{t('zToA')}</option>
             </select>
           </div>
 
           <div className="filter-group">
-            <label style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Year Sort</label>
+            <label style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>{t('yearSort')}</label>
             <select name="sortYear" className="select-field" value={topParams.sortYear} onChange={handleChange}>
-              <option value="">None</option>
-              <option value="asc">Ascending (Old to New)</option>
-              <option value="desc">Descending (New to Old)</option>
+              <option value="">{t('none')}</option>
+              <option value="asc">{t('oldToNew')}</option>
+              <option value="desc">{t('newToOld')}</option>
             </select>
           </div>
           
           <div className="filter-group">
-            <label style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Price Sort</label>
+            <label style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>{t('priceSort')}</label>
             <select name="sortPrice" className="select-field" value={topParams.sortPrice} onChange={handleChange}>
-              <option value="">None</option>
-              <option value="asc">Ascending (Low to High)</option>
-              <option value="desc">Descending (High to Low)</option>
+              <option value="">{t('none')}</option>
+              <option value="asc">{t('lowToHigh')}</option>
+              <option value="desc">{t('highToLow')}</option>
             </select>
           </div>
           
           <div className="filter-group">
-            <label style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Mileage Sort</label>
+            <label style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>{t('mileageSort')}</label>
             <select name="sortKm" className="select-field" value={topParams.sortKm} onChange={handleChange}>
-              <option value="">None</option>
-              <option value="asc">Ascending (Low to High)</option>
-              <option value="desc">Descending (High to Low)</option>
+              <option value="">{t('none')}</option>
+              <option value="asc">{t('lowToHigh')}</option>
+              <option value="desc">{t('highToLow')}</option>
             </select>
           </div>
         </div>
@@ -217,20 +219,28 @@ const TopCarsPage = () => {
       <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1rem' }}>
         <label className="checkbox-group fav-filter-label">
           <input type="checkbox" checked={showFavsOnly} onChange={(e) => setShowFavsOnly(e.target.checked)} />
-          <span>★ Show only favorites</span>
+          <span>{t('showFavsOnly')}</span>
         </label>
-        {favCount > 0 && <span className="fav-hint">{displayCars.filter(c => isFavorite(c.URL)).length} of {favCount} in view</span>}
+        {favCount > 0 && (
+          <span className="fav-hint">
+            {t('favsInView', { visible: displayCars.filter(c => isFavorite(c.URL)).length, total: favCount })}
+          </span>
+        )}
       </div>
 
       {/* New cars indicator bar */}
       {!loading && newCount > 0 && (
         <div className="new-cars-bar">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <span className="new-badge-pulse">NEW</span>
-            <span>{newCount} new car{newCount !== 1 ? 's' : ''} since your last visit</span>
+            <span className="new-badge-pulse">{t('newBadge')}</span>
+            <span>
+              {newCount === 1 
+                ? t('newCarsCount', { count: newCount }) 
+                : t('newCarsCountPlural', { count: newCount })}
+            </span>
           </div>
           <button className="btn-mark-seen" onClick={handleMarkAllSeen}>
-            ✓ Mark All as Seen
+            {t('markAllSeen')}
           </button>
         </div>
       )}
@@ -243,14 +253,14 @@ const TopCarsPage = () => {
             <thead>
               <tr>
                 <th></th>
-                <th>Rank</th>
-                <th>Title</th>
-                <th>Brand</th>
-                <th>Year</th>
-                <th>Price ($)</th>
-                <th>Mileage (km)</th>
-                <th>Provincia</th>
-                <th>Action</th>
+                <th>{t('rank')}</th>
+                <th>{t('title')}</th>
+                <th>{t('brand')}</th>
+                <th>{t('year')}</th>
+                <th>{t('priceHeader')}</th>
+                <th>{t('mileageHeader')}</th>
+                <th>{t('province')}</th>
+                <th>{t('action')}</th>
               </tr>
             </thead>
             <tbody>
@@ -271,7 +281,7 @@ const TopCarsPage = () => {
                     <td style={{ fontWeight: 'bold', color: 'var(--accent)' }}>
                       <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         #{idx + 1}
-                        {carIsNew && <span className="new-badge-inline">NEW</span>}
+                        {carIsNew && <span className="new-badge-inline">{t('newBadge')}</span>}
                       </span>
                     </td>
                     <td style={{ fontWeight: '500' }}>{car.Title}</td>
@@ -298,7 +308,7 @@ const TopCarsPage = () => {
                         style={{ color: 'var(--accent)', textDecoration: 'none' }}
                         onClick={() => markSeen(car.URL)}
                       >
-                        View
+                        {t('view')}
                       </a>
                     </td>
                   </tr>
@@ -310,7 +320,7 @@ const TopCarsPage = () => {
         
         {!loading && cars.length === 0 && (
           <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>
-            No cars found matching your criteria.
+            {t('noCarsFound')}
           </div>
         )}
       </div>

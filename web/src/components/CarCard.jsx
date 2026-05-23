@@ -1,6 +1,7 @@
 import React from 'react';
 import MileageBar from './MileageBar';
 import PriceBar from './PriceBar';
+import { useLanguage } from '../context/LanguageContext';
 
 const formatPrice = (price, text) => {
   if (price > 0) {
@@ -10,6 +11,8 @@ const formatPrice = (price, text) => {
 };
 
 const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice }) => {
+  const { t } = useLanguage();
+
   return (
     <div className={`car-card ${car.IsSold ? 'sold' : ''} ${isNew ? 'new-car-card' : ''} ${isFav ? 'fav-car-card' : ''}`}>
       <button
@@ -22,8 +25,8 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice }) => {
       
       <div className="car-header" style={{ paddingRight: '3.5rem' }}>
         <h3 className="car-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-          {isNew && <span className="badge-inline new">NEW</span>}
-          {car.IsSold && <span className="badge-inline sold">Sold</span>}
+          {isNew && <span className="badge-inline new">{t('newBadge')}</span>}
+          {car.IsSold && <span className="badge-inline sold">{t('soldStatus')}</span>}
           <span>{car.Title}</span>
         </h3>
         <div style={{ display: 'flex', alignItems: 'baseline' }}>
@@ -38,20 +41,20 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice }) => {
       <div className="car-body">
         <div className="car-stats">
           <div className="stat">
-            <span className="stat-label">Year</span>
+            <span className="stat-label">{t('year')}</span>
             <span className="stat-value">{car.Year}</span>
           </div>
           <div className="stat">
-            <span className="stat-label">Mileage</span>
+            <span className="stat-label">{t('mileageHeader').replace(' (km)', '')}</span>
             <span className="stat-value">{car.Kilometraje > 0 ? `${car.Kilometraje.toLocaleString()} km` : 'N/A'}</span>
             <MileageBar km={car.Kilometraje} />
           </div>
           <div className="stat">
-            <span className="stat-label">Engine</span>
+            <span className="stat-label">{t('fuel')}</span>
             <span className="stat-value">{car.Cilindrada || 'N/A'}</span>
           </div>
           <div className="stat">
-            <span className="stat-label">Transmission</span>
+            <span className="stat-label">{t('transmission')}</span>
             <span className="stat-value">{car.Transmision || 'N/A'}</span>
           </div>
         </div>
@@ -77,7 +80,7 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice }) => {
       
       <div className="car-footer">
         <a href={car.URL} target="_blank" rel="noreferrer" className="btn-link">
-          View on Crautos
+          {t('view')} on Crautos
         </a>
       </div>
     </div>

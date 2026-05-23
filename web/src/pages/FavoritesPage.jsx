@@ -4,6 +4,7 @@ import { useFavorites } from '../hooks/useFavorites';
 import { useSeenCars } from '../hooks/useSeenCars';
 import CarCard from '../components/CarCard';
 import MileageBar from '../components/MileageBar';
+import { useLanguage } from '../context/LanguageContext';
 
 const FavoritesPage = () => {
   const [cars, setCars] = useState([]);
@@ -11,6 +12,7 @@ const FavoritesPage = () => {
   const [viewMode, setViewMode] = useState('cards'); // 'cards' or 'table'
   const { isFavorite, toggleFavorite, favCount, getAllUrls } = useFavorites();
   const { isNew } = useSeenCars();
+  const { t } = useLanguage();
 
   const loadFavorites = useCallback(async () => {
     const urls = getAllUrls();
@@ -46,12 +48,14 @@ const FavoritesPage = () => {
         <div>
           <h2 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>
             <span style={{ color: '#fbbf24', marginRight: '0.5rem' }}>★</span>
-            My Favorites
+            {t('myFavoritesTitle')}
           </h2>
           <p style={{ color: 'var(--text-muted)' }}>
-            {favCount} car{favCount !== 1 ? 's' : ''} saved
-            {activeFavs > 0 && <span> · <span style={{ color: 'var(--success)' }}>{activeFavs}</span> active</span>}
-            {soldFavs > 0 && <span> · <span style={{ color: 'var(--danger)' }}>{soldFavs}</span> sold</span>}
+            {favCount === 1 
+              ? t('carsSaved', { count: favCount }) 
+              : t('carsSavedPlural', { count: favCount })}
+            {activeFavs > 0 && <span> · <span style={{ color: 'var(--success)' }}>{activeFavs}</span> {t('activeStatus').toLowerCase()}</span>}
+            {soldFavs > 0 && <span> · <span style={{ color: 'var(--danger)' }}>{soldFavs}</span> {t('soldStatus').toLowerCase()}</span>}
           </p>
         </div>
 
@@ -60,13 +64,13 @@ const FavoritesPage = () => {
             className={`btn-view-mode ${viewMode === 'cards' ? 'active' : ''}`}
             onClick={() => setViewMode('cards')}
           >
-            ▦ Cards
+            {t('viewCards')}
           </button>
           <button
             className={`btn-view-mode ${viewMode === 'table' ? 'active' : ''}`}
             onClick={() => setViewMode('table')}
           >
-            ☰ Table
+            {t('viewTable')}
           </button>
         </div>
       </div>
@@ -80,8 +84,8 @@ const FavoritesPage = () => {
       {!loading && displayCars.length === 0 && (
         <div style={{ textAlign: 'center', padding: '6rem 2rem', color: 'var(--text-muted)' }}>
           <div style={{ fontSize: '3rem', marginBottom: '1rem', opacity: 0.3 }}>☆</div>
-          <h3 style={{ marginBottom: '0.5rem' }}>No favorites yet</h3>
-          <p>Click the star icon on any car to add it to your favorites.</p>
+          <h3 style={{ marginBottom: '0.5rem' }}>{t('noFavoritesTitle')}</h3>
+          <p>{t('noFavoritesText')}</p>
         </div>
       )}
 
@@ -105,14 +109,14 @@ const FavoritesPage = () => {
             <thead>
               <tr>
                 <th></th>
-                <th>Title</th>
-                <th>Brand</th>
-                <th>Year</th>
-                <th>Price ($)</th>
-                <th>Mileage (km)</th>
-                <th>Provincia</th>
-                <th>Status</th>
-                <th>Action</th>
+                <th>{t('title')}</th>
+                <th>{t('brand')}</th>
+                <th>{t('year')}</th>
+                <th>{t('priceHeader')}</th>
+                <th>{t('mileageHeader')}</th>
+                <th>{t('province')}</th>
+                <th>{t('status')}</th>
+                <th>{t('action')}</th>
               </tr>
             </thead>
             <tbody>
@@ -122,7 +126,7 @@ const FavoritesPage = () => {
                     <button
                       className="fav-btn-table active"
                       onClick={() => toggleFavorite(car.URL)}
-                      title="Remove from favorites"
+                      title={t('noFavoritesText')} // fallback tooltips or similar
                     >
                       ★
                     </button>
@@ -142,13 +146,13 @@ const FavoritesPage = () => {
                   <td>{car.Provincia}</td>
                   <td>
                     {car.IsSold
-                      ? <span style={{ color: 'var(--danger)', fontWeight: '600' }}>Sold</span>
-                      : <span style={{ color: 'var(--success)' }}>Active</span>
+                      ? <span style={{ color: 'var(--danger)', fontWeight: '600' }}>{t('soldStatus')}</span>
+                      : <span style={{ color: 'var(--success)' }}>{t('activeStatus')}</span>
                     }
                   </td>
                   <td>
                     <a href={car.URL} target="_blank" rel="noreferrer" style={{ color: 'var(--accent)', textDecoration: 'none' }}>
-                      View
+                      {t('view')}
                     </a>
                   </td>
                 </tr>
