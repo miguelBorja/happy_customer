@@ -105,7 +105,7 @@ func main() {
 	defer database.Close()
 
 	if *scrapeFlag || *backfillFlag {
-		go func() {
+		runScraper := func() {
 			s, err := scraper.NewScraper(scraper.ChromeDriverPath, scraper.SeleniumPort, database)
 			if err != nil {
 				log.Fatalf("Failed to create scraper: %v", err)
@@ -120,7 +120,15 @@ func main() {
 				log.Println("Starting scraper...")
 				s.Run()
 			}
-		}()
+		}
+
+		if *serveFlag {
+			// If serving, run the scraper asynchronously in a goroutine so the API server can start
+			go runScraper()
+		} else {
+			// If not serving, run synchronously in the main thread so the program exits cleanly when finished
+			runScraper()
+		}
 	}
 
 	if *serveFlag {
@@ -146,8 +154,5 @@ func main() {
 		if err := http.ListenAndServe(":"+*portFlag, mux); err != nil {
 			log.Fatalf("Server failed: %v", err)
 		}
-	} else {
-		// If not serving, wait forever so the scraper can finish
-		select {}
 	}
 }

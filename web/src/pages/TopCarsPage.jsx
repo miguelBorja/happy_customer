@@ -114,101 +114,117 @@ const TopCarsPage = () => {
 
   return (
     <div className="top-cars-page" style={{ paddingBottom: '4rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '2rem' }}>
-        <div>
-          <h2 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>Top {topParams.limit} Cars</h2>
-          <p style={{ color: 'var(--text-muted)' }}>Custom query to rank the best cars available.</p>
-        </div>
-        
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', alignItems: 'flex-start' }}>
-          <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end' }}>
-            <div className="filter-group">
-              <label>Brand</label>
-              <select name="brand" className="select-field" value={topParams.brand} onChange={handleChange}>
-                <option value="">All Brands</option>
-                {brands.map(b => <option key={b} value={b}>{b}</option>)}
-              </select>
-            </div>
+      {/* Search & Filters Card */}
+      <div style={{
+        backgroundColor: 'var(--bg-card)',
+        borderRadius: '12px',
+        padding: '1.75rem',
+        border: '1px solid var(--border)',
+        marginBottom: '2rem',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '1.5rem',
+        boxShadow: 'var(--shadow)'
+      }}>
+        {/* Row 1: Brand, Province, Model / Title */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: '1.5rem' }}>
+          <div className="filter-group">
+            <label style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Brand</label>
+            <select name="brand" className="select-field" style={{ height: '42px' }} value={topParams.brand} onChange={handleChange}>
+              <option value="">All Brands</option>
+              {brands.map(b => <option key={b} value={b}>{b}</option>)}
+            </select>
+          </div>
 
-            <div className="filter-group">
-              <label>Province</label>
-              <select name="provincia" className="select-field" value={topParams.provincia} onChange={handleChange}>
-                <option value="">All Provinces</option>
-                {provinces.map(p => <option key={p} value={p}>{p}</option>)}
-              </select>
-            </div>
-            
-            <div className="filter-group">
-              <label>Model / Title</label>
-              <input type="text" name="title" className="input-field" placeholder="e.g. Hilux" value={topParams.title} onChange={handleChange} />
-            </div>
-            
-            <div className="filter-group">
-              <label>Max km</label>
-              <input type="number" name="kmMax" className="input-field" style={{width: '100px'}} value={topParams.kmMax} onChange={handleChange} />
-            </div>
-            
-            <div className="filter-group">
-              <label>Max Price ($)</label>
-              <input type="number" name="priceMax" className="input-field" style={{width: '100px'}} value={topParams.priceMax} onChange={handleChange} />
-            </div>
-
-            <div className="filter-group">
-              <label>Scraped From</label>
-              <input type="date" name="scrapedFrom" className="input-field" style={{width: '140px'}} value={topParams.scrapedFrom} onChange={handleChange} />
-            </div>
-            <div className="filter-group">
-              <label>Scraped To</label>
-              <input type="date" name="scrapedTo" className="input-field" style={{width: '140px'}} value={topParams.scrapedTo} onChange={handleChange} />
-            </div>
-            
-            <div className="filter-group">
-              <label>Limit</label>
-              <select name="limit" className="select-field" value={topParams.limit} onChange={handleChange}>
-                <option value="5">Top 5</option>
-                <option value="10">Top 10</option>
-                <option value="20">Top 20</option>
-                <option value="50">Top 50</option>
-              </select>
-            </div>
+          <div className="filter-group">
+            <label style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Province</label>
+            <select name="provincia" className="select-field" style={{ height: '42px' }} value={topParams.provincia} onChange={handleChange}>
+              <option value="">All Provinces</option>
+              {provinces.map(p => <option key={p} value={p}>{p}</option>)}
+            </select>
           </div>
           
-          <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end' }}>
-            <div className="filter-group">
-              <label>Title Sort</label>
-              <select name="sortTitle" className="select-field" value={topParams.sortTitle} onChange={handleChange}>
-                <option value="">None</option>
-                <option value="asc">A → Z</option>
-                <option value="desc">Z → A</option>
-              </select>
-            </div>
+          <div className="filter-group">
+            <label style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Model / Title</label>
+            <input type="text" name="title" className="input-field" style={{ height: '42px' }} placeholder="Search e.g. Hilux, Accent, Civic..." value={topParams.title} onChange={handleChange} />
+          </div>
+        </div>
 
-            <div className="filter-group">
-              <label>Year Sort</label>
-              <select name="sortYear" className="select-field" value={topParams.sortYear} onChange={handleChange}>
-                <option value="">None</option>
-                <option value="asc">Ascending (Old to New)</option>
-                <option value="desc">Descending (New to Old)</option>
-              </select>
-            </div>
-            
-            <div className="filter-group">
-              <label>Price Sort</label>
-              <select name="sortPrice" className="select-field" value={topParams.sortPrice} onChange={handleChange}>
-                <option value="">None</option>
-                <option value="asc">Ascending (Low to High)</option>
-                <option value="desc">Descending (High to Low)</option>
-              </select>
-            </div>
-            
-            <div className="filter-group">
-              <label>Mileage Sort</label>
-              <select name="sortKm" className="select-field" value={topParams.sortKm} onChange={handleChange}>
-                <option value="">None</option>
-                <option value="asc">Ascending (Low to High)</option>
-                <option value="desc">Descending (High to Low)</option>
-              </select>
-            </div>
+        {/* Row 2: Max km, Max Price, Dates, Limit */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '1rem' }}>
+          <div className="filter-group">
+            <label style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Max km</label>
+            <input type="number" name="kmMax" className="input-field" value={topParams.kmMax} onChange={handleChange} />
+          </div>
+          
+          <div className="filter-group">
+            <label style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Max Price ($)</label>
+            <input type="number" name="priceMax" className="input-field" placeholder="Any Price" value={topParams.priceMax} onChange={handleChange} />
+          </div>
+
+          <div className="filter-group">
+            <label style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Scraped From</label>
+            <input type="date" name="scrapedFrom" className="input-field" value={topParams.scrapedFrom} onChange={handleChange} />
+          </div>
+          
+          <div className="filter-group">
+            <label style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Scraped To</label>
+            <input type="date" name="scrapedTo" className="input-field" value={topParams.scrapedTo} onChange={handleChange} />
+          </div>
+          
+          <div className="filter-group">
+            <label style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Limit</label>
+            <select name="limit" className="select-field" value={topParams.limit} onChange={handleChange}>
+              <option value="5">Top 5</option>
+              <option value="10">Top 10</option>
+              <option value="20">Top 20</option>
+              <option value="50">Top 50</option>
+            </select>
+          </div>
+        </div>
+        
+        {/* Row 3: Sorting Options */}
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', 
+          gap: '1rem', 
+          borderTop: '1px solid rgba(255, 255, 255, 0.05)', 
+          paddingTop: '1rem' 
+        }}>
+          <div className="filter-group">
+            <label style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Title Sort</label>
+            <select name="sortTitle" className="select-field" value={topParams.sortTitle} onChange={handleChange}>
+              <option value="">None</option>
+              <option value="asc">A → Z</option>
+              <option value="desc">Z → A</option>
+            </select>
+          </div>
+
+          <div className="filter-group">
+            <label style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Year Sort</label>
+            <select name="sortYear" className="select-field" value={topParams.sortYear} onChange={handleChange}>
+              <option value="">None</option>
+              <option value="asc">Ascending (Old to New)</option>
+              <option value="desc">Descending (New to Old)</option>
+            </select>
+          </div>
+          
+          <div className="filter-group">
+            <label style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Price Sort</label>
+            <select name="sortPrice" className="select-field" value={topParams.sortPrice} onChange={handleChange}>
+              <option value="">None</option>
+              <option value="asc">Ascending (Low to High)</option>
+              <option value="desc">Descending (High to Low)</option>
+            </select>
+          </div>
+          
+          <div className="filter-group">
+            <label style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Mileage Sort</label>
+            <select name="sortKm" className="select-field" value={topParams.sortKm} onChange={handleChange}>
+              <option value="">None</option>
+              <option value="asc">Ascending (Low to High)</option>
+              <option value="desc">Descending (High to Low)</option>
+            </select>
           </div>
         </div>
       </div>
