@@ -33,8 +33,18 @@ func Init(path string) (*DB, error) {
 }
 
 func (d *DB) migrate() error {
-	_, err := d.Exec(schema)
-	return err
+	if _, err := d.Exec(schema); err != nil {
+		return err
+	}
+	// Add seller columns if they don't exist (for existing databases)
+	for _, col := range []string{
+		"ALTER TABLE cars ADD COLUMN seller_name TEXT DEFAULT ''",
+		"ALTER TABLE cars ADD COLUMN seller_phone TEXT DEFAULT ''",
+		"ALTER TABLE cars ADD COLUMN seller_address TEXT DEFAULT ''",
+	} {
+		d.Exec(col) // ignore errors (column already exists)
+	}
+	return nil
 }
 
 const schema = `
@@ -101,6 +111,9 @@ CREATE TABLE IF NOT EXISTS cars (
     equip_vidrios_tintados       INTEGER DEFAULT 0,
     equip_volante_ajustable      INTEGER DEFAULT 0,
     equip_volante_multifuncional INTEGER DEFAULT 0,
+    seller_name                  TEXT DEFAULT '',
+    seller_phone                 TEXT DEFAULT '',
+    seller_address               TEXT DEFAULT '',
     is_sold                      INTEGER DEFAULT 0,
     scraped_at                   DATETIME,
     last_seen_at                 DATETIME,

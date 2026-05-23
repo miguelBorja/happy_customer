@@ -1,6 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { fetchCars, fetchBrands } from '../api/client';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { fetchCars, fetchBrands, fetchCarsByUrls, fetchProvinces } from '../api/client';
 import CarCard from '../components/CarCard';
+import { useSeenCars } from '../hooks/useSeenCars';
+import { useFavorites } from '../hooks/useFavorites';
 
 const commonEquipments = [
   "Tapicería de cuero",
@@ -14,10 +16,16 @@ const commonEquipments = [
 const CarsPage = () => {
   const [cars, setCars] = useState([]);
   const [brands, setBrands] = useState([]);
+  const [provinces, setProvinces] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { isNew, markSeen, markAllSeen } = useSeenCars();
+  const { isFavorite, toggleFavorite, favCount, getAllUrls } = useFavorites();
+  const [showFavsOnly, setShowFavsOnly] = useState(false);
+  const [favCars, setFavCars] = useState([]);
   
   const [filters, setFilters] = useState({
     brand: '',
+    provincia: '',
     yearMin: '',
     yearMax: '',
     priceMin: '',
@@ -27,10 +35,13 @@ const CarsPage = () => {
     combustible: '',
     isSold: 'false',
     equipments: [],
+    scrapedFrom: '',
+    scrapedTo: '',
   });
 
   useEffect(() => {
     fetchBrands().then(setBrands).catch(console.error);
+    fetchProvinces().then(setProvinces).catch(console.error);
   }, []);
 
   const loadCars = useCallback(async () => {
@@ -68,6 +79,27 @@ const CarsPage = () => {
     }
   };
 
+  // Load favorites from API when filter is toggled on
+  useEffect(() => {
+    if (showFavsOnly) {
+      const urls = getAllUrls();
+      if (urls.length > 0) {
+        setLoading(true);
+        fetchCarsByUrls(urls)
+          .then(data => setFavCars(data))
+          .catch(console.error)
+          .finally(() => setLoading(false));
+      } else {
+        setFavCars([]);
+      }
+    }
+  }, [showFavsOnly, getAllUrls]);
+
+  const displayCars = useMemo(() => {
+    if (!showFavsOnly) return cars;
+    return favCars.filter(c => isFavorite(c.URL));
+  }, [cars, favCars, showFavsOnly, isFavorite]);
+
   return (
     <div className="browse-page">
       <aside className="filter-panel">
@@ -78,6 +110,14 @@ const CarsPage = () => {
           <select name="brand" className="select-field" value={filters.brand} onChange={handleFilterChange}>
             <option value="">All Brands</option>
             {brands.map(b => <option key={b} value={b}>{b}</option>)}
+          </select>
+        </div>
+
+        <div className="filter-group">
+          <label>Province</label>
+          <select name="provincia" className="select-field" value={filters.provincia} onChange={handleFilterChange}>
+            <option value="">All Provinces</option>
+            {provinces.map(p => <option key={p} value={p}>{p}</option>)}
           </select>
         </div>
 
@@ -106,6 +146,17 @@ const CarsPage = () => {
         <div className="filter-group">
           <label>Max Mileage (km)</label>
           <input type="number" name="kmMax" className="input-field" placeholder="150000" value={filters.kmMax} onChange={handleFilterChange} />
+        </div>
+
+        <div className="filter-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+          <div>
+            <label>Scraped From</label>
+            <input type="date" name="scrapedFrom" className="input-field" value={filters.scrapedFrom} onChange={handleFilterChange} />
+          </div>
+          <div>
+            <label>Scraped To</label>
+            <input type="date" name="scrapedTo" className="input-field" value={filters.scrapedTo} onChange={handleFilterChange} />
+          </div>
         </div>
 
         <div className="filter-group">
@@ -145,17 +196,39 @@ const CarsPage = () => {
             <span>Show sold cars</span>
           </label>
         </div>
+
+        <div className="filter-group">
+          <label className="checkbox-group fav-filter-label">
+            <input type="checkbox" checked={showFavsOnly} onChange={(e) => setShowFavsOnly(e.target.checked)} />
+            <span>★ Show only favorites</span>
+          </label>
+          {favCount > 0 && (
+            <span className="fav-hint">{displayCars.filter(c => isFavorite(c.URL)).length} of {favCount} favorites in view</span>
+          )}
+        </div>
       </aside>
 
       <div className="results-container">
         <div className="results-header">
-          <h2>{cars.length} Cars Found</h2>
+          <h2>{displayCars.length} Cars Found {showFavsOnly && <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>(favorites only)</span>}</h2>
           {loading && <div className="loader"></div>}
         </div>
+
+        {!loading && cars.filter(c => isNew(c.URL)).length > 0 && (
+          <div className="new-cars-bar" style={{ marginBottom: '1.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <span className="new-badge-pulse">NEW</span>
+              <span>{cars.filter(c => isNew(c.URL)).length} new car{cars.filter(c => isNew(c.URL)).length !== 1 ? 's' : ''} since your last visit</span>
+            </div>
+            <button className="btn-mark-seen" onClick={() => markAllSeen(cars.map(c => c.URL))}>
+              ✓ Mark All as Seen
+            </button>
+          </div>
+        )}
         
         <div className="results-grid">
-          {cars.map(car => (
-            <CarCard key={car.URL} car={car} />
+          {displayCars.map(car => (
+            <CarCard key={car.URL} car={car} isNew={isNew(car.URL)} isFav={isFavorite(car.URL)} onToggleFav={toggleFavorite} maxPrice={filters.priceMax ? Number(filters.priceMax) : 0} />
           ))}
         </div>
         

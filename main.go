@@ -14,6 +14,7 @@ import (
 func main() {
 	scrapeFlag := flag.Bool("scrape", true, "Run the scraper")
 	serveFlag := flag.Bool("serve", true, "Run the API server")
+	backfillFlag := flag.Bool("backfill", false, "Backfill seller info for existing cars")
 	portFlag := flag.String("port", "8080", "Port for the API server")
 	flag.Parse()
 
@@ -27,15 +28,22 @@ func main() {
 	defer database.Close()
 	log.Println("Database initialized at cars.db")
 
-	if *scrapeFlag {
+	if *scrapeFlag || *backfillFlag {
 		go func() {
-			log.Println("Starting scraper...")
 			s, err := scraper.NewScraper(scraper.ChromeDriverPath, scraper.SeleniumPort, database)
 			if err != nil {
 				log.Fatalf("Failed to create scraper: %v", err)
 			}
 			defer s.Service.Stop()
-			s.Run()
+
+			if *backfillFlag {
+				log.Println("Starting seller backfill...")
+				s.BackfillSellers()
+			}
+			if *scrapeFlag {
+				log.Println("Starting scraper...")
+				s.Run()
+			}
 		}()
 	}
 
@@ -44,7 +52,10 @@ func main() {
 		
 		mux := http.NewServeMux()
 		mux.HandleFunc("/api/cars", server.HandleCars)
+		mux.HandleFunc("/api/cars/favorites", server.HandleCarsByURLs)
 		mux.HandleFunc("/api/brands", server.HandleBrands)
+		mux.HandleFunc("/api/brands/filtered", server.HandleFilteredBrands)
+		mux.HandleFunc("/api/provinces", server.HandleProvinces)
 		mux.HandleFunc("/api/stats", server.HandleStats)
 
 		// Serve static frontend files if they exist

@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import CarsPage from './pages/CarsPage';
 import TopCarsPage from './pages/TopCarsPage';
+import FavoritesPage from './pages/FavoritesPage';
 import { fetchStats } from './api/client';
+import { useFavorites } from './hooks/useFavorites';
 
 function App() {
   const [activeTab, setActiveTab] = useState('browse');
   const [stats, setStats] = useState({ total: 0, active: 0, sold: 0 });
+  const { favCount } = useFavorites();
 
   useEffect(() => {
     fetchStats().then(setStats).catch(console.error);
@@ -16,6 +19,14 @@ function App() {
     }, 30000);
     return () => clearInterval(interval);
   }, []);
+
+  const renderPage = () => {
+    switch (activeTab) {
+      case 'top': return <TopCarsPage />;
+      case 'favorites': return <FavoritesPage />;
+      default: return <CarsPage />;
+    }
+  };
 
   return (
     <div className="app-container">
@@ -44,12 +55,19 @@ function App() {
             >
               Top Cars
             </button>
+            <button 
+              className={`${activeTab === 'favorites' ? 'active' : ''} nav-fav-btn`}
+              onClick={() => setActiveTab('favorites')}
+            >
+              <span style={{ color: '#fbbf24' }}>★</span> Favorites
+              {favCount > 0 && <span className="nav-fav-count">{favCount}</span>}
+            </button>
           </div>
         </div>
       </nav>
 
       <main className="main-content">
-        {activeTab === 'browse' ? <CarsPage /> : <TopCarsPage />}
+        {renderPage()}
       </main>
     </div>
   );

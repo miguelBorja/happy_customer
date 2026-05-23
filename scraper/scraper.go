@@ -2,6 +2,7 @@ package scraper
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"regexp"
 	"strconv"
@@ -28,13 +29,19 @@ var (
 	precioNumRegexp  = regexp.MustCompile(`[^\d]`)
 
 	targetBrands = map[string]string{
-		"kia":        "19",
-		"toyota":     "35",
-		"hyundai":    "16",
-		"honda":      "15",
-		"nissan":     "26",
-		"suzuki":     "34",
-		"electric":   "4",
+		"kia":           "19",
+		"toyota":        "35",
+		"hyundai":       "16",
+		"honda":         "15",
+		"ford":          "13",
+		"nissan":        "26",
+		"suzuki":        "34",
+		"mazda":         "23",
+		"donfeng (ZNA)": "64",
+		"chery":         "88",
+		"BYD":           "97",
+		"changan":       "108",
+		"electric":      "4",
 	}
 )
 
@@ -45,7 +52,9 @@ type Scraper struct {
 }
 
 func NewScraper(driverPath string, port int, database *db.DB) (*Scraper, error) {
-	opts := []selenium.ServiceOption{}
+	opts := []selenium.ServiceOption{
+		selenium.Output(io.Discard),
+	}
 	service, err := selenium.NewChromeDriverService(driverPath, port, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("chromedriver error: %w", err)
@@ -61,8 +70,93 @@ func (s *Scraper) Run() {
 	log.Println("=== Scrape Run Completed ===")
 }
 
+func (s *Scraper) BackfillSellers() {
+	urls, err := s.DB.GetURLsWithoutSeller()
+	if err != nil {
+		log.Printf("Error getting URLs without seller: %v", err)
+		return
+	}
+	if len(urls) == 0 {
+		log.Println("All cars already have seller info. Nothing to backfill.")
+		return
+	}
+	log.Printf("Backfilling seller info for %d cars...", len(urls))
+
+	jobs := make(chan string, 200)
+	var wg sync.WaitGroup
+
+	for i := 0; i < WorkerCount; i++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			wd := s.createWebDriver()
+			defer wd.Quit()
+
+			for url := range jobs {
+				if err := wd.Get(url); err != nil {
+					time.Sleep(1 * time.Second)
+					wd.Get(url)
+				}
+
+				var name, phone, address string
+				vendorTables, err := wd.FindElements(selenium.ByCSSSelector, "table.table-responsive")
+				if err == nil {
+					for _, vt := range vendorTables {
+						txt, _ := vt.Text()
+						if strings.Contains(txt, "Vendedor") {
+							rows, _ := vt.FindElements(selenium.ByTagName, "tr")
+							for _, tr := range rows {
+								tds, _ := tr.FindElements(selenium.ByTagName, "td")
+								if len(tds) >= 2 {
+									key, _ := tds[0].Text()
+									val, _ := tds[1].Text()
+									key = cleanText(key)
+									val = cleanText(val)
+									switch {
+									case strings.Contains(key, "Nombre"):
+										name = val
+									case strings.Contains(key, "Teléfono"):
+										phone = val
+									case strings.Contains(key, "Dirección"):
+										address = val
+									}
+								}
+							}
+							break
+						}
+					}
+				}
+
+				if name != "" || phone != "" || address != "" {
+					if err := s.DB.UpdateSeller(url, name, phone, address); err != nil {
+						log.Printf("Error updating seller for %s: %v", url, err)
+					}
+				}
+			}
+		}(i)
+	}
+
+	counter := 0
+	for _, url := range urls {
+		jobs <- url
+		counter++
+		if counter%10 == 0 {
+			log.Printf("Queued %d/%d URLs for backfill...", counter, len(urls))
+		}
+	}
+	close(jobs)
+	wg.Wait()
+	log.Printf("Backfill complete. Processed %d cars.", len(urls))
+}
+
 func (s *Scraper) ProcessBrand(brandName, brandID string) {
-	activeURLs, err := s.DB.GetActiveURLs(brandName)
+	var activeURLs []string
+	var err error
+	if brandName == "electric" {
+		activeURLs, err = s.DB.GetActiveURLsByFuel("eléctric")
+	} else {
+		activeURLs, err = s.DB.GetActiveURLs(brandName)
+	}
 	if err != nil {
 		log.Printf("Error getting active URLs for %s: %v", brandName, err)
 		return
@@ -262,24 +356,40 @@ func (s *Scraper) worker(id int, jobs <-chan string, results chan<- db.Car) {
 					val, _ := tds[1].Text()
 					key = cleanText(key)
 					val = cleanText(val)
-					
+
 					switch key {
-					case "# de pasajeros": car.Pasajeros = val
-					case "# de puertas": car.Puertas = val
-					case "Cilindrada": car.Cilindrada = val
-					case "Color exterior": car.ColorExterior = val
-					case "Color interior": car.ColorInterior = val
-					case "Combustible": car.Combustible = val
-					case "Estado": car.Estado = val
-					case "Estilo": car.Estilo = val
-					case "Fecha de ingreso": car.FechaIngreso = val
-					case "Kilometraje": car.Kilometraje = parseKilometraje(val)
-					case "Placa": car.Placa = val
-					case "Precio negociable": car.PrecioNegociable = val
-					case "Provincia": car.Provincia = val
-					case "Se recibe vehículo": car.SeRecibe = val
-					case "Transmisión": car.Transmision = val
-					case "Ya pagó impuestos": car.PagoImpuestos = val
+					case "# de pasajeros":
+						car.Pasajeros = val
+					case "# de puertas":
+						car.Puertas = val
+					case "Cilindrada":
+						car.Cilindrada = val
+					case "Color exterior":
+						car.ColorExterior = val
+					case "Color interior":
+						car.ColorInterior = val
+					case "Combustible":
+						car.Combustible = val
+					case "Estado":
+						car.Estado = val
+					case "Estilo":
+						car.Estilo = val
+					case "Fecha de ingreso":
+						car.FechaIngreso = val
+					case "Kilometraje":
+						car.Kilometraje = parseKilometraje(val)
+					case "Placa":
+						car.Placa = val
+					case "Precio negociable":
+						car.PrecioNegociable = val
+					case "Provincia":
+						car.Provincia = val
+					case "Se recibe vehículo":
+						car.SeRecibe = val
+					case "Transmisión":
+						car.Transmision = val
+					case "Ya pagó impuestos":
+						car.PagoImpuestos = val
 					}
 				}
 			}
@@ -302,6 +412,35 @@ func (s *Scraper) worker(id int, jobs <-chan string, results chan<- db.Car) {
 			}
 		}
 
+		// Vendedor (seller) info
+		vendorTables, err := wd.FindElements(selenium.ByCSSSelector, "table.table-responsive")
+		if err == nil {
+			for _, vt := range vendorTables {
+				txt, _ := vt.Text()
+				if strings.Contains(txt, "Vendedor") {
+					rows, _ := vt.FindElements(selenium.ByTagName, "tr")
+					for _, tr := range rows {
+						tds, _ := tr.FindElements(selenium.ByTagName, "td")
+						if len(tds) >= 2 {
+							key, _ := tds[0].Text()
+							val, _ := tds[1].Text()
+							key = cleanText(key)
+							val = cleanText(val)
+							switch {
+							case strings.Contains(key, "Nombre"):
+								car.SellerName = val
+							case strings.Contains(key, "Teléfono"):
+								car.SellerPhone = val
+							case strings.Contains(key, "Dirección"):
+								car.SellerAddress = val
+							}
+						}
+					}
+					break
+				}
+			}
+		}
+
 		results <- car
 	}
 }
@@ -315,6 +454,7 @@ func (s *Scraper) createWebDriver() selenium.WebDriver {
 		Args: []string{
 			"--headless", "--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu",
 			"--window-size=1920,1080", "--log-level=3", "--disable-extensions", "--disable-images",
+			"--disable-logging", "--silent",
 		},
 	}
 	caps.AddChrome(chromeCaps)
