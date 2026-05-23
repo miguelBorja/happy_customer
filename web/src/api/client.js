@@ -1,4 +1,4 @@
-const BASE_URL = 'http://localhost:8080/api';
+const BASE_URL = '/api';
 
 export const fetchCars = async (filters) => {
   const params = new URLSearchParams();
