@@ -32,7 +32,7 @@ function App() {
     <div className="app-container">
       <nav className="navbar">
         <div className="logo" onClick={() => setActiveTab('browse')}>
-          CrautosDB
+          Happy Customer
         </div>
         
         <div style={{ display: 'flex', gap: '2rem', alignItems: 'center' }}>
