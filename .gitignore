@@ -1,2 +1,15 @@
-﻿*.exe
+*.exe
 crautos3.exe~
+
+# Database files
+cars.db*
+
+# ChromeDriver & selenium
+chromedriver*
+chromedriver-win64/
+
+# Node & Frontend builds
+node_modules/
+web/node_modules/
+web/dist/
+cars.db

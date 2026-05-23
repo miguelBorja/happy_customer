@@ -94,7 +94,7 @@ func (d *DB) UpsertCar(car Car) error {
 		return 0
 	}
 
-	_, err := d.Exec(q,
+	_, err := d.Exec(d.queryFormat(q),
 		car.URL, car.Title, car.Brand, car.Model, car.Year, car.Price, car.PriceText, car.Pasajeros, car.Puertas, car.Cilindrada,
 		car.ColorExterior, car.ColorInterior, car.Combustible, car.Estado, car.Estilo, car.FechaIngreso,
 		car.Kilometraje, car.Placa, car.PrecioNegociable, car.Provincia, car.SeRecibe, car.Transmision, car.PagoImpuestos,
@@ -130,13 +130,13 @@ func (d *DB) MarkSold(urls []string) error {
 	}
 	
 	q := fmt.Sprintf(`UPDATE cars SET is_sold=1, sold_at=? WHERE url IN (%s)`, strings.Join(placeholders, ","))
-	_, err := d.Exec(q, args...)
+	_, err := d.Exec(d.queryFormat(q), args...)
 	return err
 }
 
 func (d *DB) GetActiveURLs(brand string) ([]string, error) {
 	q := `SELECT url FROM cars WHERE LOWER(brand)=LOWER(?) AND is_sold=0`
-	rows, err := d.Query(q, brand)
+	rows, err := d.Query(d.queryFormat(q), brand)
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +155,7 @@ func (d *DB) GetActiveURLs(brand string) ([]string, error) {
 
 func (d *DB) GetActiveURLsByFuel(fuel string) ([]string, error) {
 	q := `SELECT url FROM cars WHERE LOWER(combustible) LIKE '%' || LOWER(?) || '%' AND is_sold=0`
-	rows, err := d.Query(q, fuel)
+	rows, err := d.Query(d.queryFormat(q), fuel)
 	if err != nil {
 		return nil, err
 	}
@@ -174,7 +174,7 @@ func (d *DB) GetActiveURLsByFuel(fuel string) ([]string, error) {
 
 func (d *DB) GetURLsWithoutSeller() ([]string, error) {
 	q := `SELECT url FROM cars WHERE is_sold=0 AND (seller_name='' OR seller_name IS NULL)`
-	rows, err := d.Query(q)
+	rows, err := d.Query(d.queryFormat(q))
 	if err != nil {
 		return nil, err
 	}
@@ -193,7 +193,7 @@ func (d *DB) GetURLsWithoutSeller() ([]string, error) {
 
 func (d *DB) UpdateSeller(url, name, phone, address string) error {
 	q := `UPDATE cars SET seller_name=?, seller_phone=?, seller_address=? WHERE url=?`
-	_, err := d.Exec(q, name, phone, address, url)
+	_, err := d.Exec(d.queryFormat(q), name, phone, address, url)
 	return err
 }
 
@@ -409,7 +409,7 @@ func (d *DB) GetCars(f FilterParams) ([]Car, error) {
 		}
 	}
 
-	rows, err := d.Query(q, args...)
+	rows, err := d.Query(d.queryFormat(q), args...)
 	if err != nil {
 		return nil, err
 	}
@@ -539,7 +539,7 @@ func (d *DB) GetFilteredBrands(f FilterParams) ([]string, error) {
 
 	q += " ORDER BY brand ASC"
 
-	rows, err := d.Query(q, args...)
+	rows, err := d.Query(d.queryFormat(q), args...)
 	if err != nil {
 		return nil, err
 	}
@@ -583,7 +583,7 @@ func (d *DB) GetCarsByURLs(urls []string) ([]Car, error) {
 		is_sold, scraped_at, last_seen_at, sold_at FROM cars WHERE url IN (%s)
 		ORDER BY year DESC, price ASC`, strings.Join(placeholders, ","))
 
-	rows, err := d.Query(q, args...)
+	rows, err := d.Query(d.queryFormat(q), args...)
 	if err != nil {
 		return nil, err
 	}

@@ -3,46 +3,77 @@ package db
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 
+	_ "github.com/lib/pq"
 	_ "modernc.org/sqlite"
 )
 
 // DB wraps sql.DB
 type DB struct {
 	*sql.DB
+	DriverName string // "sqlite" or "postgres"
 }
 
-// Init opens (or creates) the SQLite database at path and runs migrations.
+// Init opens (or creates) the database at path and runs migrations.
+// Supports standard SQLite paths or postgres:// connection strings.
 func Init(path string) (*DB, error) {
-	sqlDB, err := sql.Open("sqlite", path)
-	if err != nil {
-		return nil, fmt.Errorf("open db: %w", err)
-	}
-	for _, p := range []string{
-		"PRAGMA journal_mode=WAL",
-		"PRAGMA synchronous=NORMAL",
-		"PRAGMA cache_size=-64000",
-		"PRAGMA foreign_keys=ON",
-	} {
-		if _, err := sqlDB.Exec(p); err != nil {
-			return nil, fmt.Errorf("pragma %q: %w", p, err)
+	var sqlDB *sql.DB
+	var err error
+	var driverName string
+
+	if strings.HasPrefix(path, "postgres://") || strings.HasPrefix(path, "postgresql://") {
+		driverName = "postgres"
+		sqlDB, err = sql.Open("postgres", path)
+		if err != nil {
+			return nil, fmt.Errorf("open postgres: %w", err)
+		}
+	} else {
+		driverName = "sqlite"
+		sqlDB, err = sql.Open("sqlite", path)
+		if err != nil {
+			return nil, fmt.Errorf("open sqlite: %w", err)
+		}
+		// SQLite specific pragmas for optimization
+		for _, p := range []string{
+			"PRAGMA journal_mode=WAL",
+			"PRAGMA synchronous=NORMAL",
+			"PRAGMA cache_size=-64000",
+			"PRAGMA foreign_keys=ON",
+		} {
+			if _, err := sqlDB.Exec(p); err != nil {
+				sqlDB.Close()
+				return nil, fmt.Errorf("pragma %q: %w", p, err)
+			}
 		}
 	}
-	d := &DB{sqlDB}
+
+	d := &DB{
+		DB:         sqlDB,
+		DriverName: driverName,
+	}
 	return d, d.migrate()
 }
 
 func (d *DB) migrate() error {
-	if _, err := d.Exec(schema); err != nil {
+	s := schema
+	if d.DriverName == "postgres" {
+		// PostgreSQL uses TIMESTAMP instead of DATETIME
+		s = strings.ReplaceAll(s, "DATETIME", "TIMESTAMP")
+	}
+
+	if _, err := d.Exec(s); err != nil {
 		return err
 	}
-	// Add seller columns if they don't exist (for existing databases)
-	for _, col := range []string{
-		"ALTER TABLE cars ADD COLUMN seller_name TEXT DEFAULT ''",
-		"ALTER TABLE cars ADD COLUMN seller_phone TEXT DEFAULT ''",
-		"ALTER TABLE cars ADD COLUMN seller_address TEXT DEFAULT ''",
-	} {
-		d.Exec(col) // ignore errors (column already exists)
+	// Add seller columns if they don't exist (for existing SQLite databases)
+	if d.DriverName == "sqlite" {
+		for _, col := range []string{
+			"ALTER TABLE cars ADD COLUMN seller_name TEXT DEFAULT ''",
+			"ALTER TABLE cars ADD COLUMN seller_phone TEXT DEFAULT ''",
+			"ALTER TABLE cars ADD COLUMN seller_address TEXT DEFAULT ''",
+		} {
+			d.Exec(col) // ignore errors (column already exists)
+		}
 	}
 	return nil
 }
@@ -128,3 +159,21 @@ CREATE INDEX IF NOT EXISTS idx_cars_estilo       ON cars(estilo);
 CREATE INDEX IF NOT EXISTS idx_cars_transmision  ON cars(transmision);
 CREATE INDEX IF NOT EXISTS idx_cars_combustible  ON cars(combustible);
 `
+
+// queryFormat converts SQLite '?' placeholders to PostgreSQL '$1', '$2' etc. if the active driver is Postgres.
+func (d *DB) queryFormat(query string) string {
+	if d.DriverName != "postgres" {
+		return query
+	}
+	var sb strings.Builder
+	paramIndex := 1
+	for _, r := range query {
+		if r == '?' {
+			sb.WriteString(fmt.Sprintf("$%d", paramIndex))
+			paramIndex++
+		} else {
+			sb.WriteRune(r)
+		}
+	}
+	return sb.String()
+}

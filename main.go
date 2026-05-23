@@ -5,6 +5,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sync"
+	"sync/atomic"
 
 	"crautosdb/api"
 	"crautosdb/db"
@@ -16,17 +18,91 @@ func main() {
 	serveFlag := flag.Bool("serve", true, "Run the API server")
 	backfillFlag := flag.Bool("backfill", false, "Backfill seller info for existing cars")
 	portFlag := flag.String("port", "8080", "Port for the API server")
+	migrateFlag := flag.Bool("migrate", false, "Migrate all data from local SQLite (cars.db) to Supabase")
 	flag.Parse()
 
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
 
-	// Initialize Database
-	database, err := db.Init("cars.db")
+	// If the migrate flag is set, run migration and exit
+	if *migrateFlag {
+		log.Println("Starting data migration from SQLite to Supabase...")
+		localDB, err := db.Init("cars.db")
+		if err != nil {
+			log.Fatalf("Failed to open local database: %v", err)
+		}
+		defer localDB.Close()
+
+		supabaseURL := os.Getenv("DATABASE_URL")
+		if supabaseURL == "" {
+			log.Fatal("DATABASE_URL environment variable is not set. Cannot run migration.")
+		}
+
+		remoteDB, err := db.Init(supabaseURL)
+		if err != nil {
+			log.Fatalf("Failed to open remote database: %v", err)
+		}
+		defer remoteDB.Close()
+
+		cars, err := localDB.GetCars(db.FilterParams{})
+		if err != nil {
+			log.Fatalf("Failed to retrieve cars from local database: %v", err)
+		}
+
+		log.Printf("Retrieved %d cars from SQLite. Migrating to Supabase...", len(cars))
+		
+		// Configure a concurrent worker pool
+		numWorkers := 50
+		jobs := make(chan db.Car, len(cars))
+		for _, car := range cars {
+			jobs <- car
+		}
+		close(jobs)
+
+		var wg sync.WaitGroup
+		var successCount uint64
+		var processedCount uint64
+
+		log.Printf("Spawning %d concurrent migration workers...", numWorkers)
+		for w := 1; w <= numWorkers; w++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for car := range jobs {
+					err := remoteDB.UpsertCar(car)
+					atomic.AddUint64(&processedCount, 1)
+					if err != nil {
+						log.Printf("Error migrating %s: %v", car.URL, err)
+					} else {
+						atomic.AddUint64(&successCount, 1)
+					}
+
+					currProcessed := atomic.LoadUint64(&processedCount)
+					if currProcessed%200 == 0 {
+						log.Printf("Progress: %d/%d cars migrated...", currProcessed, len(cars))
+					}
+				}
+			}()
+		}
+		wg.Wait()
+
+		log.Printf("Migration finished! Successfully migrated %d out of %d cars.", successCount, len(cars))
+		return
+	}
+
+	// Initialize Database dynamically based on environment
+	dbPath := "cars.db"
+	if envURL := os.Getenv("DATABASE_URL"); envURL != "" {
+		dbPath = envURL
+		log.Println("Database connection: Supabase PostgreSQL (from DATABASE_URL)")
+	} else {
+		log.Println("Database connection: Local SQLite (cars.db)")
+	}
+
+	database, err := db.Init(dbPath)
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
 	defer database.Close()
-	log.Println("Database initialized at cars.db")
 
 	if *scrapeFlag || *backfillFlag {
 		go func() {

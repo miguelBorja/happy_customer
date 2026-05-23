@@ -3,6 +3,7 @@ module crautosdb
 go 1.21
 
 require (
+	github.com/lib/pq v1.12.3
 	github.com/tebeka/selenium v0.9.9
 	modernc.org/sqlite v1.29.0
 )
