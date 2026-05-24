@@ -6,10 +6,9 @@ import CarCard from '../components/CarCard';
 import MileageBar from '../components/MileageBar';
 import { useLanguage } from '../context/LanguageContext';
 
-const FavoritesPage = () => {
+const FavoritesPage = ({ viewMode, setViewMode }) => {
   const [cars, setCars] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState('cards'); // 'cards' or 'table'
   const { isFavorite, toggleFavorite, favCount, getAllUrls } = useFavorites();
   const { isNew } = useSeenCars();
   const { t } = useLanguage();

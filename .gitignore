@@ -13,3 +13,7 @@ node_modules/
 web/node_modules/
 web/dist/
 cars.db
+
+# Helper scripts / credentials
+run_all.ps1
+

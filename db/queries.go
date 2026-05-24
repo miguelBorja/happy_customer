@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 )
@@ -410,6 +411,7 @@ func (d *DB) GetCars(f FilterParams) ([]Car, error) {
 		}
 	}
 
+	log.Printf("[DB] GetCars SQL: %s | args: %v", d.queryFormat(q), args)
 	rows, err := d.Query(d.queryFormat(q), args...)
 	if err != nil {
 		return nil, err

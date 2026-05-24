@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -18,6 +19,7 @@ func (s *Server) HandleCars(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	
 	q := r.URL.Query()
+	log.Printf("[API] HandleCars query params: %s", r.URL.RawQuery)
 	f := db.FilterParams{
 		Brand:       q.Get("brand"),
 		Estilo:      q.Get("estilo"),
@@ -68,6 +70,7 @@ func (s *Server) HandleCars(w http.ResponseWriter, r *http.Request) {
 
 	cars, err := s.DB.GetCars(f)
 	if err != nil {
+		log.Printf("[API ERROR] GetCars failed: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

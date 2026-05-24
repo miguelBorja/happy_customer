@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import CarsPage from './pages/CarsPage';
-import TopCarsPage from './pages/TopCarsPage';
 import FavoritesPage from './pages/FavoritesPage';
 import AboutPage from './pages/AboutPage';
 import { fetchStats } from './api/client';
@@ -12,6 +11,39 @@ function App() {
   const [stats, setStats] = useState({ total: 0, active: 0, sold: 0 });
   const { favCount } = useFavorites();
   const { language, toggleLanguage, t } = useLanguage();
+  const [viewMode, setViewMode] = useState(() => {
+    return localStorage.getItem('happy_customer_view_mode') || 'cards';
+  });
+
+  const handleSetViewMode = (mode) => {
+    setViewMode(mode);
+    localStorage.setItem('happy_customer_view_mode', mode);
+  };
+
+  // Unified Filter States
+  const [filters, setFilters] = useState({
+    title: '',
+    brand: '',
+    provincia: '',
+    yearMin: '',
+    yearMax: '',
+    priceMin: '',
+    priceMax: '',
+    kmMax: '',
+    transmision: '',
+    combustible: '',
+    isSold: 'false',
+    equipments: [],
+    scrapedFrom: '',
+    scrapedTo: '',
+    limit: '100',
+    sortTitle: 'asc',
+    sortYear: 'desc',
+    sortPrice: 'desc',
+    sortKm: 'desc',
+  });
+  const [localTitle, setLocalTitle] = useState('');
+  const [showFavsOnly, setShowFavsOnly] = useState(false);
 
   useEffect(() => {
     fetchStats().then(setStats).catch(console.error);
@@ -22,12 +54,24 @@ function App() {
     }, 30000);
     return () => clearInterval(interval);
   }, []);
+
   const renderPage = () => {
     switch (activeTab) {
-      case 'top': return <TopCarsPage />;
-      case 'favorites': return <FavoritesPage />;
+      case 'favorites': return <FavoritesPage viewMode={viewMode} setViewMode={handleSetViewMode} />;
       case 'about': return <AboutPage />;
-      default: return <CarsPage />;
+      default: 
+        return (
+          <CarsPage 
+            filters={filters}
+            setFilters={setFilters}
+            localTitle={localTitle}
+            setLocalTitle={setLocalTitle}
+            showFavsOnly={showFavsOnly}
+            setShowFavsOnly={setShowFavsOnly}
+            viewMode={viewMode}
+            setViewMode={handleSetViewMode}
+          />
+        );
     }
   };
 
@@ -77,12 +121,6 @@ function App() {
               {t('browseCars')}
             </button>
             <button 
-              className={activeTab === 'top' ? 'active' : ''} 
-              onClick={() => setActiveTab('top')}
-            >
-              {t('topCars')}
-            </button>
-            <button 
               className={`${activeTab === 'favorites' ? 'active' : ''} nav-fav-btn`}
               onClick={() => setActiveTab('favorites')}
             >
@@ -110,13 +148,6 @@ function App() {
         >
           <span className="bottom-nav-icon">🔍</span>
           <span>{t('navBrowse')}</span>
-        </button>
-        <button 
-          className={`bottom-nav-btn ${activeTab === 'top' ? 'active' : ''}`}
-          onClick={() => setActiveTab('top')}
-        >
-          <span className="bottom-nav-icon">🏆</span>
-          <span>{t('navTop')}</span>
         </button>
         <button 
           className={`bottom-nav-btn ${activeTab === 'favorites' ? 'active' : ''}`}

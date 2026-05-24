@@ -24,6 +24,14 @@ func Init(path string) (*DB, error) {
 
 	if strings.HasPrefix(path, "postgres://") || strings.HasPrefix(path, "postgresql://") {
 		driverName = "postgres"
+		// Append binary_parameters=yes to support PgBouncer transaction pooling mode without prepared statement errors
+		if !strings.Contains(path, "binary_parameters=") {
+			if strings.Contains(path, "?") {
+				path += "&binary_parameters=yes"
+			} else {
+				path += "?binary_parameters=yes"
+			}
+		}
 		sqlDB, err = sql.Open("postgres", path)
 		if err != nil {
 			return nil, fmt.Errorf("open postgres: %w", err)
