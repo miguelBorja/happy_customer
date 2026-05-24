@@ -105,8 +105,8 @@ const CarsPage = ({
       limit: '100',
       sortTitle: 'asc',
       sortYear: 'desc',
-      sortPrice: 'desc',
-      sortKm: 'desc',
+      sortPrice: 'asc',
+      sortKm: 'asc',
     });
     setLocalTitle('');
     setShowFavsOnly(false);
@@ -117,8 +117,8 @@ const CarsPage = ({
       ...f,
       sortTitle: 'asc',
       sortYear: 'desc',
-      sortPrice: 'desc',
-      sortKm: 'desc',
+      sortPrice: 'asc',
+      sortKm: 'asc',
     }));
   };
 
@@ -153,8 +153,8 @@ const CarsPage = ({
     if (filters.limit && filters.limit !== '100') tags.push({ id: 'limit', label: `${t('limit')}: ${filters.limit}`, clear: () => setFilters(f => ({ ...f, limit: '100' })) });
     if (filters.sortTitle && filters.sortTitle !== 'asc') tags.push({ id: 'sortTitle', label: `Sort Title: ${filters.sortTitle}`, clear: () => setFilters(f => ({ ...f, sortTitle: 'asc' })) });
     if (filters.sortYear && filters.sortYear !== 'desc') tags.push({ id: 'sortYear', label: `Sort Year: ${filters.sortYear}`, clear: () => setFilters(f => ({ ...f, sortYear: 'desc' })) });
-    if (filters.sortPrice && filters.sortPrice !== 'desc') tags.push({ id: 'sortPrice', label: `Sort Price: ${filters.sortPrice}`, clear: () => setFilters(f => ({ ...f, sortPrice: 'desc' })) });
-    if (filters.sortKm && filters.sortKm !== 'desc') tags.push({ id: 'sortKm', label: `Sort Mileage: ${filters.sortKm}`, clear: () => setFilters(f => ({ ...f, sortKm: 'desc' })) });
+    if (filters.sortPrice && filters.sortPrice !== 'asc') tags.push({ id: 'sortPrice', label: `Sort Price: ${filters.sortPrice}`, clear: () => setFilters(f => ({ ...f, sortPrice: 'asc' })) });
+    if (filters.sortKm && filters.sortKm !== 'asc') tags.push({ id: 'sortKm', label: `Sort Mileage: ${filters.sortKm}`, clear: () => setFilters(f => ({ ...f, sortKm: 'asc' })) });
     if (filters.isSold !== 'false') tags.push({ id: 'isSold', label: t('showSold'), clear: () => setFilters(f => ({ ...f, isSold: 'false' })) });
     if (showFavsOnly) tags.push({ id: 'showFavsOnly', label: t('showFavsOnly'), clear: () => setShowFavsOnly(false) });
     
@@ -176,8 +176,8 @@ const CarsPage = ({
   const hasActiveSort = !!(
     (filters.sortTitle && filters.sortTitle !== 'asc') || 
     (filters.sortYear && filters.sortYear !== 'desc') || 
-    (filters.sortPrice && filters.sortPrice !== 'desc') || 
-    (filters.sortKm && filters.sortKm !== 'desc')
+    (filters.sortPrice && filters.sortPrice !== 'asc') || 
+    (filters.sortKm && filters.sortKm !== 'asc')
   );
 
   return (

@@ -39,8 +39,8 @@ function App() {
     limit: '100',
     sortTitle: 'asc',
     sortYear: 'desc',
-    sortPrice: 'desc',
-    sortKm: 'desc',
+    sortPrice: 'asc',
+    sortKm: 'asc',
   });
   const [localTitle, setLocalTitle] = useState('');
   const [showFavsOnly, setShowFavsOnly] = useState(false);
