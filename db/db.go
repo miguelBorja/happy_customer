@@ -79,9 +79,12 @@ func (d *DB) migrate() error {
 			"ALTER TABLE cars ADD COLUMN seller_name TEXT DEFAULT ''",
 			"ALTER TABLE cars ADD COLUMN seller_phone TEXT DEFAULT ''",
 			"ALTER TABLE cars ADD COLUMN seller_address TEXT DEFAULT ''",
+			"ALTER TABLE cars ADD COLUMN comment TEXT DEFAULT ''",
 		} {
 			d.Exec(col) // ignore errors (column already exists)
 		}
+	} else if d.DriverName == "postgres" {
+		d.Exec("ALTER TABLE cars ADD COLUMN IF NOT EXISTS comment TEXT DEFAULT ''")
 	}
 	return nil
 }
@@ -153,6 +156,7 @@ CREATE TABLE IF NOT EXISTS cars (
     seller_name                  TEXT DEFAULT '',
     seller_phone                 TEXT DEFAULT '',
     seller_address               TEXT DEFAULT '',
+    comment                      TEXT DEFAULT '',
     is_sold                      INTEGER DEFAULT 0,
     scraped_at                   DATETIME,
     last_seen_at                 DATETIME,

@@ -129,7 +129,17 @@ const FavoritesPage = ({ viewMode, setViewMode }) => {
                         ★
                       </button>
                     </td>
-                    <td style={{ fontWeight: '500' }}>{car.Title}</td>
+                    <td style={{ fontWeight: '500' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', flexWrap: 'wrap' }}>
+                        {car.Title}
+                        {car.Comment && (
+                          <span className="tooltip-container" tabIndex={0}>
+                            💬
+                            <span className="tooltip-text">"{car.Comment}"</span>
+                          </span>
+                        )}
+                      </span>
+                    </td>
                     <td>{car.Brand}</td>
                     <td>{car.Year}</td>
                     <td style={{ color: 'var(--success)', fontWeight: '600' }}>

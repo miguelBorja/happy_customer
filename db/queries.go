@@ -35,6 +35,7 @@ type Car struct {
 	SellerName          string
 	SellerPhone         string
 	SellerAddress       string
+	Comment             string
 	Equipments          map[string]bool
 	IsSold              bool
 	ScrapedAt           time.Time
@@ -57,7 +58,7 @@ func (d *DB) UpsertCar(car Car) error {
 		equip_retrovisores, equip_revision_tecnica, equip_sensor_lluvia, equip_sensores_retroceso,
 		equip_sensores_frontales, equip_sunroof, equip_tapiceria_cuero, equip_turbo,
 		equip_vidrios_electricos, equip_vidrios_tintados, equip_volante_ajustable, equip_volante_multifuncional,
-		seller_name, seller_phone, seller_address,
+		seller_name, seller_phone, seller_address, comment,
 		scraped_at, last_seen_at
 	) VALUES (
 		?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
@@ -72,17 +73,36 @@ func (d *DB) UpsertCar(car Car) error {
 		?, ?, ?, ?,
 		?, ?, ?, ?,
 		?, ?, ?, ?,
-		?, ?, ?,
+		?, ?, ?, ?,
 		?, ?
 	)
 	ON CONFLICT(url) DO UPDATE SET
+		title=excluded.title,
+		brand=excluded.brand,
+		model=excluded.model,
+		year=excluded.year,
 		price=excluded.price,
 		price_text=excluded.price_text,
-		kilometraje=excluded.kilometraje,
+		pasajeros=excluded.pasajeros,
+		puertas=excluded.puertas,
+		cilindrada=excluded.cilindrada,
+		color_exterior=excluded.color_exterior,
+		color_interior=excluded.color_interior,
+		combustible=excluded.combustible,
 		estado=excluded.estado,
+		estilo=excluded.estilo,
+		fecha_ingreso=excluded.fecha_ingreso,
+		kilometraje=excluded.kilometraje,
+		placa=excluded.placa,
+		precio_negociable=excluded.precio_negociable,
+		provincia=excluded.provincia,
+		se_recibe=excluded.se_recibe,
+		transmision=excluded.transmision,
+		pago_impuestos=excluded.pago_impuestos,
 		seller_name=excluded.seller_name,
 		seller_phone=excluded.seller_phone,
 		seller_address=excluded.seller_address,
+		comment=excluded.comment,
 		is_sold=0,
 		last_seen_at=excluded.last_seen_at,
 		sold_at=NULL;
@@ -108,7 +128,7 @@ func (d *DB) UpsertCar(car Car) error {
 		e("Retrovisores auto-retractibles"), e("Revisión Técnica al día"), e("Sensor de lluvia"), e("Sensores de retroceso"),
 		e("Sensores frontales"), e("Sunroof/techo panorámico"), e("Tapicería de cuero"), e("Turbo"),
 		e("Vidrios eléctricos"), e("Vidrios tintados"), e("Volante ajustable"), e("Volante multifuncional"),
-		car.SellerName, car.SellerPhone, car.SellerAddress,
+		car.SellerName, car.SellerPhone, car.SellerAddress, car.Comment,
 		car.ScrapedAt, car.LastSeenAt,
 	)
 	return err
@@ -238,7 +258,7 @@ func (d *DB) GetCars(f FilterParams) ([]Car, error) {
 		equip_retrovisores, equip_revision_tecnica, equip_sensor_lluvia, equip_sensores_retroceso,
 		equip_sensores_frontales, equip_sunroof, equip_tapiceria_cuero, equip_turbo,
 		equip_vidrios_electricos, equip_vidrios_tintados, equip_volante_ajustable, equip_volante_multifuncional,
-		seller_name, seller_phone, seller_address,
+		seller_name, seller_phone, seller_address, comment,
 		is_sold, scraped_at, last_seen_at, sold_at FROM cars WHERE 1=1`
 	
 	var args []interface{}
@@ -432,7 +452,7 @@ func (d *DB) GetCars(f FilterParams) ([]Car, error) {
 			&c.ColorExterior, &c.ColorInterior, &c.Combustible, &c.Estado, &c.Estilo, &c.FechaIngreso,
 			&c.Kilometraje, &c.Placa, &c.PrecioNegociable, &c.Provincia, &c.SeRecibe, &c.Transmision, &c.PagoImpuestos,
 			&e_aire_ac, &e_aire_climatizado, &e_alarma, &e_android_auto, &e_apple_carplay, &e_aros_lujo, &e_asiento_memoria, &e_asientos_electricos, &e_bluetooth, &e_bolsa_aire, &e_caja_dual, &e_cierre_central, &e_computadora, &e_control_crucero, &e_control_descenso, &e_radio_volante, &e_estabilidad, &e_camara_360, &e_camara_retroceso, &e_desempanador, &e_direccion, &e_espejos_electricos, &e_frenos_abs, &e_halogenos, &e_llave_inteligente, &e_xenon, &e_radio_usb, &e_retrovisores, &e_revision_tecnica, &e_sensor_lluvia, &e_sensores_retroceso, &e_sensores_frontales, &e_sunroof, &e_tapiceria_cuero, &e_turbo, &e_vidrios_electricos, &e_vidrios_tintados, &e_volante_ajustable, &e_volante_multifuncional,
-			&c.SellerName, &c.SellerPhone, &c.SellerAddress,
+			&c.SellerName, &c.SellerPhone, &c.SellerAddress, &c.Comment,
 			&isSold, &c.ScrapedAt, &c.LastSeenAt, &soldAt,
 		); err != nil {
 			return nil, err
@@ -583,7 +603,7 @@ func (d *DB) GetCarsByURLs(urls []string) ([]Car, error) {
 		equip_retrovisores, equip_revision_tecnica, equip_sensor_lluvia, equip_sensores_retroceso,
 		equip_sensores_frontales, equip_sunroof, equip_tapiceria_cuero, equip_turbo,
 		equip_vidrios_electricos, equip_vidrios_tintados, equip_volante_ajustable, equip_volante_multifuncional,
-		seller_name, seller_phone, seller_address,
+		seller_name, seller_phone, seller_address, comment,
 		is_sold, scraped_at, last_seen_at, sold_at FROM cars WHERE url IN (%s)
 		ORDER BY year DESC, price ASC`, strings.Join(placeholders, ","))
 
@@ -607,7 +627,7 @@ func (d *DB) GetCarsByURLs(urls []string) ([]Car, error) {
 			&c.ColorExterior, &c.ColorInterior, &c.Combustible, &c.Estado, &c.Estilo, &c.FechaIngreso,
 			&c.Kilometraje, &c.Placa, &c.PrecioNegociable, &c.Provincia, &c.SeRecibe, &c.Transmision, &c.PagoImpuestos,
 			&e_aire_ac, &e_aire_climatizado, &e_alarma, &e_android_auto, &e_apple_carplay, &e_aros_lujo, &e_asiento_memoria, &e_asientos_electricos, &e_bluetooth, &e_bolsa_aire, &e_caja_dual, &e_cierre_central, &e_computadora, &e_control_crucero, &e_control_descenso, &e_radio_volante, &e_estabilidad, &e_camara_360, &e_camara_retroceso, &e_desempanador, &e_direccion, &e_espejos_electricos, &e_frenos_abs, &e_halogenos, &e_llave_inteligente, &e_xenon, &e_radio_usb, &e_retrovisores, &e_revision_tecnica, &e_sensor_lluvia, &e_sensores_retroceso, &e_sensores_frontales, &e_sunroof, &e_tapiceria_cuero, &e_turbo, &e_vidrios_electricos, &e_vidrios_tintados, &e_volante_ajustable, &e_volante_multifuncional,
-			&c.SellerName, &c.SellerPhone, &c.SellerAddress,
+			&c.SellerName, &c.SellerPhone, &c.SellerAddress, &c.Comment,
 			&isSold, &c.ScrapedAt, &c.LastSeenAt, &soldAt,
 		); err != nil {
 			return nil, err

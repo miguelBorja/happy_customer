@@ -414,7 +414,17 @@ const CarsPage = ({
                             {carIsNew && <span className="new-badge-inline">{t('newBadge')}</span>}
                           </span>
                         </td>
-                        <td style={{ fontWeight: '500' }}>{car.Title}</td>
+                        <td style={{ fontWeight: '500' }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', flexWrap: 'wrap' }}>
+                            {car.Title}
+                            {car.Comment && (
+                              <span className="tooltip-container" tabIndex={0}>
+                                💬
+                                <span className="tooltip-text">"{car.Comment}"</span>
+                              </span>
+                            )}
+                          </span>
+                        </td>
                         <td>{car.Brand}</td>
                         <td>{car.Year}</td>
                         <td style={{ color: 'var(--success)', fontWeight: '600' }}>
@@ -465,7 +475,15 @@ const CarsPage = ({
                         <div className="top-car-mobile-title">
                           <span className="top-car-mobile-rank">#{idx + 1}</span>
                           {carIsNew && <span className="badge-inline new" style={{ marginLeft: '0.5rem' }}>{t('newBadge')}</span>}
-                          <span style={{ marginTop: '0.25rem' }}>{car.Title}</span>
+                          <span style={{ marginTop: '0.25rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                            {car.Title}
+                            {car.Comment && (
+                              <span className="tooltip-container" tabIndex={0}>
+                                💬
+                                <span className="tooltip-text">"{car.Comment}"</span>
+                              </span>
+                            )}
+                          </span>
                         </div>
                       </div>
 

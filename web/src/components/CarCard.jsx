@@ -59,6 +59,22 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice }) => {
           </div>
         </div>
         
+        {car.Comment && (
+          <div style={{ 
+            margin: '0.75rem 0 0.5rem 0', 
+            padding: '0.5rem 0.75rem', 
+            background: 'rgba(23, 112, 1, 0.12)', 
+            borderLeft: '3px solid #177001', 
+            borderRadius: '4px',
+            fontSize: '0.85rem',
+            fontStyle: 'italic',
+            color: 'var(--text-main)',
+            lineHeight: '1.4'
+          }}>
+            "{car.Comment}"
+          </div>
+        )}
+        
         {car.Equipments && Object.keys(car.Equipments).length > 0 && (
           <div className="car-equip">
             {Object.keys(car.Equipments).slice(0, 5).map(eq => (

@@ -316,132 +316,266 @@ func (s *Scraper) worker(id int, jobs <-chan string, results chan<- db.Car) {
 			Equipments: make(map[string]bool),
 		}
 
-		container, err := wd.FindElement(selenium.ByCSSSelector, ".text-center.text-white.carheader")
-		if err == nil {
-			if h1s, err := container.FindElements(selenium.ByTagName, "h1"); err == nil && len(h1s) > 0 {
-				fullTitle, _ := h1s[0].Text()
-				car.Title, car.Brand, car.Model, car.Year = parseTitleBrandModelYear(fullTitle)
-			}
-			if h3, err := container.FindElement(selenium.ByTagName, "h3"); err == nil {
-				txt, _ := h3.Text()
-				car.PriceText = cleanText(txt)
-				car.Price = parsePrice(car.PriceText)
-			}
-		}
-
-		// Attributes
-		var table selenium.WebElement
-		var tableErr error
-		table, tableErr = wd.FindElement(selenium.ByCSSSelector, "table.mytext2")
-		if tableErr != nil {
-			tables, err := wd.FindElements(selenium.ByTagName, "table")
+		if strings.Contains(url, "/autosnuevos/") {
+			s.scrapeNewCar(wd, &car)
+		} else {
+			container, err := wd.FindElement(selenium.ByCSSSelector, ".text-center.text-white.carheader")
 			if err == nil {
-				for _, t := range tables {
-					txt, _ := t.Text()
-					if strings.Contains(txt, "Cilindrada") || strings.Contains(txt, "Combustible") {
-						table = t
-						tableErr = nil
+				if h1s, err := container.FindElements(selenium.ByTagName, "h1"); err == nil && len(h1s) > 0 {
+					fullTitle, _ := h1s[0].Text()
+					car.Title, car.Brand, car.Model, car.Year = parseTitleBrandModelYear(fullTitle)
+				}
+				if h3, err := container.FindElement(selenium.ByTagName, "h3"); err == nil {
+					txt, _ := h3.Text()
+					car.PriceText = cleanText(txt)
+					car.Price = parsePrice(car.PriceText)
+				}
+			}
+
+			// Attributes
+			var table selenium.WebElement
+			var tableErr error
+			table, tableErr = wd.FindElement(selenium.ByCSSSelector, "table.mytext2")
+			if tableErr != nil {
+				tables, err := wd.FindElements(selenium.ByTagName, "table")
+				if err == nil {
+					for _, t := range tables {
+						txt, _ := t.Text()
+						if strings.Contains(txt, "Cilindrada") || strings.Contains(txt, "Combustible") {
+							table = t
+							tableErr = nil
+							break
+						}
+					}
+				}
+			}
+
+			if tableErr == nil {
+				rows, _ := table.FindElements(selenium.ByTagName, "tr")
+				for _, tr := range rows {
+					tds, _ := tr.FindElements(selenium.ByTagName, "td")
+					if len(tds) >= 2 {
+						key, _ := tds[0].Text()
+						val, _ := tds[1].Text()
+						key = cleanText(key)
+						val = cleanText(val)
+
+						switch key {
+						case "# de pasajeros":
+							car.Pasajeros = val
+						case "# de puertas":
+							car.Puertas = val
+						case "Cilindrada":
+							car.Cilindrada = val
+						case "Color exterior":
+							car.ColorExterior = val
+						case "Color interior":
+							car.ColorInterior = val
+						case "Combustible":
+							car.Combustible = val
+						case "Estado":
+							car.Estado = val
+						case "Estilo":
+							car.Estilo = val
+						case "Fecha de ingreso":
+							car.FechaIngreso = val
+						case "Kilometraje":
+							car.Kilometraje = parseKilometraje(val)
+						case "Placa":
+							car.Placa = val
+						case "Precio negociable":
+							car.PrecioNegociable = val
+						case "Provincia":
+							car.Provincia = val
+						case "Se recibe vehículo":
+							car.SeRecibe = val
+						case "Transmisión":
+							car.Transmision = val
+						case "Ya pagó impuestos":
+							car.PagoImpuestos = val
+						}
+					} else if len(tds) == 1 {
+						txt, _ := tds[0].Text()
+						txt = cleanText(txt)
+						if txt != "" && !strings.Contains(txt, "ha sido visto") {
+							car.Comment = txt
+						}
+					}
+				}
+			}
+
+			// Equipments
+			equipTables, err := wd.FindElements(selenium.ByCSSSelector, "table.table-bordered")
+			if err == nil {
+				for _, tbl := range equipTables {
+					rows, _ := tbl.FindElements(selenium.ByTagName, "tr")
+					for _, tr := range rows {
+						tds, _ := tr.FindElements(selenium.ByTagName, "td")
+						if len(tds) >= 2 {
+							key, _ := tds[0].Text()
+							if icon, err := tds[1].FindElement(selenium.ByCSSSelector, "i.icon-check"); err == nil && icon != nil {
+								car.Equipments[cleanText(key)] = true
+							}
+						}
+					}
+				}
+			}
+
+			// Vendedor (seller) info
+			vendorTables, err := wd.FindElements(selenium.ByCSSSelector, "table.table-responsive")
+			if err == nil {
+				for _, vt := range vendorTables {
+					txt, _ := vt.Text()
+					if strings.Contains(txt, "Vendedor") {
+						rows, _ := vt.FindElements(selenium.ByTagName, "tr")
+						for _, tr := range rows {
+							tds, _ := tr.FindElements(selenium.ByTagName, "td")
+							if len(tds) >= 2 {
+								key, _ := tds[0].Text()
+								val, _ := tds[1].Text()
+								key = cleanText(key)
+								val = cleanText(val)
+								switch {
+								case strings.Contains(key, "Nombre"):
+									car.SellerName = val
+								case strings.Contains(key, "Teléfono"):
+									car.SellerPhone = val
+								case strings.Contains(key, "Dirección"):
+									car.SellerAddress = val
+								}
+							}
+						}
 						break
 					}
 				}
 			}
 		}
 
-		if tableErr == nil {
-			rows, _ := table.FindElements(selenium.ByTagName, "tr")
+		results <- car
+	}
+}
+
+func (s *Scraper) scrapeNewCar(wd selenium.WebDriver, car *db.Car) {
+	car.Estado = "Nuevo"
+	car.Kilometraje = 0
+
+	// 1. Get Brand and basic Model from header (.pheader h2)
+	header, err := wd.FindElement(selenium.ByCSSSelector, ".text-center.text-white.pheader h2")
+	var brandHeader string
+	if err == nil {
+		brandHeader, _ = header.Text()
+		brandHeader = cleanText(brandHeader)
+	}
+
+	// 2. Parse Technical Specs inside #fichatecnica
+	techTable, err := wd.FindElement(selenium.ByCSSSelector, "#fichatecnica table")
+	var version, style, fuel, transmission, doors, passengers string
+	var year, price int
+	var priceText string
+
+	if err == nil {
+		rows, err := techTable.FindElements(selenium.ByTagName, "tr")
+		if err == nil {
 			for _, tr := range rows {
-				tds, _ := tr.FindElements(selenium.ByTagName, "td")
-				if len(tds) >= 2 {
+				tds, err := tr.FindElements(selenium.ByTagName, "td")
+				if err == nil && len(tds) >= 2 {
 					key, _ := tds[0].Text()
 					val, _ := tds[1].Text()
 					key = cleanText(key)
 					val = cleanText(val)
 
 					switch key {
-					case "# de pasajeros":
-						car.Pasajeros = val
-					case "# de puertas":
-						car.Puertas = val
-					case "Cilindrada":
-						car.Cilindrada = val
-					case "Color exterior":
-						car.ColorExterior = val
-					case "Color interior":
-						car.ColorInterior = val
-					case "Combustible":
-						car.Combustible = val
-					case "Estado":
-						car.Estado = val
+					case "Versión", "Version":
+						version = val
+					case "Precio":
+						priceText = val
+						price = parsePrice(val)
+					case "Año", "Año:":
+						year, _ = strconv.Atoi(val)
 					case "Estilo":
-						car.Estilo = val
-					case "Fecha de ingreso":
-						car.FechaIngreso = val
-					case "Kilometraje":
-						car.Kilometraje = parseKilometraje(val)
-					case "Placa":
-						car.Placa = val
-					case "Precio negociable":
-						car.PrecioNegociable = val
+						style = val
+					case "Combustible":
+						fuel = val
+					case "Transmisión", "Transmisión:":
+						transmission = val
+					case "# de puertas":
+						doors = val
+					case "# de pasajeros":
+						passengers = val
 					case "Provincia":
 						car.Provincia = val
-					case "Se recibe vehículo":
-						car.SeRecibe = val
-					case "Transmisión":
-						car.Transmision = val
-					case "Ya pagó impuestos":
-						car.PagoImpuestos = val
 					}
 				}
 			}
 		}
+	}
 
-		// Equipments
-		equipTables, err := wd.FindElements(selenium.ByCSSSelector, "table.table-bordered")
-		if err == nil {
-			for _, tbl := range equipTables {
-				rows, _ := tbl.FindElements(selenium.ByTagName, "tr")
-				for _, tr := range rows {
-					tds, _ := tr.FindElements(selenium.ByTagName, "td")
-					if len(tds) >= 2 {
-						key, _ := tds[0].Text()
-						if icon, err := tds[1].FindElement(selenium.ByCSSSelector, "i.icon-check"); err == nil && icon != nil {
-							car.Equipments[cleanText(key)] = true
-						}
+	// Parse Brand & Model name
+	car.Brand = ""
+	if brandHeader != "" {
+		parts := strings.Split(brandHeader, " ")
+		if len(parts) > 0 {
+			car.Brand = parts[0]
+		}
+	}
+
+	if version != "" {
+		car.Model = version
+		if car.Brand != "" {
+			car.Title = car.Brand + " " + version
+		} else {
+			car.Title = version
+		}
+	} else if brandHeader != "" {
+		car.Model = brandHeader
+		car.Title = brandHeader
+	}
+
+	if year > 0 {
+		car.Year = year
+		if car.Title != "" && !strings.Contains(car.Title, strconv.Itoa(year)) {
+			car.Title = fmt.Sprintf("%s %d", car.Title, year)
+		}
+	}
+	car.Price = price
+	car.PriceText = priceText
+	car.Estilo = style
+	car.Combustible = fuel
+	car.Transmision = transmission
+	car.Puertas = doors
+	car.Pasajeros = passengers
+
+	if car.Provincia == "" {
+		car.Provincia = "San José" // default province for agencies if not specified
+	}
+
+	// 3. Dealer (Seller) Info inside #dealer
+	dealerContainer, err := wd.FindElement(selenium.ByCSSSelector, "#dealer")
+	if err == nil {
+		if h4, err := dealerContainer.FindElement(selenium.ByTagName, "h4"); err == nil {
+			car.SellerName, _ = h4.Text()
+			car.SellerName = cleanText(car.SellerName)
+		}
+		if h5, err := dealerContainer.FindElement(selenium.ByTagName, "h5"); err == nil {
+			car.SellerAddress, _ = h5.Text()
+			car.SellerAddress = cleanText(car.SellerAddress)
+		}
+		// Search for telephone number in table rows
+		if rows, err := dealerContainer.FindElements(selenium.ByTagName, "tr"); err == nil {
+			for _, tr := range rows {
+				tds, err := tr.FindElements(selenium.ByTagName, "td")
+				if err == nil && len(tds) >= 2 {
+					k, _ := tds[0].Text()
+					v, _ := tds[1].Text()
+					k = cleanText(k)
+					v = cleanText(v)
+					if strings.Contains(k, "Telef") || strings.Contains(k, "Teléfono") || strings.Contains(k, "Celular") {
+						car.SellerPhone = v
+						break
 					}
 				}
 			}
 		}
-
-		// Vendedor (seller) info
-		vendorTables, err := wd.FindElements(selenium.ByCSSSelector, "table.table-responsive")
-		if err == nil {
-			for _, vt := range vendorTables {
-				txt, _ := vt.Text()
-				if strings.Contains(txt, "Vendedor") {
-					rows, _ := vt.FindElements(selenium.ByTagName, "tr")
-					for _, tr := range rows {
-						tds, _ := tr.FindElements(selenium.ByTagName, "td")
-						if len(tds) >= 2 {
-							key, _ := tds[0].Text()
-							val, _ := tds[1].Text()
-							key = cleanText(key)
-							val = cleanText(val)
-							switch {
-							case strings.Contains(key, "Nombre"):
-								car.SellerName = val
-							case strings.Contains(key, "Teléfono"):
-								car.SellerPhone = val
-							case strings.Contains(key, "Dirección"):
-								car.SellerAddress = val
-							}
-						}
-					}
-					break
-				}
-			}
-		}
-
-		results <- car
 	}
 }
 

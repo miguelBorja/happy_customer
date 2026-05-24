@@ -1717,3 +1717,66 @@ body {
   font-size: 0.85rem;
 }
 
+/* Tooltip styling for owner's comments in tables */
+.tooltip-container {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.5rem;
+  cursor: pointer;
+  outline: none;
+  font-size: 0.9rem;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+  user-select: none;
+}
+
+.tooltip-container:hover,
+.tooltip-container:focus {
+  opacity: 1;
+}
+
+.tooltip-text {
+  visibility: hidden;
+  position: absolute;
+  bottom: 130%;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #1e293b;
+  color: #f8fafc;
+  text-align: left;
+  padding: 0.6rem 0.85rem;
+  border-radius: 8px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+  border: 1px solid #177001;
+  font-size: 0.8rem;
+  font-weight: normal;
+  font-style: italic;
+  white-space: normal;
+  width: 220px;
+  z-index: 100;
+  opacity: 0;
+  transition: opacity 0.15s ease-out, visibility 0.15s;
+  pointer-events: none;
+  line-height: 1.4;
+}
+
+/* Tooltip arrow */
+.tooltip-text::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -6px;
+  border-width: 6px;
+  border-style: solid;
+  border-color: #177001 transparent transparent transparent;
+}
+
+.tooltip-container:hover .tooltip-text,
+.tooltip-container:focus .tooltip-text {
+  visibility: visible;
+  opacity: 1;
+}
+
+
