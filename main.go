@@ -17,6 +17,7 @@ func main() {
 	scrapeFlag := flag.Bool("scrape", true, "Run the scraper")
 	serveFlag := flag.Bool("serve", true, "Run the API server")
 	backfillFlag := flag.Bool("backfill", false, "Backfill seller info for existing cars")
+	backfillCommentsFlag := flag.Bool("backfill-comments", false, "Backfill comments for active cars")
 	portFlag := flag.String("port", "8080", "Port for the API server")
 	migrateFlag := flag.Bool("migrate", false, "Migrate all data from local SQLite (cars.db) to Supabase")
 	flag.Parse()
@@ -104,7 +105,7 @@ func main() {
 	}
 	defer database.Close()
 
-	if *scrapeFlag || *backfillFlag {
+	if *scrapeFlag || *backfillFlag || *backfillCommentsFlag {
 		runScraper := func() {
 			s, err := scraper.NewScraper(scraper.ChromeDriverPath, scraper.SeleniumPort, database)
 			if err != nil {
@@ -115,6 +116,10 @@ func main() {
 			if *backfillFlag {
 				log.Println("Starting seller backfill...")
 				s.BackfillSellers()
+			}
+			if *backfillCommentsFlag {
+				log.Println("Starting comment backfill...")
+				s.BackfillComments()
 			}
 			if *scrapeFlag {
 				log.Println("Starting scraper...")

@@ -2,12 +2,15 @@ package scraper
 
 import (
 	"fmt"
+	"html"
 	"io"
 	"log"
+	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"crautosdb/db"
@@ -149,6 +152,103 @@ func (s *Scraper) BackfillSellers() {
 	log.Printf("Backfill complete. Processed %d cars.", len(urls))
 }
 
+func (s *Scraper) BackfillComments() {
+	urls, err := s.DB.GetURLsWithoutComment()
+	if err != nil {
+		log.Printf("Error getting URLs without comment: %v", err)
+		return
+	}
+	if len(urls) == 0 {
+		log.Println("All active cars already have comments checked. Nothing to backfill.")
+		return
+	}
+	log.Printf("Backfilling comments for %d cars...", len(urls))
+
+	jobs := make(chan string, len(urls))
+	for _, url := range urls {
+		jobs <- url
+	}
+	close(jobs)
+
+	// Regexes for comment extraction
+	reTable := regexp.MustCompile(`background-color:\s*#177001[^>]*>([^<]+)</td>`)
+	reBgColor := regexp.MustCompile(`bgcolor="#FAF7B4"[^>]*>([^<]+)</td>`)
+
+	var wg sync.WaitGroup
+	// Limit concurrency to 30 workers
+	workerCount := 30
+	var successCount uint64
+	var noCommentCount uint64
+	var totalChecked uint64
+
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	for i := 0; i < workerCount; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for url := range jobs {
+				req, err := http.NewRequest("GET", url, nil)
+				if err != nil {
+					continue
+				}
+				req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+
+				resp, err := client.Do(req)
+				if err != nil {
+					log.Printf("Error fetching %s: %v", url, err)
+					continue
+				}
+
+				bodyBytes, err := io.ReadAll(resp.Body)
+				resp.Body.Close()
+				if err != nil {
+					continue
+				}
+
+				body := string(bodyBytes)
+				comment := "-"
+
+				match := reTable.FindStringSubmatch(body)
+				if len(match) > 1 {
+					comment = strings.TrimSpace(match[1])
+				} else {
+					match2 := reBgColor.FindStringSubmatch(body)
+					if len(match2) > 1 {
+						comment = strings.TrimSpace(match2[1])
+					}
+				}
+
+				comment = html.UnescapeString(comment)
+
+				// Save/Update the comment in the database
+				q := `UPDATE cars SET comment=? WHERE url=?`
+				_, err = s.DB.Exec(s.DB.QueryFormat(q), comment, url)
+				if err != nil {
+					log.Printf("Error updating comment for %s: %v", url, err)
+				} else {
+					if comment != "-" {
+						atomic.AddUint64(&successCount, 1)
+					} else {
+						atomic.AddUint64(&noCommentCount, 1)
+					}
+				}
+
+				currTotal := atomic.AddUint64(&totalChecked, 1)
+				if currTotal%100 == 0 {
+					log.Printf("Progress: %d/%d cars checked for comments (Found: %d, None: %d)", currTotal, len(urls), atomic.LoadUint64(&successCount), atomic.LoadUint64(&noCommentCount))
+				}
+			}
+		}()
+	}
+
+	wg.Wait()
+	log.Printf("Comment backfill complete. Checked %d cars. Found comments for %d cars. No comment for %d cars.", len(urls), successCount, noCommentCount)
+}
+
+
 func (s *Scraper) ProcessBrand(brandName, brandID string) {
 	var activeURLs []string
 	var err error
@@ -266,7 +366,7 @@ func (s *Scraper) producer(brandName, brandID string, jobs chan<- string, active
 		if err == nil {
 			for _, el := range elements {
 				href, _ := el.GetAttribute("href")
-				if href != "" {
+				if href != "" && (strings.HasPrefix(href, "http") || strings.Contains(href, "cardetail.cfm")) {
 					seenUrls[href] = true
 					// Always scrape if not active to ensure we get updates or new cars
 					if !active[href] {
@@ -314,6 +414,7 @@ func (s *Scraper) worker(id int, jobs <-chan string, results chan<- db.Car) {
 			ScrapedAt:  time.Now(),
 			LastSeenAt: time.Now(),
 			Equipments: make(map[string]bool),
+			Comment:    "-",
 		}
 
 		if strings.Contains(url, "/autosnuevos/") {

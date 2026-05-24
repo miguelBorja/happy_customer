@@ -189,3 +189,8 @@ func (d *DB) queryFormat(query string) string {
 	}
 	return sb.String()
 }
+
+// QueryFormat is a public wrapper around queryFormat to allow other packages to format placeholder queries.
+func (d *DB) QueryFormat(query string) string {
+	return d.queryFormat(query)
+}

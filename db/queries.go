@@ -212,6 +212,26 @@ func (d *DB) GetURLsWithoutSeller() ([]string, error) {
 	return urls, nil
 }
 
+func (d *DB) GetURLsWithoutComment() ([]string, error) {
+	q := `SELECT url FROM cars WHERE is_sold=0 AND (comment='' OR comment IS NULL)`
+	rows, err := d.Query(d.queryFormat(q))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var urls []string
+	for rows.Next() {
+		var u string
+		if err := rows.Scan(&u); err != nil {
+			return nil, err
+		}
+		urls = append(urls, u)
+	}
+	return urls, nil
+}
+
+
 func (d *DB) UpdateSeller(url, name, phone, address string) error {
 	q := `UPDATE cars SET seller_name=?, seller_phone=?, seller_address=? WHERE url=?`
 	_, err := d.Exec(d.queryFormat(q), name, phone, address, url)
@@ -462,6 +482,9 @@ func (d *DB) GetCars(f FilterParams) ([]Car, error) {
 		if soldAt.Valid {
 			c.SoldAt = &soldAt.Time
 		}
+		if c.Comment == "-" {
+			c.Comment = ""
+		}
 		
 		if e_aire_ac == 1 { eMap["Aire acondicionado"] = true }
 		if e_aire_climatizado == 1 { eMap["Aire acondicionado climatizado"] = true }
@@ -636,6 +659,9 @@ func (d *DB) GetCarsByURLs(urls []string) ([]Car, error) {
 		c.IsSold = isSold == 1
 		if soldAt.Valid {
 			c.SoldAt = &soldAt.Time
+		}
+		if c.Comment == "-" {
+			c.Comment = ""
 		}
 
 		if e_aire_ac == 1 { eMap["Aire acondicionado"] = true }
