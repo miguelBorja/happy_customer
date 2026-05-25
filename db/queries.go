@@ -108,6 +108,11 @@ func (d *DB) UpsertCar(car Car) error {
 		sold_at=NULL;
 	`
 	
+	car.Title = cleanString(car.Title)
+	car.Brand = cleanString(car.Brand)
+	car.Model = cleanString(car.Model)
+	car.Comment = CleanComment(car.Comment)
+
 	e := func(key string) int {
 		if car.Equipments[key] {
 			return 1
@@ -235,6 +240,13 @@ func (d *DB) GetURLsWithoutComment() ([]string, error) {
 func (d *DB) UpdateSeller(url, name, phone, address string) error {
 	q := `UPDATE cars SET seller_name=?, seller_phone=?, seller_address=? WHERE url=?`
 	_, err := d.Exec(d.queryFormat(q), name, phone, address, url)
+	return err
+}
+
+func (d *DB) UpdateComment(url, comment string) error {
+	cleaned := CleanComment(comment)
+	q := `UPDATE cars SET comment=? WHERE url=?`
+	_, err := d.Exec(d.queryFormat(q), cleaned, url)
 	return err
 }
 

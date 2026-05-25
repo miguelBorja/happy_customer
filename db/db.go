@@ -3,7 +3,9 @@ package db
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"strings"
+	"unicode"
 
 	_ "github.com/lib/pq"
 	_ "modernc.org/sqlite"
@@ -60,7 +62,14 @@ func Init(path string) (*DB, error) {
 		DB:         sqlDB,
 		DriverName: driverName,
 	}
-	return d, d.migrate()
+	if err := d.migrate(); err != nil {
+		sqlDB.Close()
+		return nil, err
+	}
+	if err := d.CleanUpData(); err != nil {
+		log.Printf("Warning: startup database cleanup failed: %v", err)
+	}
+	return d, nil
 }
 
 func (d *DB) migrate() error {
@@ -193,4 +202,94 @@ func (d *DB) queryFormat(query string) string {
 // QueryFormat is a public wrapper around queryFormat to allow other packages to format placeholder queries.
 func (d *DB) QueryFormat(query string) string {
 	return d.queryFormat(query)
+}
+
+func cleanString(s string) string {
+	return strings.Join(strings.Fields(s), " ")
+}
+
+func CleanComment(comment string) string {
+	c := strings.TrimSpace(comment)
+	if c == "" {
+		return ""
+	}
+	for _, r := range c {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			return c
+		}
+	}
+	return ""
+}
+
+func (d *DB) CleanUpData() error {
+	rows, err := d.Query("SELECT url, title, comment FROM cars")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	type updateInfo struct {
+		url     string
+		title   string
+		brand   string
+		model   string
+		comment string
+	}
+	var updates []updateInfo
+
+	for rows.Next() {
+		var url, title, comment string
+		if err := rows.Scan(&url, &title, &comment); err != nil {
+			return err
+		}
+
+		cleanedTitle := cleanString(title)
+		cleanedComment := CleanComment(comment)
+
+		if cleanedTitle != title || cleanedComment != comment {
+			// Extract brand and model from cleaned title
+			parts := strings.Fields(cleanedTitle)
+			brand := ""
+			model := ""
+			if len(parts) > 0 {
+				brand = parts[0]
+				if len(parts) > 1 {
+					model = parts[1]
+				}
+			}
+			updates = append(updates, updateInfo{
+				url:     url,
+				title:   cleanedTitle,
+				brand:   brand,
+				model:   model,
+				comment: cleanedComment,
+			})
+		}
+	}
+
+	if len(updates) > 0 {
+		log.Printf("[DB] Found %d cars needing title/comment cleanups. Updating in database...", len(updates))
+		tx, err := d.Begin()
+		if err != nil {
+			return err
+		}
+		defer tx.Rollback()
+
+		stmt, err := tx.Prepare(d.queryFormat("UPDATE cars SET title=?, brand=?, model=?, comment=? WHERE url=?"))
+		if err != nil {
+			return err
+		}
+		defer stmt.Close()
+
+		for _, u := range updates {
+			if _, err := stmt.Exec(u.title, u.brand, u.model, u.comment, u.url); err != nil {
+				return err
+			}
+		}
+		if err := tx.Commit(); err != nil {
+			return err
+		}
+		log.Printf("[DB] Successfully cleaned up %d records.", len(updates))
+	}
+	return nil
 }

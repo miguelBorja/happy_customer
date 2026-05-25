@@ -224,12 +224,11 @@ func (s *Scraper) BackfillComments() {
 				comment = html.UnescapeString(comment)
 
 				// Save/Update the comment in the database
-				q := `UPDATE cars SET comment=? WHERE url=?`
-				_, err = s.DB.Exec(s.DB.QueryFormat(q), comment, url)
+				err = s.DB.UpdateComment(url, comment)
 				if err != nil {
 					log.Printf("Error updating comment for %s: %v", url, err)
 				} else {
-					if comment != "-" {
+					if db.CleanComment(comment) != "" {
 						atomic.AddUint64(&successCount, 1)
 					} else {
 						atomic.AddUint64(&noCommentCount, 1)
@@ -722,15 +721,19 @@ func cleanText(text string) string {
 }
 
 func parseTitleBrandModelYear(text string) (title, brand, model string, year int) {
-	title = cleanText(text)
-	parts := strings.Split(title, " ")
+	cleaned := cleanText(text)
+	parts := strings.Fields(cleaned)
 	if len(parts) > 1 {
 		y, err := strconv.Atoi(parts[len(parts)-1])
 		if err == nil && y > 1900 && y < 2100 {
 			year = y
 			title = strings.Join(parts[:len(parts)-1], " ")
 			parts = parts[:len(parts)-1]
+		} else {
+			title = strings.Join(parts, " ")
 		}
+	} else if len(parts) == 1 {
+		title = parts[0]
 	}
 	if len(parts) > 0 {
 		brand = parts[0]
