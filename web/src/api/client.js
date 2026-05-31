@@ -56,3 +56,45 @@ export const fetchCarsByUrls = async (urls) => {
   if (!res.ok) throw new Error('Failed to fetch favorites');
   return res.json();
 };
+
+export const compareWithAI = async (car1, car2, language, onChunk, signal) => {
+  const res = await fetch(`${BASE_URL}/ai/compare`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ car1, car2, language }),
+    signal,
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(errText || 'Failed to compare cars');
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    const text = decoder.decode(value, { stream: true });
+    const lines = text.split('\n');
+
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        const data = line.slice(6).trim();
+        if (data === '[DONE]') return;
+
+        try {
+          const parsed = JSON.parse(data);
+          const content = parsed.choices?.[0]?.delta?.content;
+          if (content) {
+            onChunk(content);
+          }
+        } catch (e) {
+          // Ignore partial JSON chunks
+        }
+      }
+    }
+  }
+};

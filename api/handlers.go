@@ -1,9 +1,13 @@
 package api
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 
@@ -215,4 +219,156 @@ func (s *Server) HandleCarsByURLs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json.NewEncoder(w).Encode(cars)
+}
+
+func (s *Server) HandleAICompare(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	apiKey := os.Getenv("OPENROUTER_API_KEY")
+	if apiKey == "" {
+		log.Println("[API ERROR] OPENROUTER_API_KEY environment variable is not set")
+		http.Error(w, "AI service not configured", http.StatusInternalServerError)
+		return
+	}
+
+	var body struct {
+		Car1     map[string]interface{} `json:"car1"`
+		Car2     map[string]interface{} `json:"car2"`
+		Language string                 `json:"language"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "Invalid JSON body", http.StatusBadRequest)
+		return
+	}
+
+	lang := "Spanish"
+	if body.Language == "en" {
+		lang = "English"
+	}
+
+	car1Name, _ := body.Car1["Title"].(string)
+	car1YearVal, _ := body.Car1["Year"].(float64)
+	car1Year := int(car1YearVal)
+
+	car2Name, _ := body.Car2["Title"].(string)
+	car2YearVal, _ := body.Car2["Year"].(float64)
+	car2Year := int(car2YearVal)
+
+	car1JSON, _ := json.MarshalIndent(body.Car1, "", "  ")
+	car2JSON, _ := json.MarshalIndent(body.Car2, "", "  ")
+
+	labelCar1 := "Carro 1"
+	labelCar2 := "Carro 2"
+	hResumen := "Resumen"
+	hDiferencias := "Diferencias Clave"
+	hProsContras := "Pros & Contras"
+	hGanador := "GANADOR"
+
+	if body.Language == "en" {
+		labelCar1 = "Car 1"
+		labelCar2 = "Car 2"
+		hResumen = "Summary"
+		hDiferencias = "Key Differences"
+		hProsContras = "Pros & Cons"
+		hGanador = "WINNER"
+	}
+
+	prompt := fmt.Sprintf(`You are an expert automotive advisor specializing in the Costa Rican used car market. Compare these two cars and respond entirely in %[1]s.
+Keep your response extremely concise, direct, and fact-focused. Avoid conversational fluff or general introductions.
+
+You MUST refer to the cars exactly as "%[8]s" (which is %[2]s %[3]d) and "%[9]s" (which is %[4]s %[5]d) throughout your entire response. Never use Spanish terms like "Carro 1" or "Carro 2" when the language is English, and never translate or deviate from "%[8]s" and "%[9]s".
+
+CAR 1: %[2]s (%[3]d)
+%[6]s
+
+CAR 2: %[4]s (%[5]d)
+%[7]s
+
+Provide the comparison in these exact, short sections:
+
+1. **\U0001F4CA %[10]s**: A single sentence comparing both vehicles.
+2. **\u2699\uFE0F %[11]s**: 3-4 bullet points highlighting the main trade-offs (price vs year/mileage, key features).
+3. **\u2705 %[12]s**:
+   - *%[8]s (%[2]s)*: 2 key pros / 1 con.
+   - *%[9]s (%[4]s)*: 2 key pros / 1 con.
+4. **\U0001F3C6 %[13]s**: Clearly declare the WINNER and justify it in 2-3 sentences max.`, 
+		lang, car1Name, car1Year, car2Name, car2Year, string(car1JSON), string(car2JSON),
+		labelCar1, labelCar2, hResumen, hDiferencias, hProsContras, hGanador)
+
+	openRouterBody := map[string]interface{}{
+		"model": "google/gemini-2.5-flash",
+		"messages": []map[string]string{
+			{"role": "user", "content": prompt},
+		},
+		"stream": true,
+	}
+
+	reqBody, err := json.Marshal(openRouterBody)
+	if err != nil {
+		http.Error(w, "Failed to marshal request", http.StatusInternalServerError)
+		return
+	}
+
+	req, err := http.NewRequest("POST", "https://openrouter.ai/api/v1/chat/completions", bytes.NewReader(reqBody))
+	if err != nil {
+		http.Error(w, "Failed to create request", http.StatusInternalServerError)
+		return
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("HTTP-Referer", "https://happy-customer.app")
+	req.Header.Set("X-Title", "Happy Customer")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("[API ERROR] OpenRouter request failed: %v", err)
+		http.Error(w, "Failed to call AI API", http.StatusInternalServerError)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		errBody, _ := io.ReadAll(resp.Body)
+		log.Printf("[API ERROR] OpenRouter returned %d: %s", resp.StatusCode, string(errBody))
+		http.Error(w, fmt.Sprintf("AI API error: %d", resp.StatusCode), resp.StatusCode)
+		return
+	}
+
+	// Stream SSE response to client
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "Streaming not supported", http.StatusInternalServerError)
+		return
+	}
+
+	buf := make([]byte, 4096)
+	for {
+		n, err := resp.Body.Read(buf)
+		if n > 0 {
+			w.Write(buf[:n])
+			flusher.Flush()
+		}
+		if err != nil {
+			break
+		}
+	}
 }

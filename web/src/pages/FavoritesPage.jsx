@@ -6,7 +6,7 @@ import CarCard from '../components/CarCard';
 import MileageBar from '../components/MileageBar';
 import { useLanguage } from '../context/LanguageContext';
 
-const FavoritesPage = ({ viewMode, setViewMode }) => {
+const FavoritesPage = ({ viewMode, setViewMode, selectedCars = [], toggleSelectCar }) => {
   const [cars, setCars] = useState([]);
   const [loading, setLoading] = useState(true);
   const { isFavorite, toggleFavorite, favCount, getAllUrls } = useFavorites();
@@ -98,6 +98,8 @@ const FavoritesPage = ({ viewMode, setViewMode }) => {
                 isNew={isNew(car.URL)}
                 isFav={true}
                 onToggleFav={toggleFavorite}
+                isSelected={selectedCars.some(c => c.URL === car.URL)}
+                onToggleSelect={toggleSelectCar}
               />
             ))}
           </div>
@@ -106,6 +108,7 @@ const FavoritesPage = ({ viewMode, setViewMode }) => {
             <table className="data-table">
               <thead>
                 <tr>
+                  <th></th>
                   <th></th>
                   <th>{t('title')}</th>
                   <th>{t('brand')}</th>
@@ -118,17 +121,30 @@ const FavoritesPage = ({ viewMode, setViewMode }) => {
                 </tr>
               </thead>
               <tbody>
-                {displayCars.map(car => (
-                  <tr key={car.URL} className={car.IsSold ? 'sold-row' : ''}>
-                    <td>
-                      <button
-                        className="fav-btn-table active"
-                        onClick={() => toggleFavorite(car.URL)}
-                        title={t('noFavoritesText')}
-                      >
-                        ★
-                      </button>
-                    </td>
+                {displayCars.map(car => {
+                  const carIsSelected = selectedCars.some(c => c.URL === car.URL);
+                  return (
+                    <tr key={car.URL} className={`${car.IsSold ? 'sold-row' : ''} ${carIsSelected ? 'selected' : ''}`}>
+                      <td>
+                        {toggleSelectCar && (
+                          <button
+                            className={`car-select-btn-table ${carIsSelected ? 'selected' : ''}`}
+                            onClick={() => toggleSelectCar(car)}
+                            title={carIsSelected ? t('deselectCar') : t('selectToCompare')}
+                          >
+                            {carIsSelected ? '☑' : '☐'}
+                          </button>
+                        )}
+                      </td>
+                      <td>
+                        <button
+                          className="fav-btn-table active"
+                          onClick={() => toggleFavorite(car.URL)}
+                          title={t('noFavoritesText')}
+                        >
+                          ★
+                        </button>
+                      </td>
                     <td style={{ fontWeight: '500' }}>
                       <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', flexWrap: 'wrap' }}>
                         {car.Title}
@@ -164,8 +180,9 @@ const FavoritesPage = ({ viewMode, setViewMode }) => {
                       </a>
                     </td>
                   </tr>
-                ))}
-              </tbody>
+                );
+              })}
+            </tbody>
             </table>
           </div>
         </>

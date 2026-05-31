@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import CarsPage from './pages/CarsPage';
 import FavoritesPage from './pages/FavoritesPage';
 import AboutPage from './pages/AboutPage';
+import CompareModal from './components/CompareModal';
 import { fetchStats } from './api/client';
 import { useFavorites } from './hooks/useFavorites';
 import { useLanguage } from './context/LanguageContext';
@@ -44,6 +45,27 @@ function App() {
   });
   const [localTitle, setLocalTitle] = useState('');
   const [showFavsOnly, setShowFavsOnly] = useState(false);
+  const [selectedCars, setSelectedCars] = useState([]);
+  const [isCompareOpen, setIsCompareOpen] = useState(false);
+
+  const toggleSelectCar = (car) => {
+    setSelectedCars((prev) => {
+      const exists = prev.some((c) => c.URL === car.URL);
+      if (exists) {
+        return prev.filter((c) => c.URL !== car.URL);
+      } else {
+        if (prev.length >= 2) {
+          alert(t('maxCarsSelected'));
+          return prev;
+        }
+        return [...prev, car];
+      }
+    });
+  };
+
+  const clearSelection = () => {
+    setSelectedCars([]);
+  };
 
   useEffect(() => {
     fetchStats().then(setStats).catch(console.error);
@@ -57,7 +79,15 @@ function App() {
 
   const renderPage = () => {
     switch (activeTab) {
-      case 'favorites': return <FavoritesPage viewMode={viewMode} setViewMode={handleSetViewMode} />;
+      case 'favorites': 
+        return (
+          <FavoritesPage 
+            viewMode={viewMode} 
+            setViewMode={handleSetViewMode} 
+            selectedCars={selectedCars}
+            toggleSelectCar={toggleSelectCar}
+          />
+        );
       case 'about': return <AboutPage />;
       default: 
         return (
@@ -70,6 +100,8 @@ function App() {
             setShowFavsOnly={setShowFavsOnly}
             viewMode={viewMode}
             setViewMode={handleSetViewMode}
+            selectedCars={selectedCars}
+            toggleSelectCar={toggleSelectCar}
           />
         );
     }
@@ -165,6 +197,42 @@ function App() {
           <span>{t('navAbout')}</span>
         </button>
       </nav>
+
+      {selectedCars.length > 0 && (
+        <div className="compare-fab">
+          <div className="compare-fab-content">
+            <span className="compare-fab-text">
+              {selectedCars.length}/2 {t('carsSelected')}
+            </span>
+            <div className="compare-fab-buttons">
+              {selectedCars.length === 2 && (
+                <button 
+                  className="compare-fab-btn" 
+                  onClick={() => setIsCompareOpen(true)}
+                >
+                  🤖 {t('compareButton')}
+                </button>
+              )}
+              <button 
+                className="compare-fab-clear" 
+                onClick={clearSelection}
+              >
+                {t('clearAll')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <CompareModal 
+        isOpen={isCompareOpen}
+        onClose={() => {
+          setIsCompareOpen(false);
+          clearSelection();
+        }}
+        car1={selectedCars[0]}
+        car2={selectedCars[1]}
+      />
     </div>
   );
 }

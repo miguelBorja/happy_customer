@@ -10,11 +10,20 @@ const formatPrice = (price, text) => {
   return text;
 };
 
-const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice }) => {
+const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, isSelected, onToggleSelect }) => {
   const { t } = useLanguage();
 
   return (
-    <div className={`car-card ${car.IsSold ? 'sold' : ''} ${isNew ? 'new-car-card' : ''} ${isFav ? 'fav-car-card' : ''}`}>
+    <div className={`car-card ${car.IsSold ? 'sold' : ''} ${isNew ? 'new-car-card' : ''} ${isFav ? 'fav-car-card' : ''} ${isSelected ? 'selected' : ''}`}>
+      {onToggleSelect && (
+        <button
+          className={`car-select-btn ${isSelected ? 'selected' : ''}`}
+          onClick={(e) => { e.stopPropagation(); onToggleSelect(car); }}
+          title={isSelected ? t('deselectCar') : t('selectToCompare')}
+        >
+          {isSelected ? '☑' : '☐'}
+        </button>
+      )}
       <button
         className={`fav-btn-card ${isFav ? 'active' : ''}`}
         onClick={(e) => { e.stopPropagation(); onToggleFav && onToggleFav(car.URL); }}
@@ -22,47 +31,36 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice }) => {
       >
         {isFav ? '★' : '☆'}
       </button>
-      
-      <div className="car-header" style={{ paddingRight: '3.5rem' }}>
-        <h3 className="car-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-          {isNew && <span className="badge-inline new">{t('newBadge')}</span>}
-          {car.IsSold && <span className="badge-inline sold">{t('soldStatus')}</span>}
-          <span>{car.Title}</span>
-        </h3>
-        <div style={{ display: 'flex', alignItems: 'baseline' }}>
-          <span className="car-price">{formatPrice(car.Price, car.PriceText)}</span>
-          {car.Price > 0 && car.PriceText.includes('¢') && (
-            <span className="car-price-muted">{car.PriceText}</span>
+
+      <div className="car-card-body">
+        <h3 className="car-title">{car.Title}</h3>
+        
+        <div className="car-specs-row">
+          <span className="spec-badge year">{car.Year}</span>
+          <span className="spec-badge price">{formatPrice(car.Price, car.PriceText)}</span>
+          {car.Kilometraje > 0 && (
+            <span className="spec-badge mileage">{car.Kilometraje.toLocaleString()} km</span>
           )}
         </div>
-        <PriceBar price={car.Price} maxPrice={maxPrice} />
-      </div>
-      
-      <div className="car-body">
-        <div className="car-stats">
-          <div className="stat">
-            <span className="stat-label">{t('year')}</span>
-            <span className="stat-value">{car.Year}</span>
-          </div>
-          <div className="stat">
-            <span className="stat-label">{t('mileageHeader').replace(' (km)', '')}</span>
-            <span className="stat-value">{car.Kilometraje > 0 ? `${car.Kilometraje.toLocaleString()} km` : 'N/A'}</span>
-            <MileageBar km={car.Kilometraje} />
-          </div>
-          <div className="stat">
-            <span className="stat-label">{t('fuel')}</span>
-            <span className="stat-value">{car.Cilindrada || 'N/A'}</span>
-          </div>
-          <div className="stat">
-            <span className="stat-label">{t('transmission')}</span>
-            <span className="stat-value">{car.Transmision || 'N/A'}</span>
-          </div>
+
+        <div className="car-bars">
+          <PriceBar price={car.Price} maxPrice={maxPrice} />
+          <MileageBar mileage={car.Kilometraje} />
         </div>
-        
+
+        <div className="car-extra-details">
+          {car.Transmision && (
+            <span className="detail-item">⚙️ {car.Transmision}</span>
+          )}
+          {car.Combustible && (
+            <span className="detail-item">⛽ {car.Combustible}</span>
+          )}
+        </div>
+
         {car.Comment && (
-          <div style={{ 
-            margin: '0.75rem 0 0.5rem 0', 
-            padding: '0.5rem 0.75rem', 
+          <div style={{
+            marginTop: '0.75rem',
+            padding: '0.45rem 0.6rem',
             background: 'rgba(23, 112, 1, 0.12)', 
             borderLeft: '3px solid #177001', 
             borderRadius: '4px',
@@ -74,14 +72,14 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice }) => {
             "{car.Comment}"
           </div>
         )}
-        
+
         {car.Equipments && Object.keys(car.Equipments).length > 0 && (
           <div className="car-equip">
             {Object.keys(car.Equipments).slice(0, 5).map(eq => (
-              <span key={eq} className="equip-badge">{eq}</span>
+              <span key={eq} className="equip-badge">{t(eq)}</span>
             ))}
             {Object.keys(car.Equipments).length > 5 && (
-              <span className="equip-badge">+{Object.keys(car.Equipments).length - 5} more</span>
+              <span className="equip-badge">+{Object.keys(car.Equipments).length - 5} {t('more')}</span>
             )}
           </div>
         )}

@@ -146,11 +146,20 @@ func main() {
 		mux.HandleFunc("/api/brands/filtered", server.HandleFilteredBrands)
 		mux.HandleFunc("/api/provinces", server.HandleProvinces)
 		mux.HandleFunc("/api/stats", server.HandleStats)
+		mux.HandleFunc("/api/ai/compare", server.HandleAICompare)
 
 		// Serve static frontend files if they exist
 		if _, err := os.Stat("web/dist"); err == nil {
 			fs := http.FileServer(http.Dir("web/dist"))
-			mux.Handle("/", fs)
+			mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+				// Disable caching for HTML entrypoints to prevent caching issues on updates
+				if r.URL.Path == "/" || r.URL.Path == "/index.html" {
+					w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+					w.Header().Set("Pragma", "no-cache")
+					w.Header().Set("Expires", "0")
+				}
+				fs.ServeHTTP(w, r)
+			})
 		} else {
 			log.Println("Warning: web/dist not found. Frontend will not be served.")
 		}

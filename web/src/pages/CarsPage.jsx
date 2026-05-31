@@ -16,7 +16,9 @@ const CarsPage = ({
   showFavsOnly,
   setShowFavsOnly,
   viewMode,
-  setViewMode
+  setViewMode,
+  selectedCars = [],
+  toggleSelectCar
 }) => {
   const [cars, setCars] = useState([]);
   const [brands, setBrands] = useState([]);
@@ -151,6 +153,15 @@ const CarsPage = ({
       tags.push({ id: 'scrapedDate', label: `Date: ${label}`, clear: () => setFilters(f => ({ ...f, scrapedFrom: '', scrapedTo: '' })) });
     }
     if (filters.limit && filters.limit !== '100') tags.push({ id: 'limit', label: `${t('limit')}: ${filters.limit}`, clear: () => setFilters(f => ({ ...f, limit: '100' })) });
+    if (filters.equipments && filters.equipments.length > 0) {
+      filters.equipments.forEach(eq => {
+        tags.push({
+          id: `eq-${eq}`,
+          label: t(eq),
+          clear: () => setFilters(f => ({ ...f, equipments: f.equipments.filter(e => e !== eq) }))
+        });
+      });
+    }
     if (filters.sortTitle && filters.sortTitle !== 'asc') tags.push({ id: 'sortTitle', label: `Sort Title: ${filters.sortTitle}`, clear: () => setFilters(f => ({ ...f, sortTitle: 'asc' })) });
     if (filters.sortYear && filters.sortYear !== 'desc') tags.push({ id: 'sortYear', label: `Sort Year: ${filters.sortYear}`, clear: () => setFilters(f => ({ ...f, sortYear: 'desc' })) });
     if (filters.sortPrice && filters.sortPrice !== 'asc') tags.push({ id: 'sortPrice', label: `Sort Price: ${filters.sortPrice}`, clear: () => setFilters(f => ({ ...f, sortPrice: 'asc' })) });
@@ -158,15 +169,7 @@ const CarsPage = ({
     if (filters.isSold !== 'false') tags.push({ id: 'isSold', label: t('showSold'), clear: () => setFilters(f => ({ ...f, isSold: 'false' })) });
     if (showFavsOnly) tags.push({ id: 'showFavsOnly', label: t('showFavsOnly'), clear: () => setShowFavsOnly(false) });
     
-    (filters.equipments || []).forEach(eq => {
-      const eqObj = commonEquipments.find(e => e.id === eq);
-      const label = eqObj ? t(eqObj.labelKey) : eq;
-      tags.push({
-        id: `equip-${eq}`,
-        label: label,
-        clear: () => setFilters(f => ({ ...f, equipments: f.equipments.filter(e => e !== eq) }))
-      });
-    });
+
     
     return tags;
   };
@@ -374,7 +377,16 @@ const CarsPage = ({
           viewMode === 'cards' ? (
             <div className="results-grid">
               {displayCars.map(car => (
-                <CarCard key={car.URL} car={car} isNew={isNew(car.URL)} isFav={isFavorite(car.URL)} onToggleFav={toggleFavorite} maxPrice={filters.priceMax ? Number(filters.priceMax) : 0} />
+                <CarCard
+                  key={car.URL}
+                  car={car}
+                  isNew={isNew(car.URL)}
+                  isFav={isFavorite(car.URL)}
+                  onToggleFav={toggleFavorite}
+                  maxPrice={filters.priceMax ? Number(filters.priceMax) : 0}
+                  isSelected={selectedCars.some(c => c.URL === car.URL)}
+                  onToggleSelect={toggleSelectCar}
+                />
               ))}
             </div>
           ) : (
@@ -382,6 +394,7 @@ const CarsPage = ({
               <table className="data-table">
                 <thead>
                   <tr>
+                    <th></th>
                     <th></th>
                     <th>{t('rank')}</th>
                     <th>{t('title')}</th>
@@ -397,8 +410,20 @@ const CarsPage = ({
                   {displayCars.map((car, idx) => {
                     const carIsNew = isNew(car.URL);
                     const carIsFav = isFavorite(car.URL);
+                    const carIsSelected = selectedCars.some(c => c.URL === car.URL);
                     return (
-                      <tr key={car.URL} className={`${carIsNew ? 'new-car-row' : ''} ${carIsFav ? 'fav-car-row' : ''}`}>
+                      <tr key={car.URL} className={`${carIsNew ? 'new-car-row' : ''} ${carIsFav ? 'fav-car-row' : ''} ${carIsSelected ? 'selected' : ''}`}>
+                        <td>
+                          {toggleSelectCar && (
+                            <button
+                              className={`car-select-btn-table ${carIsSelected ? 'selected' : ''}`}
+                              onClick={() => toggleSelectCar(car)}
+                              title={carIsSelected ? t('deselectCar') : t('selectToCompare')}
+                            >
+                              {carIsSelected ? '☑' : '☐'}
+                            </button>
+                          )}
+                        </td>
                         <td>
                           <button
                             className={`fav-btn-table ${carIsFav ? 'active' : ''}`}
@@ -461,8 +486,18 @@ const CarsPage = ({
                 {displayCars.map((car, idx) => {
                   const carIsNew = isNew(car.URL);
                   const carIsFav = isFavorite(car.URL);
+                  const carIsSelected = selectedCars.some(c => c.URL === car.URL);
                   return (
-                    <div key={car.URL} className={`top-car-mobile-card ${carIsNew ? 'new-car-row' : ''} ${carIsFav ? 'fav-car-row' : ''}`}>
+                    <div key={car.URL} className={`top-car-mobile-card ${carIsNew ? 'new-car-row' : ''} ${carIsFav ? 'fav-car-row' : ''} ${carIsSelected ? 'selected' : ''}`}>
+                      {toggleSelectCar && (
+                        <button
+                          className={`car-select-btn-mobile ${carIsSelected ? 'selected' : ''}`}
+                          onClick={() => toggleSelectCar(car)}
+                          title={carIsSelected ? t('deselectCar') : t('selectToCompare')}
+                        >
+                          {carIsSelected ? '☑' : '☐'}
+                        </button>
+                      )}
                       <button
                         className={`top-car-mobile-fav-btn ${carIsFav ? 'active' : ''}`}
                         onClick={() => toggleFavorite(car.URL)}
