@@ -260,7 +260,7 @@ const CompareModal = ({ isOpen, onClose, car1, car2 }) => {
             className={`compare-tab-btn ${activeTab === 'ai' ? 'active' : ''}`}
             onClick={() => setActiveTab('ai')}
           >
-            🧠 {t('aiAnalysis')}
+            💡 {t('aiAnalysis')}
           </button>
         </div>
 
@@ -279,7 +279,9 @@ const CompareModal = ({ isOpen, onClose, car1, car2 }) => {
                     >
                       {isFavorite(car1.URL) ? '★' : '☆'}
                     </button>
-                    <span className="compare-name-main">{car1.Title}</span>
+                    <a href={car1.URL} target="_blank" rel="noreferrer" className="compare-name-main">
+                      {car1.Title}
+                    </a>
                     <span className={`compare-year-badge ${betterYear === 1 ? 'better' : betterYear === 2 ? 'worse' : ''}`}>
                       {car1.Year}
                       {betterYear === 1 && <span className="better-badge">✓</span>}
@@ -294,7 +296,9 @@ const CompareModal = ({ isOpen, onClose, car1, car2 }) => {
                     >
                       {isFavorite(car2.URL) ? '★' : '☆'}
                     </button>
-                    <span className="compare-name-main">{car2.Title}</span>
+                    <a href={car2.URL} target="_blank" rel="noreferrer" className="compare-name-main">
+                      {car2.Title}
+                    </a>
                     <span className={`compare-year-badge ${betterYear === 2 ? 'better' : betterYear === 1 ? 'worse' : ''}`}>
                       {car2.Year}
                       {betterYear === 2 && <span className="better-badge">✓</span>}
@@ -315,33 +319,36 @@ const CompareModal = ({ isOpen, onClose, car1, car2 }) => {
                     </div>
                   </div>
                 ))}
-              </div>
-
-              {/* Equipment comparison */}
-              {allEquipment.length > 0 && (
-                <div className="equip-compare-section">
-                  <h3 className="equip-compare-title">⚙️ {t('equipment')}</h3>
-                  <div className="equip-compare-grid">
-                    {allEquipment.map(eq => (
-                      <div key={eq} className="equip-compare-row">
-                        <span className="equip-compare-name">{t(eq)}</span>
-                        <span className={`equip-indicator ${(car1.Equipments || {})[eq] ? 'has' : 'missing'}`}>
-                          {(car1.Equipments || {})[eq] ? '✅' : '❌'}
-                        </span>
-                        <span className={`equip-indicator ${(car2.Equipments || {})[eq] ? 'has' : 'missing'}`}>
-                          {(car2.Equipments || {})[eq] ? '✅' : '❌'}
+                {allEquipment.map((eq, idx) => {
+                  const hasCar1 = !!(car1.Equipments || {})[eq];
+                  const hasCar2 = !!(car2.Equipments || {})[eq];
+                  const isEven = (specRows.length + idx) % 2 === 0;
+                  const betterSide = hasCar1 && !hasCar2 ? 1 : hasCar2 && !hasCar1 ? 2 : 0;
+                  return (
+                    <div key={eq} className={`compare-row ${isEven ? 'even' : ''}`}>
+                      <div className="compare-label" style={{ paddingLeft: '1.5rem', fontSize: '0.875rem' }}>
+                        {t(eq)}
+                      </div>
+                      <div className={`compare-value ${betterSide === 1 ? 'better' : betterSide === 2 ? 'worse' : ''}`}>
+                        <span className={`equip-indicator ${hasCar1 ? 'has' : 'missing'}`}>
+                          {hasCar1 ? '✅' : '❌'}
                         </span>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+                      <div className={`compare-value ${betterSide === 2 ? 'better' : betterSide === 1 ? 'worse' : ''}`}>
+                        <span className={`equip-indicator ${hasCar2 ? 'has' : 'missing'}`}>
+                          {hasCar2 ? '✅' : '❌'}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </>
           ) : (
             /* AI Analysis Panel */
             <div className="ai-panel">
               <div className="ai-panel-header">
-                <h3>🧠 {t('aiAnalysis')}</h3>
+                <h3>💡 {t('aiAnalysis')}</h3>
                 {(isGenerating || error) && (
                   <button
                     className={`ai-generate-btn ${isGenerating ? 'generating' : ''}`}

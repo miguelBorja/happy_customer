@@ -10,6 +10,43 @@ const commonEquipments = [
   { id: "Control de radio en el volante", labelKey: "equipSteering" },
 ];
 
+const getScrapedDateRange = (period) => {
+  const now = new Date();
+  const format = (d) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const todayStr = format(now);
+
+  switch (period) {
+    case 'today':
+      return { scrapedFrom: todayStr, scrapedTo: todayStr };
+    case 'yesterday': {
+      const yesterday = new Date();
+      yesterday.setDate(now.getDate() - 1);
+      const yesterdayStr = format(yesterday);
+      return { scrapedFrom: yesterdayStr, scrapedTo: yesterdayStr };
+    }
+    case 'week': {
+      const startOfWeek = new Date();
+      const day = now.getDay();
+      const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+      startOfWeek.setDate(diff);
+      return { scrapedFrom: format(startOfWeek), scrapedTo: todayStr };
+    }
+    case 'month': {
+      const startOfPeriod = new Date();
+      startOfPeriod.setDate(now.getDate() - 30);
+      return { scrapedFrom: format(startOfPeriod), scrapedTo: todayStr };
+    }
+    default:
+      return { scrapedFrom: '', scrapedTo: '' };
+  }
+};
+
 const FiltersModal = ({
   isOpen,
   onClose,
@@ -43,6 +80,15 @@ const FiltersModal = ({
             : (f.equipments || []).filter(eq => eq !== name)
         }));
       }
+    } else if (name === 'yearMin') {
+      setFilters(f => ({ ...f, yearMin: value === '2010' ? '' : value }));
+    } else if (name === 'scrapedPeriod') {
+      const dates = getScrapedDateRange(value);
+      setFilters(f => ({
+        ...f,
+        scrapedPeriod: value,
+        ...dates
+      }));
     } else {
       setFilters(f => ({ ...f, [name]: value }));
     }
@@ -75,37 +121,113 @@ const FiltersModal = ({
             </select>
           </div>
 
-          {/* Year Range */}
+          {/* Year Range Slider */}
           <div className="filter-group">
-            <label>{t('minYear')} / {t('maxYear')}</label>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-              <input type="number" name="yearMin" className="input-field" placeholder="2010" value={filters.yearMin || ''} onChange={handleChange} />
-              <input type="number" name="yearMax" className="input-field" placeholder="2025" value={filters.yearMax || ''} onChange={handleChange} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <label>{t('minYear')}</label>
+              <span style={{ fontWeight: '600', color: 'var(--accent)', fontSize: '0.95rem' }}>
+                {filters.yearMin && filters.yearMin !== '2010' ? filters.yearMin : `${t('any')} (2010)`}
+              </span>
             </div>
+            <input
+              type="range"
+              min="2010"
+              max="2027"
+              step="1"
+              name="yearMin"
+              className="range-slider"
+              value={filters.yearMin || '2010'}
+              onChange={handleChange}
+            />
           </div>
 
-          {/* Price Range */}
+          {/* Max Price Dropdown & Custom Option */}
           <div className="filter-group">
-            <label>{t('minPrice')} / {t('maxPrice')}</label>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-              <input type="number" name="priceMin" className="input-field" placeholder="0" value={filters.priceMin || ''} onChange={handleChange} />
-              <input type="number" name="priceMax" className="input-field" placeholder="100000" value={filters.priceMax || ''} onChange={handleChange} />
-            </div>
+            <label>{t('maxPrice') || 'Max Price'}</label>
+            <select
+              name="priceModeSelect"
+              className="select-field"
+              value={filters.priceMode === 'custom' ? 'custom' : filters.priceMax || ''}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === 'custom') {
+                  setFilters(f => ({ ...f, priceMode: 'custom' }));
+                } else {
+                  setFilters(f => ({ ...f, priceMax: val, priceMode: '' }));
+                }
+              }}
+            >
+              <option value="">{t('any')}</option>
+              <option value="5000">$5,000</option>
+              <option value="10000">$10,000</option>
+              <option value="15000">$15,000</option>
+              <option value="20000">$20,000</option>
+              <option value="25000">$25,000</option>
+              <option value="30000">$30,000</option>
+              <option value="35000">$35,000</option>
+              <option value="40000">$40,000</option>
+              <option value="custom">{t('custom') || 'Custom'}</option>
+            </select>
+            {filters.priceMode === 'custom' && (
+              <input
+                type="number"
+                name="priceMax"
+                className="input-field"
+                style={{ marginTop: '0.5rem' }}
+                placeholder={t('enterMaxPrice') || 'Enter max price'}
+                value={filters.priceMax || ''}
+                onChange={handleChange}
+              />
+            )}
           </div>
 
-          {/* Max Mileage */}
+          {/* Max Mileage Dropdown & Custom Option */}
           <div className="filter-group">
             <label>{t('maxMileage')}</label>
-            <input type="number" name="kmMax" className="input-field" placeholder="150000" value={filters.kmMax || ''} onChange={handleChange} />
+            <select
+              name="kmModeSelect"
+              className="select-field"
+              value={filters.kmMode === 'custom' ? 'custom' : filters.kmMax || ''}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === 'custom') {
+                  setFilters(f => ({ ...f, kmMode: 'custom' }));
+                } else {
+                  setFilters(f => ({ ...f, kmMax: val, kmMode: '' }));
+                }
+              }}
+            >
+              <option value="">{t('any')}</option>
+              <option value="100000">100,000 km</option>
+              <option value="125000">125,000 km</option>
+              <option value="150000">150,000 km</option>
+              <option value="175000">175,000 km</option>
+              <option value="200000">200,000 km</option>
+              <option value="custom">{t('custom') || 'Custom'}</option>
+            </select>
+            {filters.kmMode === 'custom' && (
+              <input
+                type="number"
+                name="kmMax"
+                className="input-field"
+                style={{ marginTop: '0.5rem' }}
+                placeholder={t('enterMaxMileage') || 'Enter max mileage'}
+                value={filters.kmMax || ''}
+                onChange={handleChange}
+              />
+            )}
           </div>
 
-          {/* Scraped Dates */}
+          {/* Scraped Date Dropdown */}
           <div className="filter-group">
-            <label>{t('scrapedFrom')} / {t('scrapedTo')}</label>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-              <input type="date" name="scrapedFrom" className="input-field" value={filters.scrapedFrom || ''} onChange={handleChange} />
-              <input type="date" name="scrapedTo" className="input-field" value={filters.scrapedTo || ''} onChange={handleChange} />
-            </div>
+            <label>{t('scrapedDate') || 'Scraped Date'}</label>
+            <select name="scrapedPeriod" className="select-field" value={filters.scrapedPeriod || ''} onChange={handleChange}>
+              <option value="">{t('any')}</option>
+              <option value="today">{t('today')}</option>
+              <option value="yesterday">{t('yesterday')}</option>
+              <option value="week">{t('thisWeek')}</option>
+              <option value="month">{t('lastMonth')}</option>
+            </select>
           </div>
 
           {/* Transmission */}

@@ -111,7 +111,6 @@ const FavoritesPage = ({ viewMode, setViewMode, selectedCars = [], toggleSelectC
                   <th></th>
                   <th></th>
                   <th>{t('title')}</th>
-                  <th>{t('brand')}</th>
                   <th>{t('year')}</th>
                   <th>{t('priceHeader')}</th>
                   <th>{t('mileageHeader')}</th>
@@ -156,7 +155,6 @@ const FavoritesPage = ({ viewMode, setViewMode, selectedCars = [], toggleSelectC
                         )}
                       </span>
                     </td>
-                    <td>{car.Brand}</td>
                     <td>{car.Year}</td>
                     <td style={{ color: 'var(--success)', fontWeight: '600' }}>
                       {car.Price > 0 ? `$${car.Price.toLocaleString()}` : car.PriceText}

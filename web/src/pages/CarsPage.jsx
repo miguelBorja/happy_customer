@@ -94,16 +94,17 @@ const CarsPage = ({
       brand: '',
       provincia: '',
       yearMin: '',
-      yearMax: '',
-      priceMin: '',
       priceMax: '',
+      priceMode: '',
       kmMax: '',
+      kmMode: '',
       transmision: '',
       combustible: '',
       isSold: 'false',
       equipments: [],
       scrapedFrom: '',
       scrapedTo: '',
+      scrapedPeriod: '',
       limit: '100',
       sortTitle: 'asc',
       sortYear: 'desc',
@@ -128,29 +129,46 @@ const CarsPage = ({
     const tags = [];
     if (filters.brand) tags.push({ id: 'brand', label: `${t('brand')}: ${filters.brand}`, clear: () => setFilters(f => ({ ...f, brand: '' })) });
     if (filters.provincia) tags.push({ id: 'provincia', label: `${t('province')}: ${filters.provincia}`, clear: () => setFilters(f => ({ ...f, provincia: '' })) });
-    if (filters.yearMin || filters.yearMax) {
-      let label = '';
-      if (filters.yearMin && filters.yearMax) label = `${filters.yearMin} - ${filters.yearMax}`;
-      else if (filters.yearMin) label = `≥ ${filters.yearMin}`;
-      else label = `≤ ${filters.yearMax}`;
-      tags.push({ id: 'year', label: `${t('minYear')}/${t('maxYear')}: ${label}`, clear: () => setFilters(f => ({ ...f, yearMin: '', yearMax: '' })) });
+    if (filters.yearMin && filters.yearMin !== '2010') {
+      tags.push({
+        id: 'year',
+        label: `${t('minYear')}: ≥ ${filters.yearMin}`,
+        clear: () => setFilters(f => ({ ...f, yearMin: '' }))
+      });
     }
-    if (filters.priceMin || filters.priceMax) {
-      let label = '';
-      if (filters.priceMin && filters.priceMax) label = `$${Number(filters.priceMin).toLocaleString()} - $${Number(filters.priceMax).toLocaleString()}`;
-      else if (filters.priceMin) label = `≥ $${Number(filters.priceMin).toLocaleString()}`;
-      else label = `≤ $${filters.priceMax ? Number(filters.priceMax).toLocaleString() : ''}`;
-      tags.push({ id: 'price', label: `${t('priceHeader').replace(' ($)', '')}: ${label}`, clear: () => setFilters(f => ({ ...f, priceMin: '', priceMax: '' })) });
+    if (filters.priceMax) {
+      const label = `≤ $${Number(filters.priceMax).toLocaleString()}`;
+      tags.push({
+        id: 'price',
+        label: `${t('priceHeader').replace(' ($)', '')}: ${label}`,
+        clear: () => setFilters(f => ({ ...f, priceMax: '', priceMode: '' }))
+      });
     }
-    if (filters.kmMax) tags.push({ id: 'kmMax', label: `Max km: ${Number(filters.kmMax).toLocaleString()}`, clear: () => setFilters(f => ({ ...f, kmMax: '' })) });
+    if (filters.kmMax) tags.push({ id: 'kmMax', label: `Max km: ${Number(filters.kmMax).toLocaleString()}`, clear: () => setFilters(f => ({ ...f, kmMax: '', kmMode: '' })) });
     if (filters.transmision) tags.push({ id: 'transmision', label: `${t('transmission')}: ${t(filters.transmision.toLowerCase()) || filters.transmision}`, clear: () => setFilters(f => ({ ...f, transmision: '' })) });
     if (filters.combustible) tags.push({ id: 'combustible', label: `${t('fuel')}: ${t(filters.combustible.toLowerCase()) || filters.combustible}`, clear: () => setFilters(f => ({ ...f, combustible: '' })) });
-    if (filters.scrapedFrom || filters.scrapedTo) {
+    if (filters.scrapedPeriod) {
+      let label = '';
+      if (filters.scrapedPeriod === 'today') label = t('today');
+      else if (filters.scrapedPeriod === 'yesterday') label = t('yesterday');
+      else if (filters.scrapedPeriod === 'week') label = t('thisWeek');
+      else if (filters.scrapedPeriod === 'month') label = t('lastMonth');
+      
+      tags.push({
+        id: 'scrapedPeriod',
+        label: `${t('scrapedDate') || 'Date'}: ${label}`,
+        clear: () => setFilters(f => ({ ...f, scrapedPeriod: '', scrapedFrom: '', scrapedTo: '' }))
+      });
+    } else if (filters.scrapedFrom || filters.scrapedTo) {
       let label = '';
       if (filters.scrapedFrom && filters.scrapedTo) label = `${filters.scrapedFrom} to ${filters.scrapedTo}`;
       else if (filters.scrapedFrom) label = `From ${filters.scrapedFrom}`;
       else label = `To ${filters.scrapedTo}`;
-      tags.push({ id: 'scrapedDate', label: `Date: ${label}`, clear: () => setFilters(f => ({ ...f, scrapedFrom: '', scrapedTo: '' })) });
+      tags.push({
+        id: 'scrapedDate',
+        label: `${t('scrapedDate') || 'Date'}: ${label}`,
+        clear: () => setFilters(f => ({ ...f, scrapedFrom: '', scrapedTo: '' }))
+      });
     }
     if (filters.limit && filters.limit !== '100') tags.push({ id: 'limit', label: `${t('limit')}: ${filters.limit}`, clear: () => setFilters(f => ({ ...f, limit: '100' })) });
     if (filters.equipments && filters.equipments.length > 0) {
@@ -398,7 +416,6 @@ const CarsPage = ({
                     <th></th>
                     <th>{t('rank')}</th>
                     <th>{t('title')}</th>
-                    <th>{t('brand')}</th>
                     <th>{t('year')}</th>
                     <th>{t('priceHeader')}</th>
                     <th>{t('mileageHeader')}</th>
@@ -450,7 +467,6 @@ const CarsPage = ({
                             )}
                           </span>
                         </td>
-                        <td>{car.Brand}</td>
                         <td>{car.Year}</td>
                         <td style={{ color: 'var(--success)', fontWeight: '600' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -527,7 +543,6 @@ const CarsPage = ({
                       </div>
 
                       <div className="top-car-mobile-details">
-                        <div><strong>{t('brand')}:</strong> {car.Brand}</div>
                         <div><strong>{t('year')}:</strong> {car.Year}</div>
                         <div><strong>{t('province')}:</strong> {car.Provincia}</div>
                         <div>
