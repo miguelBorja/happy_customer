@@ -52,6 +52,7 @@ type Scraper struct {
 	Service *selenium.Service
 	Port    int
 	DB      *db.DB
+	mu      sync.Mutex
 }
 
 func NewScraper(driverPath string, port int, database *db.DB) (*Scraper, error) {
@@ -85,14 +86,26 @@ func (s *Scraper) BackfillSellers() {
 	}
 	log.Printf("Backfilling seller info for %d cars...", len(urls))
 
+	drivers := make([]selenium.WebDriver, 0, WorkerCount)
+	for i := 0; i < WorkerCount; i++ {
+		wd, err := s.createWebDriver()
+		if err != nil {
+			log.Printf("Error creating web driver for backfill worker %d: %v", i, err)
+			for _, d := range drivers {
+				d.Quit()
+			}
+			return
+		}
+		drivers = append(drivers, wd)
+	}
+
 	jobs := make(chan string, 200)
 	var wg sync.WaitGroup
 
 	for i := 0; i < WorkerCount; i++ {
 		wg.Add(1)
-		go func(id int) {
+		go func(id int, wd selenium.WebDriver) {
 			defer wg.Done()
-			wd := s.createWebDriver()
 			defer wd.Quit()
 
 			for url := range jobs {
@@ -136,7 +149,7 @@ func (s *Scraper) BackfillSellers() {
 					}
 				}
 			}
-		}(i)
+		}(i, drivers[i])
 	}
 
 	counter := 0
@@ -265,21 +278,44 @@ func (s *Scraper) ProcessBrand(brandName, brandID string) {
 		activeMap[u] = true
 	}
 
+	drivers := make([]selenium.WebDriver, 0, WorkerCount)
+	for i := 0; i < WorkerCount; i++ {
+		wd, err := s.createWebDriver()
+		if err != nil {
+			log.Printf("Error creating web driver for worker %d: %v", i, err)
+			for _, d := range drivers {
+				d.Quit()
+			}
+			return
+		}
+		drivers = append(drivers, wd)
+	}
+
+	prodWd, err := s.createWebDriver()
+	if err != nil {
+		log.Printf("Error creating web driver for producer: %v", err)
+		for _, d := range drivers {
+			d.Quit()
+		}
+		return
+	}
+
 	jobs := make(chan string, 200)
 	results := make(chan db.Car, 200)
 	var wg sync.WaitGroup
 
 	for i := 0; i < WorkerCount; i++ {
 		wg.Add(1)
-		go func(id int) {
+		go func(id int, wd selenium.WebDriver) {
 			defer wg.Done()
-			s.worker(id, jobs, results)
-		}(i)
+			s.worker(id, wd, jobs, results)
+		}(i, drivers[i])
 	}
 
 	producerDone := make(chan map[string]bool)
 	go func() {
-		seen := s.producer(brandName, brandID, jobs, activeMap)
+		defer prodWd.Quit()
+		seen := s.producer(prodWd, brandName, brandID, jobs, activeMap)
 		close(jobs)
 		producerDone <- seen
 	}()
@@ -322,9 +358,7 @@ func (s *Scraper) ProcessBrand(brandName, brandID string) {
 	log.Printf("Finished brand %s. Saved %d cars.\n", brandName, savedCount)
 }
 
-func (s *Scraper) producer(brandName, brandID string, jobs chan<- string, active map[string]bool) map[string]bool {
-	wd := s.createWebDriver()
-	defer wd.Quit()
+func (s *Scraper) producer(wd selenium.WebDriver, brandName, brandID string, jobs chan<- string, active map[string]bool) map[string]bool {
 
 	if err := wd.Get("https://crautos.com/autosusados/index.cfm"); err != nil {
 		log.Printf("Failed to load home page: %v\n", err)
@@ -398,8 +432,7 @@ func (s *Scraper) producer(brandName, brandID string, jobs chan<- string, active
 	return seenUrls
 }
 
-func (s *Scraper) worker(id int, jobs <-chan string, results chan<- db.Car) {
-	wd := s.createWebDriver()
+func (s *Scraper) worker(id int, wd selenium.WebDriver, jobs <-chan string, results chan<- db.Car) {
 	defer wd.Quit()
 
 	for url := range jobs {
@@ -679,7 +712,7 @@ func (s *Scraper) scrapeNewCar(wd selenium.WebDriver, car *db.Car) {
 	}
 }
 
-func (s *Scraper) createWebDriver() selenium.WebDriver {
+func (s *Scraper) createWebDriver() (selenium.WebDriver, error) {
 	caps := selenium.Capabilities{
 		"browserName":      "chrome",
 		"pageLoadStrategy": "eager",
@@ -693,15 +726,26 @@ func (s *Scraper) createWebDriver() selenium.WebDriver {
 	}
 	caps.AddChrome(chromeCaps)
 
+	s.mu.Lock()
 	wd, err := selenium.NewRemote(caps, fmt.Sprintf("http://localhost:%d/wd/hub", s.Port))
+	s.mu.Unlock()
+
 	if err != nil {
+		log.Printf("Failed to create WebDriver session: %v. Retrying in 2 seconds...", err)
 		time.Sleep(2 * time.Second)
-		wd, _ = selenium.NewRemote(caps, fmt.Sprintf("http://localhost:%d/wd/hub", s.Port))
+
+		s.mu.Lock()
+		wd, err = selenium.NewRemote(caps, fmt.Sprintf("http://localhost:%d/wd/hub", s.Port))
+		s.mu.Unlock()
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to connect to selenium after retry: %w", err)
+		}
 	}
 	if wd != nil {
 		wd.SetPageLoadTimeout(30 * time.Second)
 	}
-	return wd
+	return wd, nil
 }
 
 func selectDropdown(parent selenium.WebElement, name, value string) error {

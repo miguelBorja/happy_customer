@@ -77,6 +77,8 @@ func (d *DB) migrate() error {
 	if d.DriverName == "postgres" {
 		// PostgreSQL uses TIMESTAMP instead of DATETIME
 		s = strings.ReplaceAll(s, "DATETIME", "TIMESTAMP")
+		// PostgreSQL uses SERIAL instead of AUTOINCREMENT
+		s = strings.ReplaceAll(s, "INTEGER PRIMARY KEY AUTOINCREMENT", "SERIAL PRIMARY KEY")
 	}
 
 	if _, err := d.Exec(s); err != nil {
@@ -94,6 +96,7 @@ func (d *DB) migrate() error {
 		}
 	} else if d.DriverName == "postgres" {
 		d.Exec("ALTER TABLE cars ADD COLUMN IF NOT EXISTS comment TEXT DEFAULT ''")
+		d.Exec("ALTER TABLE cars ENABLE ROW LEVEL SECURITY")
 	}
 	return nil
 }
@@ -179,6 +182,15 @@ CREATE INDEX IF NOT EXISTS idx_cars_is_sold      ON cars(is_sold);
 CREATE INDEX IF NOT EXISTS idx_cars_estilo       ON cars(estilo);
 CREATE INDEX IF NOT EXISTS idx_cars_transmision  ON cars(transmision);
 CREATE INDEX IF NOT EXISTS idx_cars_combustible  ON cars(combustible);
+
+CREATE TABLE IF NOT EXISTS page_views (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    ip_address  TEXT,
+    user_agent  TEXT,
+    path        TEXT,
+    visited_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_page_views_visited_at ON page_views(visited_at);
 `
 
 // queryFormat converts SQLite '?' placeholders to PostgreSQL '$1', '$2' etc. if the active driver is Postgres.
@@ -292,4 +304,17 @@ func (d *DB) CleanUpData() error {
 		log.Printf("[DB] Successfully cleaned up %d records.", len(updates))
 	}
 	return nil
+}
+
+func (d *DB) RecordVisit(ip, ua, path string) error {
+	query := d.queryFormat("INSERT INTO page_views (ip_address, user_agent, path) VALUES (?, ?, ?)")
+	_, err := d.Exec(query, ip, ua, path)
+	return err
+}
+
+func (d *DB) GetTotalVisits() (int, error) {
+	var count int
+	query := d.queryFormat("SELECT count(*) FROM page_views")
+	err := d.QueryRow(query).Scan(&count)
+	return count, err
 }

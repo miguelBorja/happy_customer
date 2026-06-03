@@ -3,13 +3,13 @@ import CarsPage from './pages/CarsPage';
 import FavoritesPage from './pages/FavoritesPage';
 import AboutPage from './pages/AboutPage';
 import CompareModal from './components/CompareModal';
-import { fetchStats } from './api/client';
+import { fetchStats, recordVisit } from './api/client';
 import { useFavorites } from './hooks/useFavorites';
 import { useLanguage } from './context/LanguageContext';
 
 function App() {
   const [activeTab, setActiveTab] = useState('browse');
-  const [stats, setStats] = useState({ total: 0, active: 0, sold: 0 });
+  const [stats, setStats] = useState({ total: 0, active: 0, sold: 0, visits: 0 });
   const { favCount } = useFavorites();
   const { language, toggleLanguage, t } = useLanguage();
   const [viewMode, setViewMode] = useState(() => {
@@ -69,6 +69,7 @@ function App() {
   };
 
   useEffect(() => {
+    recordVisit('/').catch(console.error);
     fetchStats().then(setStats).catch(console.error);
     
     // Poll stats every 30 seconds
@@ -89,7 +90,7 @@ function App() {
             toggleSelectCar={toggleSelectCar}
           />
         );
-      case 'about': return <AboutPage />;
+      case 'about': return <AboutPage stats={stats} />;
       default: 
         return (
           <CarsPage 

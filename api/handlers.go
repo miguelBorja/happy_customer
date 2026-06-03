@@ -177,11 +177,68 @@ func (s *Server) HandleStats(w http.ResponseWriter, r *http.Request) {
 	s.DB.QueryRow(`SELECT count(*) FROM cars WHERE is_sold=0`).Scan(&active)
 	s.DB.QueryRow(`SELECT count(*) FROM cars WHERE is_sold=1`).Scan(&sold)
 	
+	visits, err := s.DB.GetTotalVisits()
+	if err != nil {
+		log.Printf("[API ERROR] Failed to get total visits: %v", err)
+		visits = 0
+	}
+	
 	json.NewEncoder(w).Encode(map[string]int{
-		"total": total,
+		"total":  total,
 		"active": active,
-		"sold": sold,
+		"sold":   sold,
+		"visits": visits,
 	})
+}
+
+func getClientIP(r *http.Request) string {
+	if ip := r.Header.Get("X-Forwarded-For"); ip != "" {
+		parts := strings.Split(ip, ",")
+		return strings.TrimSpace(parts[0])
+	}
+	if ip := r.Header.Get("X-Real-IP"); ip != "" {
+		return ip
+	}
+	ip := r.RemoteAddr
+	if lastColon := strings.LastIndex(ip, ":"); lastColon != -1 {
+		ip = ip[:lastColon]
+	}
+	return strings.Trim(ip, "[]")
+}
+
+func (s *Server) HandleRecordVisit(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var body struct {
+		Path string `json:"path"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		body.Path = "/"
+	}
+
+	ip := getClientIP(r)
+	ua := r.UserAgent()
+
+	if err := s.DB.RecordVisit(ip, ua, body.Path); err != nil {
+		log.Printf("[API ERROR] RecordVisit failed: %v", err)
+		http.Error(w, "Failed to record visit", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
 }
 
 func (s *Server) HandleCarsByURLs(w http.ResponseWriter, r *http.Request) {
@@ -290,6 +347,8 @@ Keep your response extremely concise, direct, and fact-focused. Avoid conversati
 
 You MUST refer to the cars exactly as "%[8]s" (which is %[2]s %[3]d) and "%[9]s" (which is %[4]s %[5]d) throughout your entire response. Never use Spanish terms like "Carro 1" or "Carro 2" when the language is English, and never translate or deviate from "%[8]s" and "%[9]s".
 
+If the vehicles belong to different segments (e.g., Sedan vs SUV), have different powertrains (e.g., EV vs Gas/Diesel), or represent different brands, explicitly analyze the trade-offs regarding segment utility, resale value, availability of spare parts in Costa Rica, and brand reputation in the Costa Rican market.
+
 CAR 1: %[2]s (%[3]d)
 %[6]s
 
@@ -298,12 +357,12 @@ CAR 2: %[4]s (%[5]d)
 
 Provide the comparison in these exact, short sections:
 
-1. **\U0001F4CA %[10]s**: A single sentence comparing both vehicles.
-2. **\u2699\uFE0F %[11]s**: 3-4 bullet points highlighting the main trade-offs (price vs year/mileage, key features).
+1. **\U0001F4CA %[10]s**: A single sentence comparing both vehicles, highlighting segment or brand differences if applicable.
+2. **\u2699\uFE0F %[11]s**: 3-4 bullet points highlighting the main trade-offs (price vs year/mileage, segment pros/cons, brand reliability, parts availability in Costa Rica).
 3. **\u2705 %[12]s**:
    - *%[8]s (%[2]s)*: 2 key pros / 1 con.
    - *%[9]s (%[4]s)*: 2 key pros / 1 con.
-4. **\U0001F3C6 %[13]s**: Clearly declare the WINNER and justify it in 2-3 sentences max.`, 
+4. **\U0001F3C6 %[13]s**: Clearly declare the WINNER and justify it in 2-3 sentences max. You MUST start this section with "Winner: %[8]s" or "Winner: %[9]s" (or "Ganador: %[8]s" or "Ganador: %[9]s" if Spanish).`, 
 		lang, car1Name, car1Year, car2Name, car2Year, string(car1JSON), string(car2JSON),
 		labelCar1, labelCar2, hResumen, hDiferencias, hProsContras, hGanador)
 

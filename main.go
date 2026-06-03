@@ -146,6 +146,7 @@ func main() {
 		mux.HandleFunc("/api/brands/filtered", server.HandleFilteredBrands)
 		mux.HandleFunc("/api/provinces", server.HandleProvinces)
 		mux.HandleFunc("/api/stats", server.HandleStats)
+		mux.HandleFunc("/api/visit", server.HandleRecordVisit)
 		mux.HandleFunc("/api/ai/compare", server.HandleAICompare)
 
 		// Serve static frontend files if they exist

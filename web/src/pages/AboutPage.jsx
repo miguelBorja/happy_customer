@@ -1,7 +1,7 @@
 import React from 'react';
 import { useLanguage } from '../context/LanguageContext';
 
-function AboutPage() {
+function AboutPage({ stats }) {
   const { t } = useLanguage();
 
   return (
@@ -42,6 +42,70 @@ function AboutPage() {
         <p style={{ fontSize: '1.15rem', color: 'var(--text-muted)', maxWidth: '700px', margin: '0 auto 2rem', lineHeight: '1.6' }}>
           {t('aboutSubtitle')}
         </p>
+
+        {/* Stats Grid Widget */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          gap: '1.5rem',
+          margin: '2rem auto 2.5rem',
+          maxWidth: '600px',
+          flexWrap: 'wrap'
+        }}>
+          <div style={{
+            background: 'rgba(255, 255, 255, 0.02)',
+            backdropFilter: 'blur(8px)',
+            border: '1px solid rgba(255, 255, 255, 0.06)',
+            borderRadius: '12px',
+            padding: '1rem 1.5rem',
+            flex: '1 1 150px',
+            textAlign: 'center',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
+          }}>
+            <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#10b981', marginBottom: '0.25rem' }}>
+              {stats?.active?.toLocaleString() || 0}
+            </div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
+              {t('active')}
+            </div>
+          </div>
+
+          <div style={{
+            background: 'rgba(255, 255, 255, 0.02)',
+            backdropFilter: 'blur(8px)',
+            border: '1px solid rgba(255, 255, 255, 0.06)',
+            borderRadius: '12px',
+            padding: '1rem 1.5rem',
+            flex: '1 1 150px',
+            textAlign: 'center',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
+          }}>
+            <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#ef4444', marginBottom: '0.25rem' }}>
+              {stats?.sold?.toLocaleString() || 0}
+            </div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
+              {t('sold')}
+            </div>
+          </div>
+
+          <div style={{
+            background: 'rgba(255, 255, 255, 0.02)',
+            backdropFilter: 'blur(8px)',
+            border: '1px solid rgba(255, 255, 255, 0.06)',
+            borderRadius: '12px',
+            padding: '1rem 1.5rem',
+            flex: '1 1 150px',
+            textAlign: 'center',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
+          }}>
+            <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#3b82f6', marginBottom: '0.25rem' }}>
+              {stats?.visits?.toLocaleString() || 0}
+            </div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
+              {t('visits')}
+            </div>
+          </div>
+        </div>
 
         <div style={{ display: 'inline-flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'center' }}>
           <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-main)' }}>Miguel Borja</h2>

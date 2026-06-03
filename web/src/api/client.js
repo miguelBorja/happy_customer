@@ -47,6 +47,16 @@ export const fetchStats = async () => {
   return res.json();
 };
 
+export const recordVisit = async (path = '/') => {
+  const res = await fetch(`${BASE_URL}/visit`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path }),
+  });
+  if (!res.ok) throw new Error('Failed to record visit');
+  return res.json();
+};
+
 export const fetchCarsByUrls = async (urls) => {
   const res = await fetch(`${BASE_URL}/cars/favorites`, {
     method: 'POST',
