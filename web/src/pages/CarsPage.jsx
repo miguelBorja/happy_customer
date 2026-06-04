@@ -94,6 +94,8 @@ const CarsPage = ({
       brand: '',
       provincia: '',
       yearMin: '',
+      yearMax: '',
+      priceMin: '',
       priceMax: '',
       priceMode: '',
       kmMax: '',
@@ -129,20 +131,45 @@ const CarsPage = ({
     const tags = [];
     if (filters.brand) tags.push({ id: 'brand', label: `${t('brand')}: ${filters.brand}`, clear: () => setFilters(f => ({ ...f, brand: '' })) });
     if (filters.provincia) tags.push({ id: 'provincia', label: `${t('province')}: ${filters.provincia}`, clear: () => setFilters(f => ({ ...f, provincia: '' })) });
-    if (filters.yearMin && filters.yearMin !== '2010') {
-      tags.push({
-        id: 'year',
-        label: `${t('minYear')}: ≥ ${filters.yearMin}`,
-        clear: () => setFilters(f => ({ ...f, yearMin: '' }))
-      });
+    if ((filters.yearMin && filters.yearMin !== '2010') || (filters.yearMax && filters.yearMax !== '2027')) {
+      const minVal = Number(filters.yearMin) || 2010;
+      const maxVal = Number(filters.yearMax) || 2027;
+      let label = '';
+      if (minVal > 2010 && maxVal === 2027) {
+        label = `≥ ${minVal}`;
+      } else if (minVal === 2010 && maxVal < 2027) {
+        label = `≤ ${maxVal}`;
+      } else if (minVal > 2010 && maxVal < 2027) {
+        label = `${minVal} - ${maxVal}`;
+      }
+      
+      if (label) {
+        tags.push({
+          id: 'year',
+          label: `${t('year')}: ${label}`,
+          clear: () => setFilters(f => ({ ...f, yearMin: '', yearMax: '' }))
+        });
+      }
     }
-    if (filters.priceMax) {
-      const label = `≤ $${Number(filters.priceMax).toLocaleString()}`;
-      tags.push({
-        id: 'price',
-        label: `${t('priceHeader').replace(' ($)', '')}: ${label}`,
-        clear: () => setFilters(f => ({ ...f, priceMax: '', priceMode: '' }))
-      });
+    if (filters.priceMin || filters.priceMax) {
+      const minVal = Number(filters.priceMin) || 0;
+      const maxVal = Number(filters.priceMax) || 100000;
+      let label = '';
+      if (minVal > 0 && maxVal === 100000) {
+        label = `≥ $${minVal.toLocaleString()}`;
+      } else if (minVal === 0 && maxVal < 100000) {
+        label = `≤ $${maxVal.toLocaleString()}`;
+      } else if (minVal > 0 && maxVal < 100000) {
+        label = `$${minVal.toLocaleString()} - $${maxVal.toLocaleString()}`;
+      }
+      
+      if (label) {
+        tags.push({
+          id: 'price',
+          label: `${t('priceHeader').replace(' ($)', '')}: ${label}`,
+          clear: () => setFilters(f => ({ ...f, priceMin: '', priceMax: '', priceMode: '' }))
+        });
+      }
     }
     if (filters.kmMax) tags.push({ id: 'kmMax', label: `Max km: ${Number(filters.kmMax).toLocaleString()}`, clear: () => setFilters(f => ({ ...f, kmMax: '', kmMode: '' })) });
     if (filters.transmision) tags.push({ id: 'transmision', label: `${t('transmission')}: ${t(filters.transmision.toLowerCase()) || filters.transmision}`, clear: () => setFilters(f => ({ ...f, transmision: '' })) });

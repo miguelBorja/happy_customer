@@ -27,6 +27,8 @@ function App() {
     brand: '',
     provincia: '',
     yearMin: '',
+    yearMax: '',
+    priceMin: '',
     priceMax: '',
     priceMode: '',
     kmMax: '',

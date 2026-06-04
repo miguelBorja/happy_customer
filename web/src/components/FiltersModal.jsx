@@ -61,6 +61,60 @@ const FiltersModal = ({
 }) => {
   const { t } = useLanguage();
 
+  const minPriceVal = Number(filters.priceMin) || 0;
+  const maxPriceVal = Number(filters.priceMax) || 100000;
+
+  const minYearVal = Number(filters.yearMin) || 2010;
+  const maxYearVal = Number(filters.yearMax) || 2027;
+
+  const getPriceRangeLabel = () => {
+    const minVal = Number(filters.priceMin) || 0;
+    const maxVal = Number(filters.priceMax) || 100000;
+    
+    if (minVal === 0 && maxVal === 100000) {
+      return t('any');
+    }
+    if (minVal > 0 && maxVal === 100000) {
+      return `≥ $${minVal.toLocaleString()}`;
+    }
+    if (minVal === 0 && maxVal < 100000) {
+      return `≤ $${maxVal.toLocaleString()}`;
+    }
+    return `$${minVal.toLocaleString()} - $${maxVal.toLocaleString()}`;
+  };
+
+  const handlePriceMinChange = (val) => {
+    setFilters(f => ({ ...f, priceMin: val === 0 ? '' : String(val) }));
+  };
+
+  const handlePriceMaxChange = (val) => {
+    setFilters(f => ({ ...f, priceMax: val === 100000 ? '' : String(val) }));
+  };
+
+  const getYearRangeLabel = () => {
+    const minVal = Number(filters.yearMin) || 2010;
+    const maxVal = Number(filters.yearMax) || 2027;
+    
+    if (minVal === 2010 && maxVal === 2027) {
+      return t('any');
+    }
+    if (minVal > 2010 && maxVal === 2027) {
+      return `≥ ${minVal}`;
+    }
+    if (minVal === 2010 && maxVal < 2027) {
+      return `≤ ${maxVal}`;
+    }
+    return `${minVal} - ${maxVal}`;
+  };
+
+  const handleYearMinChange = (val) => {
+    setFilters(f => ({ ...f, yearMin: val === 2010 ? '' : String(val) }));
+  };
+
+  const handleYearMaxChange = (val) => {
+    setFilters(f => ({ ...f, yearMax: val === 2027 ? '' : String(val) }));
+  };
+
   if (!isOpen) return null;
 
   const handleChange = (e) => {
@@ -124,61 +178,93 @@ const FiltersModal = ({
           {/* Year Range Slider */}
           <div className="filter-group">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <label>{t('minYear')}</label>
+              <label>{t('yearRange') || 'Year Range'}</label>
               <span style={{ fontWeight: '600', color: 'var(--accent)', fontSize: '0.95rem' }}>
-                {filters.yearMin && filters.yearMin !== '2010' ? filters.yearMin : `${t('any')} (2010)`}
+                {getYearRangeLabel()}
               </span>
             </div>
-            <input
-              type="range"
-              min="2010"
-              max="2027"
-              step="1"
-              name="yearMin"
-              className="range-slider"
-              value={filters.yearMin || '2010'}
-              onChange={handleChange}
-            />
+            <div className="dual-slider-container">
+              <input
+                type="range"
+                min="2010"
+                max="2027"
+                step="1"
+                value={minYearVal}
+                onChange={(e) => {
+                  const val = Math.min(Number(e.target.value), maxYearVal - 1);
+                  handleYearMinChange(val);
+                }}
+                className="thumb thumb-left"
+                style={{ zIndex: minYearVal > 2018 ? '5' : '3' }}
+              />
+              <input
+                type="range"
+                min="2010"
+                max="2027"
+                step="1"
+                value={maxYearVal}
+                onChange={(e) => {
+                  const val = Math.max(Number(e.target.value), minYearVal + 1);
+                  handleYearMaxChange(val);
+                }}
+                className="thumb thumb-right"
+                style={{ zIndex: minYearVal > 2018 ? '3' : '5' }}
+              />
+              <div className="slider-track" />
+              <div
+                className="slider-range"
+                style={{
+                  left: `${((minYearVal - 2010) / 17) * 100}%`,
+                  width: `${((maxYearVal - minYearVal) / 17) * 100}%`,
+                }}
+              />
+            </div>
           </div>
 
-          {/* Max Price Dropdown & Custom Option */}
+          {/* Price Range Slider */}
           <div className="filter-group">
-            <label>{t('maxPrice') || 'Max Price'}</label>
-            <select
-              name="priceModeSelect"
-              className="select-field"
-              value={filters.priceMode === 'custom' ? 'custom' : filters.priceMax || ''}
-              onChange={(e) => {
-                const val = e.target.value;
-                if (val === 'custom') {
-                  setFilters(f => ({ ...f, priceMode: 'custom' }));
-                } else {
-                  setFilters(f => ({ ...f, priceMax: val, priceMode: '' }));
-                }
-              }}
-            >
-              <option value="">{t('any')}</option>
-              <option value="5000">$5,000</option>
-              <option value="10000">$10,000</option>
-              <option value="15000">$15,000</option>
-              <option value="20000">$20,000</option>
-              <option value="25000">$25,000</option>
-              <option value="30000">$30,000</option>
-              <option value="35000">$35,000</option>
-              <option value="40000">$40,000</option>
-              <option value="custom">{t('custom') || 'Custom'}</option>
-            </select>
-            {filters.priceMode === 'custom' && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <label>{t('priceRange') || 'Price Range'}</label>
+              <span style={{ fontWeight: '600', color: 'var(--accent)', fontSize: '0.95rem' }}>
+                {getPriceRangeLabel()}
+              </span>
+            </div>
+            <div className="dual-slider-container">
               <input
-                type="number"
-                name="priceMax"
-                className="input-field"
-                style={{ marginTop: '0.5rem' }}
-                placeholder={t('enterMaxPrice') || 'Enter max price'}
-                value={filters.priceMax || ''}
-                onChange={handleChange}
+                type="range"
+                min="0"
+                max="100000"
+                step="1000"
+                value={minPriceVal}
+                onChange={(e) => {
+                  const val = Math.min(Number(e.target.value), maxPriceVal - 1000);
+                  handlePriceMinChange(val);
+                }}
+                className="thumb thumb-left"
+                style={{ zIndex: minPriceVal > 50000 ? '5' : '3' }}
               />
-            )}
+              <input
+                type="range"
+                min="0"
+                max="100000"
+                step="1000"
+                value={maxPriceVal}
+                onChange={(e) => {
+                  const val = Math.max(Number(e.target.value), minPriceVal + 1000);
+                  handlePriceMaxChange(val);
+                }}
+                className="thumb thumb-right"
+                style={{ zIndex: minPriceVal > 50000 ? '3' : '5' }}
+              />
+              <div className="slider-track" />
+              <div
+                className="slider-range"
+                style={{
+                  left: `${(minPriceVal / 100000) * 100}%`,
+                  width: `${((maxPriceVal - minPriceVal) / 100000) * 100}%`,
+                }}
+              />
+            </div>
           </div>
 
           {/* Max Mileage Dropdown & Custom Option */}

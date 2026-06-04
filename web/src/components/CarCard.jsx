@@ -45,7 +45,7 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, isSelected, onToggl
 
         <div className="car-bars">
           <PriceBar price={car.Price} maxPrice={maxPrice} />
-          <MileageBar mileage={car.Kilometraje} />
+          <MileageBar km={car.Kilometraje} />
         </div>
 
         <div className="car-extra-details">
