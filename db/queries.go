@@ -722,3 +722,406 @@ func (d *DB) GetCarsByURLs(urls []string) ([]Car, error) {
 
 	return cars, nil
 }
+
+type BrandStat struct {
+	Brand    string  `json:"brand"`
+	Total    int     `json:"total"`
+	Sold     int     `json:"sold"`
+	SoldRate float64 `json:"soldRate"`
+}
+
+type ModelStat struct {
+	Brand    string  `json:"brand"`
+	Model    string  `json:"model"`
+	Total    int     `json:"total"`
+	Sold     int     `json:"sold"`
+	SoldRate float64 `json:"soldRate"`
+}
+
+type YearStat struct {
+	Year     int     `json:"year"`
+	Total    int     `json:"total"`
+	Sold     int     `json:"sold"`
+	SoldRate float64 `json:"soldRate"`
+}
+
+type FeatureStat struct {
+	Name     string  `json:"name"`
+	Total    int     `json:"total"`
+	Sold     int     `json:"sold"`
+	SoldRate float64 `json:"soldRate"`
+}
+
+type EquipmentStat struct {
+	FeatureName        string  `json:"featureName"`
+	TotalWith          int     `json:"totalWith"`
+	SoldWith           int     `json:"soldWith"`
+	HasFeatureSoldRate float64 `json:"hasFeatureSoldRate"`
+	TotalWithout       int     `json:"totalWithout"`
+	SoldWithout        int     `json:"soldWithout"`
+	NoFeatureSoldRate  float64 `json:"noFeatureSoldRate"`
+	Difference         float64 `json:"difference"`
+}
+
+type DetailedStats struct {
+	BrandStats        []BrandStat     `json:"brandStats"`
+	ModelStats        []ModelStat     `json:"modelStats"`
+	YearStats         []YearStat      `json:"yearStats"`
+	TransmissionStats []FeatureStat   `json:"transmissionStats"`
+	FuelStats         []FeatureStat   `json:"fuelStats"`
+	StyleStats        []FeatureStat   `json:"styleStats"`
+	EquipmentStats    []EquipmentStat `json:"equipmentStats"`
+	AgeStats          []FeatureStat   `json:"ageStats"`
+	MileageStats      []FeatureStat   `json:"mileageStats"`
+	PriceRelStats     []FeatureStat   `json:"priceRelStats"`
+}
+
+func (d *DB) GetDetailedStats() (DetailedStats, error) {
+	var stats DetailedStats
+
+	// Initialize arrays to prevent JSON null response
+	stats.BrandStats = []BrandStat{}
+	stats.ModelStats = []ModelStat{}
+	stats.YearStats = []YearStat{}
+	stats.TransmissionStats = []FeatureStat{}
+	stats.FuelStats = []FeatureStat{}
+	stats.StyleStats = []FeatureStat{}
+	stats.EquipmentStats = []EquipmentStat{}
+	stats.AgeStats = []FeatureStat{}
+	stats.MileageStats = []FeatureStat{}
+	stats.PriceRelStats = []FeatureStat{}
+
+	// 1. Brand stats
+	brandQuery := `
+		SELECT brand, COUNT(*), COALESCE(SUM(CASE WHEN is_sold = 1 THEN 1 ELSE 0 END), 0)
+		FROM cars
+		WHERE brand != '' AND brand IS NOT NULL
+		GROUP BY brand
+		ORDER BY COUNT(*) DESC
+		LIMIT 30
+	`
+	rows, err := d.Query(d.queryFormat(brandQuery))
+	if err != nil {
+		return stats, fmt.Errorf("brand query: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var bs BrandStat
+		if err := rows.Scan(&bs.Brand, &bs.Total, &bs.Sold); err != nil {
+			return stats, err
+		}
+		if bs.Total > 0 {
+			bs.SoldRate = float64(bs.Sold) / float64(bs.Total)
+		}
+		stats.BrandStats = append(stats.BrandStats, bs)
+	}
+	rows.Close()
+
+	// 2. Model stats
+	modelQuery := `
+		SELECT brand, model, COUNT(*), COALESCE(SUM(CASE WHEN is_sold = 1 THEN 1 ELSE 0 END), 0)
+		FROM cars
+		WHERE model != '' AND model IS NOT NULL AND brand != '' AND brand IS NOT NULL
+		GROUP BY brand, model
+		ORDER BY COUNT(*) DESC
+		LIMIT 30
+	`
+	rows, err = d.Query(d.queryFormat(modelQuery))
+	if err != nil {
+		return stats, fmt.Errorf("model query: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var ms ModelStat
+		if err := rows.Scan(&ms.Brand, &ms.Model, &ms.Total, &ms.Sold); err != nil {
+			return stats, err
+		}
+		if ms.Total > 0 {
+			ms.SoldRate = float64(ms.Sold) / float64(ms.Total)
+		}
+		stats.ModelStats = append(stats.ModelStats, ms)
+	}
+	rows.Close()
+
+	// 3. Year stats
+	yearQuery := `
+		SELECT year, COUNT(*), COALESCE(SUM(CASE WHEN is_sold = 1 THEN 1 ELSE 0 END), 0)
+		FROM cars
+		WHERE year > 1900 AND year < 2100
+		GROUP BY year
+		ORDER BY year DESC
+	`
+	rows, err = d.Query(d.queryFormat(yearQuery))
+	if err != nil {
+		return stats, fmt.Errorf("year query: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var ys YearStat
+		if err := rows.Scan(&ys.Year, &ys.Total, &ys.Sold); err != nil {
+			return stats, err
+		}
+		if ys.Total > 0 {
+			ys.SoldRate = float64(ys.Sold) / float64(ys.Total)
+		}
+		stats.YearStats = append(stats.YearStats, ys)
+	}
+	rows.Close()
+
+	// 4. Transmission stats
+	transQuery := `
+		SELECT transmision, COUNT(*), COALESCE(SUM(CASE WHEN is_sold = 1 THEN 1 ELSE 0 END), 0)
+		FROM cars
+		WHERE transmision != '' AND transmision IS NOT NULL
+		GROUP BY transmision
+		ORDER BY COUNT(*) DESC
+	`
+	rows, err = d.Query(d.queryFormat(transQuery))
+	if err != nil {
+		return stats, fmt.Errorf("transmission query: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var fs FeatureStat
+		if err := rows.Scan(&fs.Name, &fs.Total, &fs.Sold); err != nil {
+			return stats, err
+		}
+		if fs.Total > 0 {
+			fs.SoldRate = float64(fs.Sold) / float64(fs.Total)
+		}
+		stats.TransmissionStats = append(stats.TransmissionStats, fs)
+	}
+	rows.Close()
+
+	// 5. Fuel stats
+	fuelQuery := `
+		SELECT combustible, COUNT(*), COALESCE(SUM(CASE WHEN is_sold = 1 THEN 1 ELSE 0 END), 0)
+		FROM cars
+		WHERE combustible != '' AND combustible IS NOT NULL
+		GROUP BY combustible
+		ORDER BY COUNT(*) DESC
+	`
+	rows, err = d.Query(d.queryFormat(fuelQuery))
+	if err != nil {
+		return stats, fmt.Errorf("fuel query: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var fs FeatureStat
+		if err := rows.Scan(&fs.Name, &fs.Total, &fs.Sold); err != nil {
+			return stats, err
+		}
+		if fs.Total > 0 {
+			fs.SoldRate = float64(fs.Sold) / float64(fs.Total)
+		}
+		stats.FuelStats = append(stats.FuelStats, fs)
+	}
+	rows.Close()
+
+	// 6. Style stats
+	styleQuery := `
+		SELECT estilo, COUNT(*), COALESCE(SUM(CASE WHEN is_sold = 1 THEN 1 ELSE 0 END), 0)
+		FROM cars
+		WHERE estilo != '' AND estilo IS NOT NULL
+		GROUP BY estilo
+		ORDER BY COUNT(*) DESC
+		LIMIT 20
+	`
+	rows, err = d.Query(d.queryFormat(styleQuery))
+	if err != nil {
+		return stats, fmt.Errorf("style query: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var fs FeatureStat
+		if err := rows.Scan(&fs.Name, &fs.Total, &fs.Sold); err != nil {
+			return stats, err
+		}
+		if fs.Total > 0 {
+			fs.SoldRate = float64(fs.Sold) / float64(fs.Total)
+		}
+		stats.StyleStats = append(stats.StyleStats, fs)
+	}
+	rows.Close()
+
+	// 7. Equipment stats
+	columns := []string{
+		"equip_aire_ac", "equip_aire_climatizado", "equip_alarma", "equip_android_auto", "equip_apple_carplay",
+		"equip_aros_lujo", "equip_asiento_memoria", "equip_asientos_electricos", "equip_bluetooth",
+		"equip_bolsa_aire", "equip_caja_dual", "equip_cierre_central", "equip_computadora", "equip_control_crucero",
+		"equip_control_descenso", "equip_radio_volante", "equip_estabilidad", "equip_camara_360",
+		"equip_camara_retroceso", "equip_desempanador", "equip_direccion", "equip_espejos_electricos",
+		"equip_frenos_abs", "equip_halogenos", "equip_llave_inteligente", "equip_xenon", "equip_radio_usb",
+		"equip_retrovisores", "equip_revision_tecnica", "equip_sensor_lluvia", "equip_sensores_retroceso",
+		"equip_sensores_frontales", "equip_sunroof", "equip_tapiceria_cuero", "equip_turbo",
+		"equip_vidrios_electricos", "equip_vidrios_tintados", "equip_volante_ajustable", "equip_volante_multifuncional",
+	}
+	readableNames := []string{
+		"Aire acondicionado", "Aire acondicionado climatizado", "Alarma", "Android Auto", "Apple CarPlay",
+		"Aros de lujo", "Asiento con memoria", "Asientos eléctricos", "Bluetooth",
+		"Bolsa de aire", "Caja de cambios dual", "Cierre central", "Computadora de viaje", "Control crucero",
+		"Control de descenso", "Control de radio en el volante", "Control electrónico de estabilidad", "Cámara 360",
+		"Cámara de retroceso", "Desempañador Trasero", "Dirección Hidráulica/Electroasistida", "Espejos eléctricos",
+		"Frenos ABS", "Halógenos", "Llave inteligente/botón de arranque", "Luces de Xenón/Bixenón", "Radio con USB/AUX",
+		"Retrovisores auto-retractibles", "Revisión Técnica al día", "Sensor de lluvia", "Sensores de retroceso",
+		"Sensores frontales", "Sunroof/techo panorámico", "Tapicería de cuero", "Turbo",
+		"Vidrios eléctricos", "Vidrios tintados", "Volante ajustable", "Volante multifuncional",
+	}
+
+	var selectParts []string
+	selectParts = append(selectParts, "COUNT(*) as total_all", "COALESCE(SUM(CASE WHEN is_sold = 1 THEN 1 ELSE 0 END), 0) as total_sold_all")
+	for _, col := range columns {
+		selectParts = append(selectParts,
+			fmt.Sprintf("COALESCE(SUM(%s), 0) as with_%s", col, col),
+			fmt.Sprintf("COALESCE(SUM(CASE WHEN %s = 1 AND is_sold = 1 THEN 1 ELSE 0 END), 0) as sold_with_%s", col, col),
+		)
+	}
+
+	equipQuery := "SELECT " + strings.Join(selectParts, ", ") + " FROM cars"
+	row := d.QueryRow(d.queryFormat(equipQuery))
+
+	var totalAll, totalSoldAll int
+	scanDest := []interface{}{&totalAll, &totalSoldAll}
+
+	withCounts := make([]int, len(columns))
+	soldWithCounts := make([]int, len(columns))
+	for i := range columns {
+		scanDest = append(scanDest, &withCounts[i], &soldWithCounts[i])
+	}
+
+	if err := row.Scan(scanDest...); err != nil {
+		return stats, fmt.Errorf("equipment scan: %w", err)
+	}
+
+	for i, colName := range readableNames {
+		withCount := withCounts[i]
+		soldWithCount := soldWithCounts[i]
+		withoutCount := totalAll - withCount
+		soldWithoutCount := totalSoldAll - soldWithCount
+
+		var hasFeatureSoldRate, noFeatureSoldRate float64
+		if withCount > 0 {
+			hasFeatureSoldRate = float64(soldWithCount) / float64(withCount)
+		}
+		if withoutCount > 0 {
+			noFeatureSoldRate = float64(soldWithoutCount) / float64(withoutCount)
+		}
+
+		diff := hasFeatureSoldRate - noFeatureSoldRate
+
+		stats.EquipmentStats = append(stats.EquipmentStats, EquipmentStat{
+			FeatureName:        colName,
+			TotalWith:          withCount,
+			SoldWith:           soldWithCount,
+			HasFeatureSoldRate: hasFeatureSoldRate,
+			TotalWithout:       withoutCount,
+			SoldWithout:        soldWithoutCount,
+			NoFeatureSoldRate:  noFeatureSoldRate,
+			Difference:         diff,
+		})
+	}
+
+	// 8. Age Stats
+	ageQuery := `
+		SELECT 
+			CASE 
+				WHEN (2026 - year) <= 4 THEN 'Newer (0-4 years)'
+				WHEN (2026 - year) <= 10 THEN 'Mid-age (5-10 years)'
+				ELSE 'Older (10+ years)'
+			END as age_bucket,
+			COUNT(*),
+			COALESCE(SUM(CASE WHEN is_sold = 1 THEN 1 ELSE 0 END), 0)
+		FROM cars
+		WHERE year > 1900 AND year <= 2027
+		GROUP BY age_bucket
+		ORDER BY MIN(year) DESC
+	`
+	rows, err = d.Query(d.queryFormat(ageQuery))
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var fs FeatureStat
+			if err := rows.Scan(&fs.Name, &fs.Total, &fs.Sold); err == nil {
+				if fs.Total > 0 {
+					fs.SoldRate = float64(fs.Sold) / float64(fs.Total)
+				}
+				stats.AgeStats = append(stats.AgeStats, fs)
+			}
+		}
+		rows.Close()
+	}
+
+	// 9. Mileage Stats
+	mileageQuery := `
+		SELECT 
+			CASE 
+				WHEN kilometraje > 0 AND kilometraje < 50000 THEN 'Low (<50k km)'
+				WHEN kilometraje >= 50000 AND kilometraje <= 120000 THEN 'Medium (50k-120k km)'
+				WHEN kilometraje > 120000 THEN 'High (>120k km)'
+				ELSE 'Not Specified / New'
+			END as km_bucket,
+			COUNT(*),
+			COALESCE(SUM(CASE WHEN is_sold = 1 THEN 1 ELSE 0 END), 0)
+		FROM cars
+		GROUP BY km_bucket
+		ORDER BY MIN(CASE WHEN kilometraje = 0 THEN 9999999 ELSE kilometraje END) ASC
+	`
+	rows, err = d.Query(d.queryFormat(mileageQuery))
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var fs FeatureStat
+			if err := rows.Scan(&fs.Name, &fs.Total, &fs.Sold); err == nil {
+				if fs.Total > 0 {
+					fs.SoldRate = float64(fs.Sold) / float64(fs.Total)
+				}
+				stats.MileageStats = append(stats.MileageStats, fs)
+			}
+		}
+		rows.Close()
+	}
+
+	// 10. Relative Price Position Stats
+	priceRelQuery := `
+		WITH model_averages AS (
+			SELECT brand, model, AVG(price) as avg_price
+			FROM cars
+			WHERE price > 0 AND brand != '' AND model != ''
+			GROUP BY brand, model
+			HAVING COUNT(*) >= 3
+		),
+		car_pricing_relative AS (
+			SELECT c.is_sold,
+				   CASE WHEN c.price < m.avg_price THEN 'Below Model Average' ELSE 'Above Model Average' END as price_rel
+			FROM cars c
+			JOIN model_averages m ON c.brand = m.brand AND c.model = m.model
+			WHERE c.price > 0
+		)
+		SELECT price_rel, COUNT(*), COALESCE(SUM(CASE WHEN is_sold = 1 THEN 1 ELSE 0 END), 0)
+		FROM car_pricing_relative
+		GROUP BY price_rel
+		ORDER BY price_rel DESC
+	`
+	rows, err = d.Query(d.queryFormat(priceRelQuery))
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var fs FeatureStat
+			if err := rows.Scan(&fs.Name, &fs.Total, &fs.Sold); err == nil {
+				if fs.Total > 0 {
+					fs.SoldRate = float64(fs.Sold) / float64(fs.Total)
+				}
+				stats.PriceRelStats = append(stats.PriceRelStats, fs)
+			}
+		}
+		rows.Close()
+	}
+
+	return stats, nil
+}

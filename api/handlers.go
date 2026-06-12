@@ -191,6 +191,20 @@ func (s *Server) HandleStats(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (s *Server) HandleDetailedStats(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	stats, err := s.DB.GetDetailedStats()
+	if err != nil {
+		log.Printf("[API ERROR] GetDetailedStats failed: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(stats)
+}
+
 func getClientIP(r *http.Request) string {
 	if ip := r.Header.Get("X-Forwarded-For"); ip != "" {
 		parts := strings.Split(ip, ",")

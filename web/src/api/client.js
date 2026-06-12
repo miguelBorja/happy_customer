@@ -108,3 +108,9 @@ export const compareWithAI = async (car1, car2, language, onChunk, signal) => {
     }
   }
 };
+
+export const fetchDetailedStats = async () => {
+  const res = await fetch(`${BASE_URL}/stats/detailed`);
+  if (!res.ok) throw new Error('Failed to fetch detailed stats');
+  return res.json();
+};

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import CarsPage from './pages/CarsPage';
 import FavoritesPage from './pages/FavoritesPage';
+import StatsPage from './pages/StatsPage';
 import AboutPage from './pages/AboutPage';
 import CompareModal from './components/CompareModal';
 import { fetchStats, recordVisit } from './api/client';
@@ -92,6 +93,7 @@ function App() {
             toggleSelectCar={toggleSelectCar}
           />
         );
+      case 'stats': return <StatsPage />;
       case 'about': return <AboutPage stats={stats} />;
       default: 
         return (
@@ -157,11 +159,17 @@ function App() {
               {t('browseCars')}
             </button>
             <button 
-              className={`${activeTab === 'favorites' ? 'active' : ''} nav-fav-btn`}
+              className={activeTab === 'favorites' ? 'active' : ''} 
               onClick={() => setActiveTab('favorites')}
             >
               <span style={{ color: '#fbbf24' }}>★</span> {t('favorites')}
               {favCount > 0 && <span className="nav-fav-count">{favCount}</span>}
+            </button>
+            <button 
+              className={activeTab === 'stats' ? 'active' : ''} 
+              onClick={() => setActiveTab('stats')}
+            >
+              {t('stats')}
             </button>
             <button 
               className={activeTab === 'about' ? 'active' : ''} 
@@ -192,6 +200,13 @@ function App() {
           <span className="bottom-nav-icon">★</span>
           <span>{t('navFavs')}</span>
           {favCount > 0 && <span className="bottom-nav-badge">{favCount}</span>}
+        </button>
+        <button 
+          className={`bottom-nav-btn ${activeTab === 'stats' ? 'active' : ''}`}
+          onClick={() => setActiveTab('stats')}
+        >
+          <span className="bottom-nav-icon">📊</span>
+          <span>{t('stats')}</span>
         </button>
         <button 
           className={`bottom-nav-btn ${activeTab === 'about' ? 'active' : ''}`}

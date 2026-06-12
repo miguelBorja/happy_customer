@@ -438,7 +438,10 @@ func (s *Scraper) worker(id int, wd selenium.WebDriver, jobs <-chan string, resu
 	for url := range jobs {
 		if err := wd.Get(url); err != nil {
 			time.Sleep(1 * time.Second)
-			wd.Get(url)
+			if err := wd.Get(url); err != nil {
+				log.Printf("Worker %d failed to load URL %s: %v", id, url, err)
+				continue
+			}
 		}
 
 		car := db.Car{
@@ -450,8 +453,18 @@ func (s *Scraper) worker(id int, wd selenium.WebDriver, jobs <-chan string, resu
 		}
 
 		if strings.Contains(url, "/autosnuevos/") {
+			_ = wd.WaitWithTimeoutAndInterval(func(d selenium.WebDriver) (bool, error) {
+				_, err := d.FindElement(selenium.ByCSSSelector, ".text-center.text-white.pheader h2")
+				return err == nil, nil
+			}, 5*time.Second, 500*time.Millisecond)
+
 			s.scrapeNewCar(wd, &car)
 		} else {
+			_ = wd.WaitWithTimeoutAndInterval(func(d selenium.WebDriver) (bool, error) {
+				_, err := d.FindElement(selenium.ByCSSSelector, ".text-center.text-white.carheader")
+				return err == nil, nil
+			}, 5*time.Second, 500*time.Millisecond)
+
 			container, err := wd.FindElement(selenium.ByCSSSelector, ".text-center.text-white.carheader")
 			if err == nil {
 				if h1s, err := container.FindElements(selenium.ByTagName, "h1"); err == nil && len(h1s) > 0 {
@@ -582,6 +595,11 @@ func (s *Scraper) worker(id int, wd selenium.WebDriver, jobs <-chan string, resu
 					}
 				}
 			}
+		}
+
+		if car.Title == "" || car.Price <= 0 || car.Year <= 0 {
+			log.Printf("Warning: Worker %d parsed invalid/empty details for %s (Title: %q, Price: %d, Year: %d). Skipping DB update.", id, url, car.Title, car.Price, car.Year)
+			continue
 		}
 
 		results <- car
