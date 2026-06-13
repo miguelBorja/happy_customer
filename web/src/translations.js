@@ -189,6 +189,13 @@ export const translations = {
     "medium (50k-120k km)": "Medio (50k-120k km)",
     "high (>120k km)": "Alto (>120k km)",
     "not specified / new": "No especificado / Nuevo",
+    statsTableFeature: "FEATURE NAME",
+    statsTableBase: "BASE (SIN OPCIÓN)",
+    statsTableWithOption: "WITH OPTION",
+    statsTableBoost: "BOOST",
+    statsTableSample: "SAMPLE (N)",
+    statsTableCon: "Con",
+    statsTableSin: "Sin",
   },
   en: {
     // Navbar
@@ -419,5 +426,12 @@ export const translations = {
     "medium (50k-120k km)": "Medium (50k-120k km)",
     "high (>120k km)": "High (>120k km)",
     "not specified / new": "Not Specified / New",
+    statsTableFeature: "FEATURE NAME",
+    statsTableBase: "BASE (NO OPTION)",
+    statsTableWithOption: "WITH OPTION",
+    statsTableBoost: "BOOST",
+    statsTableSample: "SAMPLE (N)",
+    statsTableCon: "With",
+    statsTableSin: "Without",
   }
 };

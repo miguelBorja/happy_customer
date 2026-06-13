@@ -650,109 +650,88 @@ function StatsPage() {
           </div>
         </div>
 
-        {/* Equipment Grid Cards */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-          gap: '1.25rem',
-          marginTop: '0.5rem'
-        }}>
-          {sortedEquip.map((item) => {
-            const boostPct = item.difference * 100;
-            const hasRatePct = item.hasFeatureSoldRate * 100;
-            const noRatePct = item.noFeatureSoldRate * 100;
-            
-            const isPositive = boostPct > 0;
-            const isSubstantial = Math.abs(boostPct) >= 5;
+        {/* Equipment Boost Analytical Data Table */}
+        <div className="table-container" style={{ marginTop: '0.5rem', boxShadow: 'var(--shadow)' }}>
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th style={{ textAlign: 'left', padding: '1.25rem 1.5rem' }}>
+                  {t('statsTableFeature')}
+                </th>
+                <th style={{ textAlign: 'center', padding: '1.25rem 1.5rem' }}>
+                  {t('statsTableBase')}
+                </th>
+                <th style={{ textAlign: 'center', padding: '1.25rem 1.5rem' }}>
+                  {t('statsTableWithOption')}
+                </th>
+                <th 
+                  className="sortable"
+                  onClick={() => setBoostSort('boost')}
+                  style={{ 
+                    textAlign: 'center', 
+                    padding: '1.25rem 1.5rem',
+                    color: boostSort === 'boost' ? 'var(--success)' : 'var(--text-muted)',
+                    fontWeight: boostSort === 'boost' ? 700 : 600
+                  }}
+                >
+                  {t('statsTableBoost')}{boostSort === 'boost' ? ' ↑' : ''}
+                </th>
+                <th 
+                  className="sortable"
+                  onClick={() => setBoostSort('usage')}
+                  style={{ 
+                    textAlign: 'right', 
+                    padding: '1.25rem 1.5rem',
+                    color: boostSort === 'usage' ? 'var(--success)' : 'var(--text-muted)',
+                    fontWeight: boostSort === 'usage' ? 700 : 600
+                  }}
+                >
+                  {t('statsTableSample')}{boostSort === 'usage' ? ' ↑' : ''}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedEquip.map((item) => {
+                const boostPct = item.difference * 100;
+                const hasRatePct = item.hasFeatureSoldRate * 100;
+                const noRatePct = item.noFeatureSoldRate * 100;
+                
+                const isPositive = boostPct > 0;
+                const isNegative = boostPct < 0;
 
-            // Define colors
-            let badgeBg = 'rgba(255, 255, 255, 0.05)';
-            let badgeColor = 'var(--text-muted)';
-            if (isPositive && isSubstantial) {
-              badgeBg = 'rgba(16, 185, 129, 0.15)';
-              badgeColor = '#10b981';
-            } else if (!isPositive && isSubstantial) {
-              badgeBg = 'rgba(239, 68, 68, 0.15)';
-              badgeColor = '#ef4444';
-            }
+                // Define colors
+                let boostColor = 'var(--text-muted)';
+                if (isPositive) {
+                  boostColor = 'var(--success)';
+                } else if (isNegative) {
+                  boostColor = 'var(--danger)';
+                }
 
-            return (
-              <div
-                key={item.featureName}
-                style={{
-                  background: 'var(--bg-card)',
-                  borderRadius: '12px',
-                  border: '1px solid var(--border)',
-                  padding: '1.25rem',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '0.75rem',
-                  boxShadow: '0 4px 6px rgba(0,0,0,0.15)',
-                  transition: 'transform 0.2s ease',
-                  cursor: 'default'
-                }}
-                onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-                onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-              >
-                {/* Header */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
-                  <span style={{ fontWeight: 700, fontSize: '0.925rem', color: 'var(--text-main)', lineHeight: '1.2' }}>
-                    {t(item.featureName) || item.featureName}
-                  </span>
-                  <span style={{
-                    padding: '0.25rem 0.5rem',
-                    borderRadius: '6px',
-                    fontSize: '0.75rem',
-                    fontWeight: 800,
-                    whiteSpace: 'nowrap',
-                    background: badgeBg,
-                    color: badgeColor
-                  }}>
-                    {boostPct >= 0 ? '+' : ''}{boostPct.toFixed(1)}% Boost
-                  </span>
-                </div>
-
-                {/* Details */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span>{t('statsWithFeature')}:</span>
-                    <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>
-                      {hasRatePct.toFixed(1)}% <span style={{ fontWeight: 'normal', fontSize: '0.75rem', color: 'var(--text-muted)' }}>({item.soldWith}/{item.totalWith})</span>
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span>{t('statsWithoutFeature')}:</span>
-                    <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>
-                      {noRatePct.toFixed(1)}% <span style={{ fontWeight: 'normal', fontSize: '0.75rem', color: 'var(--text-muted)' }}>({item.soldWithout}/{item.totalWithout})</span>
-                    </span>
-                  </div>
-                </div>
-
-                {/* Micro comparative gauge */}
-                <div style={{
-                  width: '100%',
-                  height: '4px',
-                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                  borderRadius: '2px',
-                  overflow: 'hidden',
-                  marginTop: '0.25rem',
-                  display: 'flex'
-                }}>
-                  <div style={{
-                    width: `${hasRatePct}%`,
-                    height: '100%',
-                    backgroundColor: '#10b981'
-                  }} />
-                  <div style={{
-                    width: `${noRatePct}%`,
-                    height: '100%',
-                    backgroundColor: 'var(--accent)',
-                    opacity: 0.4
-                  }} />
-                </div>
-              </div>
-            );
-          })}
+                return (
+                  <tr key={item.featureName}>
+                    <td style={{ textAlign: 'left', padding: '1.25rem 1.5rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                      {t(item.featureName) || item.featureName}
+                    </td>
+                    <td style={{ textAlign: 'center', padding: '1.25rem 1.5rem', fontWeight: 500 }}>
+                      {noRatePct.toFixed(1)}%
+                    </td>
+                    <td style={{ textAlign: 'center', padding: '1.25rem 1.5rem', fontWeight: 500 }}>
+                      {hasRatePct.toFixed(1)}%
+                    </td>
+                    <td style={{ textAlign: 'center', padding: '1.25rem 1.5rem', fontWeight: 800, color: boostColor }}>
+                      {boostPct >= 0 ? '+' : ''}{boostPct.toFixed(1)}%
+                    </td>
+                    <td style={{ textAlign: 'right', padding: '1.25rem 1.5rem' }}>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.15rem' }}>
+                        <span>{t('statsTableCon')}: <strong style={{ color: 'var(--text-main)' }}>{item.totalWith.toLocaleString()}</strong></span>
+                        <span>{t('statsTableSin')}: <strong style={{ color: 'var(--text-muted)' }}>{item.totalWithout.toLocaleString()}</strong></span>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       </div>
     );
