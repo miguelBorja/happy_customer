@@ -371,12 +371,12 @@ CAR 2: %[4]s (%[5]d)
 
 Provide the comparison in these exact, short sections:
 
-1. **\U0001F4CA %[10]s**: A single sentence comparing both vehicles, highlighting segment or brand differences if applicable.
-2. **\u2699\uFE0F %[11]s**: 3-4 bullet points highlighting the main trade-offs (price vs year/mileage, segment pros/cons, brand reliability, parts availability in Costa Rica).
-3. **\u2705 %[12]s**:
+1. **📊 %[10]s**: A single sentence comparing both vehicles, highlighting segment or brand differences if applicable.
+2. **⚙️ %[11]s**: 3-4 bullet points highlighting the main trade-offs (price vs year/mileage, segment pros/cons, brand reliability, parts availability in Costa Rica).
+3. **✅ %[12]s**:
    - *%[8]s (%[2]s)*: 2 key pros / 1 con.
    - *%[9]s (%[4]s)*: 2 key pros / 1 con.
-4. **\U0001F3C6 %[13]s**: Clearly declare the WINNER and justify it in 2-3 sentences max. You MUST start this section with "Winner: %[8]s" or "Winner: %[9]s" (or "Ganador: %[8]s" or "Ganador: %[9]s" if Spanish).`, 
+4. **🏆 %[13]s**: Clearly declare the WINNER and justify it in 2-3 sentences max. You MUST start this section with "Winner: %[8]s" or "Winner: %[9]s" (or "Ganador: %[8]s" or "Ganador: %[9]s" if Spanish).`, 
 		lang, car1Name, car1Year, car2Name, car2Year, string(car1JSON), string(car2JSON),
 		labelCar1, labelCar2, hResumen, hDiferencias, hProsContras, hGanador)
 
