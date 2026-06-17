@@ -429,6 +429,7 @@ const CarsPage = ({
                   isFav={isFavorite(car.URL)}
                   onToggleFav={toggleFavorite}
                   maxPrice={filters.priceMax ? Number(filters.priceMax) : 0}
+                  maxMileage={filters.kmMax ? Number(filters.kmMax) : 0}
                   isSelected={selectedCars.some(c => c.URL === car.URL)}
                   onToggleSelect={toggleSelectCar}
                 />
