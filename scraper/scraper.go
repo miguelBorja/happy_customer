@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -20,10 +21,21 @@ import (
 )
 
 const (
-	SeleniumPort     = 4444
-	ChromeDriverPath = "./chromedriver-win64/chromedriver.exe"
-	WorkerCount      = 4
+	SeleniumPort = 4444
+	WorkerCount  = 4
 )
+
+var ChromeDriverPath = getChromeDriverPath()
+
+func getChromeDriverPath() string {
+	if runtime.GOOS == "windows" {
+		return "./chromedriver-win64/chromedriver.exe"
+	}
+	if runtime.GOOS == "darwin" {
+		return "./chromedriver-mac-arm64/chromedriver"
+	}
+	return "chromedriver"
+}
 
 var (
 	millasRegexp     = regexp.MustCompile(`,|millas| `)

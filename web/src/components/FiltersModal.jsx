@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../context/LanguageContext';
 
 const commonEquipments = [
@@ -61,15 +61,27 @@ const FiltersModal = ({
 }) => {
   const { t } = useLanguage();
 
-  const minPriceVal = Number(filters.priceMin) || 0;
-  const maxPriceVal = Number(filters.priceMax) || 100000;
+  // Local state for Year range slider (immediate visual feedback)
+  const [localMinYear, setLocalMinYear] = useState(Number(filters.yearMin) || 2010);
+  const [localMaxYear, setLocalMaxYear] = useState(Number(filters.yearMax) || 2027);
 
-  const minYearVal = Number(filters.yearMin) || 2010;
-  const maxYearVal = Number(filters.yearMax) || 2027;
+  // Local state for Price range slider (immediate visual feedback)
+  const [localMinPrice, setLocalMinPrice] = useState(Number(filters.priceMin) || 0);
+  const [localMaxPrice, setLocalMaxPrice] = useState(Number(filters.priceMax) || 100000);
+
+  // Synchronize local states when filters change (e.g. on load, reset, or tag close)
+  useEffect(() => {
+    if (isOpen) {
+      setLocalMinYear(Number(filters.yearMin) || 2010);
+      setLocalMaxYear(Number(filters.yearMax) || 2027);
+      setLocalMinPrice(Number(filters.priceMin) || 0);
+      setLocalMaxPrice(Number(filters.priceMax) || 100000);
+    }
+  }, [isOpen, filters.yearMin, filters.yearMax, filters.priceMin, filters.priceMax]);
 
   const getPriceRangeLabel = () => {
-    const minVal = Number(filters.priceMin) || 0;
-    const maxVal = Number(filters.priceMax) || 100000;
+    const minVal = localMinPrice;
+    const maxVal = localMaxPrice;
     
     if (minVal === 0 && maxVal === 100000) {
       return t('any');
@@ -83,17 +95,9 @@ const FiltersModal = ({
     return `$${minVal.toLocaleString()} - $${maxVal.toLocaleString()}`;
   };
 
-  const handlePriceMinChange = (val) => {
-    setFilters(f => ({ ...f, priceMin: val === 0 ? '' : String(val) }));
-  };
-
-  const handlePriceMaxChange = (val) => {
-    setFilters(f => ({ ...f, priceMax: val === 100000 ? '' : String(val) }));
-  };
-
   const getYearRangeLabel = () => {
-    const minVal = Number(filters.yearMin) || 2010;
-    const maxVal = Number(filters.yearMax) || 2027;
+    const minVal = localMinYear;
+    const maxVal = localMaxYear;
     
     if (minVal === 2010 && maxVal === 2027) {
       return t('any');
@@ -107,12 +111,20 @@ const FiltersModal = ({
     return `${minVal} - ${maxVal}`;
   };
 
-  const handleYearMinChange = (val) => {
-    setFilters(f => ({ ...f, yearMin: val === 2010 ? '' : String(val) }));
+  const applyYearFilters = (minY, maxY) => {
+    setFilters(f => ({ 
+      ...f, 
+      yearMin: minY === 2010 ? '' : String(minY),
+      yearMax: maxY === 2027 ? '' : String(maxY)
+    }));
   };
 
-  const handleYearMaxChange = (val) => {
-    setFilters(f => ({ ...f, yearMax: val === 2027 ? '' : String(val) }));
+  const applyPriceFilters = (minP, maxP) => {
+    setFilters(f => ({ 
+      ...f, 
+      priceMin: minP === 0 ? '' : String(minP),
+      priceMax: maxP === 100000 ? '' : String(maxP)
+    }));
   };
 
   if (!isOpen) return null;
@@ -122,11 +134,10 @@ const FiltersModal = ({
     
     if (type === 'checkbox') {
       if (name === 'isSold') {
-        setFilters(f => ({ ...f, isSold: checked ? '' : 'false' })); // empty means show all, false means only active
+        setFilters(f => ({ ...f, isSold: checked ? '' : 'false' }));
       } else if (name === 'showFavsOnly') {
         setShowFavsOnly(checked);
       } else {
-        // Equipment checkboxes
         setFilters(f => ({
           ...f,
           equipments: checked 
@@ -165,7 +176,7 @@ const FiltersModal = ({
               {brands.map(b => <option key={b} value={b}>{b}</option>)}
             </select>
           </div>
-
+ 
           {/* Province */}
           <div className="filter-group">
             <label>{t('province')}</label>
@@ -174,7 +185,7 @@ const FiltersModal = ({
               {provinces.map(p => <option key={p} value={p}>{p}</option>)}
             </select>
           </div>
-
+ 
           {/* Year Range Slider */}
           <div className="filter-group">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -189,38 +200,42 @@ const FiltersModal = ({
                 min="2010"
                 max="2027"
                 step="1"
-                value={minYearVal}
+                value={localMinYear}
                 onChange={(e) => {
-                  const val = Math.min(Number(e.target.value), maxYearVal - 1);
-                  handleYearMinChange(val);
+                  const val = Math.min(Number(e.target.value), localMaxYear - 1);
+                  setLocalMinYear(val);
                 }}
+                onMouseUp={() => applyYearFilters(localMinYear, localMaxYear)}
+                onTouchEnd={() => applyYearFilters(localMinYear, localMaxYear)}
                 className="thumb thumb-left"
-                style={{ zIndex: minYearVal > 2018 ? '5' : '3' }}
+                style={{ zIndex: localMinYear > 2018 ? '5' : '3' }}
               />
               <input
                 type="range"
                 min="2010"
                 max="2027"
                 step="1"
-                value={maxYearVal}
+                value={localMaxYear}
                 onChange={(e) => {
-                  const val = Math.max(Number(e.target.value), minYearVal + 1);
-                  handleYearMaxChange(val);
+                  const val = Math.max(Number(e.target.value), localMinYear + 1);
+                  setLocalMaxYear(val);
                 }}
+                onMouseUp={() => applyYearFilters(localMinYear, localMaxYear)}
+                onTouchEnd={() => applyYearFilters(localMinYear, localMaxYear)}
                 className="thumb thumb-right"
-                style={{ zIndex: minYearVal > 2018 ? '3' : '5' }}
+                style={{ zIndex: localMinYear > 2018 ? '3' : '5' }}
               />
               <div className="slider-track" />
               <div
                 className="slider-range"
                 style={{
-                  left: `${((minYearVal - 2010) / 17) * 100}%`,
-                  width: `${((maxYearVal - minYearVal) / 17) * 100}%`,
+                  left: `${((localMinYear - 2010) / 17) * 100}%`,
+                  width: `${((localMaxYear - localMinYear) / 17) * 100}%`,
                 }}
               />
             </div>
           </div>
-
+ 
           {/* Price Range Slider */}
           <div className="filter-group">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -235,33 +250,37 @@ const FiltersModal = ({
                 min="0"
                 max="100000"
                 step="1000"
-                value={minPriceVal}
+                value={localMinPrice}
                 onChange={(e) => {
-                  const val = Math.min(Number(e.target.value), maxPriceVal - 1000);
-                  handlePriceMinChange(val);
+                  const val = Math.min(Number(e.target.value), localMaxPrice - 1000);
+                  setLocalMinPrice(val);
                 }}
+                onMouseUp={() => applyPriceFilters(localMinPrice, localMaxPrice)}
+                onTouchEnd={() => applyPriceFilters(localMinPrice, localMaxPrice)}
                 className="thumb thumb-left"
-                style={{ zIndex: minPriceVal > 50000 ? '5' : '3' }}
+                style={{ zIndex: localMinPrice > 50000 ? '5' : '3' }}
               />
               <input
                 type="range"
                 min="0"
                 max="100000"
                 step="1000"
-                value={maxPriceVal}
+                value={localMaxPrice}
                 onChange={(e) => {
-                  const val = Math.max(Number(e.target.value), minPriceVal + 1000);
-                  handlePriceMaxChange(val);
+                  const val = Math.max(Number(e.target.value), localMinPrice + 1000);
+                  setLocalMaxPrice(val);
                 }}
+                onMouseUp={() => applyPriceFilters(localMinPrice, localMaxPrice)}
+                onTouchEnd={() => applyPriceFilters(localMinPrice, localMaxPrice)}
                 className="thumb thumb-right"
-                style={{ zIndex: minPriceVal > 50000 ? '3' : '5' }}
+                style={{ zIndex: localMinPrice > 50000 ? '3' : '5' }}
               />
               <div className="slider-track" />
               <div
                 className="slider-range"
                 style={{
-                  left: `${(minPriceVal / 100000) * 100}%`,
-                  width: `${((maxPriceVal - minPriceVal) / 100000) * 100}%`,
+                  left: `${(localMinPrice / 100000) * 100}%`,
+                  width: `${((localMaxPrice - localMinPrice) / 100000) * 100}%`,
                 }}
               />
             </div>

@@ -4,6 +4,7 @@ import { useFavorites } from '../hooks/useFavorites';
 import { useSeenCars } from '../hooks/useSeenCars';
 import CarCard from '../components/CarCard';
 import MileageBar from '../components/MileageBar';
+import PriceBar from '../components/PriceBar';
 import { useLanguage } from '../context/LanguageContext';
 
 const FavoritesPage = ({ viewMode, setViewMode, selectedCars = [], toggleSelectCar }) => {
@@ -116,7 +117,7 @@ const FavoritesPage = ({ viewMode, setViewMode, selectedCars = [], toggleSelectC
                   <th>{t('mileageHeader')}</th>
                   <th>{t('province')}</th>
                   <th>{t('status')}</th>
-                  <th>{t('action')}</th>
+                  <th className="text-right">{t('action')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -156,14 +157,11 @@ const FavoritesPage = ({ viewMode, setViewMode, selectedCars = [], toggleSelectC
                       </span>
                     </td>
                     <td>{car.Year}</td>
-                    <td style={{ color: 'var(--success)', fontWeight: '600' }}>
-                      {car.Price > 0 ? `$${car.Price.toLocaleString()}` : car.PriceText}
+                    <td>
+                      <PriceBar price={car.Price} priceText={car.PriceText} />
                     </td>
                     <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <span>{car.Kilometraje > 0 ? car.Kilometraje.toLocaleString() : 'N/A'}</span>
-                        <MileageBar km={car.Kilometraje} />
-                      </div>
+                      <MileageBar km={car.Kilometraje} />
                     </td>
                     <td>{car.Provincia}</td>
                     <td>
@@ -172,8 +170,8 @@ const FavoritesPage = ({ viewMode, setViewMode, selectedCars = [], toggleSelectC
                         : <span style={{ color: 'var(--success)' }}>{t('activeStatus')}</span>
                       }
                     </td>
-                    <td>
-                      <a href={car.URL} target="_blank" rel="noreferrer" style={{ color: 'var(--accent)', textDecoration: 'none' }}>
+                    <td className="text-right">
+                      <a href={car.URL} target="_blank" rel="noreferrer" className="btn-table-action">
                         {t('view')}
                       </a>
                     </td>

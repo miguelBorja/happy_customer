@@ -143,8 +143,7 @@ const FuelPumpIcon = () => (
   </svg>
 );
 
-// Car Details Modal Component
-const CarDetailsModal = ({ isOpen, onClose, car, t }) => {
+const CarDetailsModal = ({ isOpen, onClose, car, t, language }) => {
   if (!isOpen) return null;
 
   const featuresArray = car.Equipments ? Object.keys(car.Equipments) : [];
@@ -194,6 +193,12 @@ const CarDetailsModal = ({ isOpen, onClose, car, t }) => {
             </div>
           )}
         </div>
+
+        <div className="details-modal-footer">
+          <a href={car.URL} target="_blank" rel="noreferrer" className="btn-link" style={{ width: '100%', textDecoration: 'none', margin: 0 }}>
+            {t('view')}{language === 'es' ? ' en Crautos' : ' on Crautos'}
+          </a>
+        </div>
       </div>
     </div>,
     document.body
@@ -217,7 +222,7 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage, isSelec
     const hue = Math.max(0, Math.min(120, 120 - (percent * 1.2)));
     return {
       text: `hsl(${hue}, 85%, 48%)`,
-      fill: `hsla(${hue}, 85%, 48%, 0.18)`,
+      fill: `hsla(${hue}, 85%, 48%, 0.3)`,
       border: `hsla(${hue}, 85%, 48%, 0.25)`,
       bg: `hsla(${hue}, 85%, 48%, 0.03)`
     };
@@ -372,31 +377,30 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage, isSelec
         </div>
 
         {/* Description/Comment: Strict 2-line clamp, secondary text color, triggers modal overlay on click */}
-        {car.Comment && (
-          <div 
-            style={{
-              marginTop: '0.75rem',
-              padding: '0.45rem 0.6rem',
-              background: 'rgba(255, 255, 255, 0.03)', 
-              borderLeft: '3px solid var(--accent)', 
-              borderRadius: '4px',
-              fontSize: '0.85rem',
-              fontStyle: 'italic',
-              color: 'var(--text-muted)',
-              lineHeight: '1.4',
-              display: '-webkit-box',
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: 'vertical',
-              overflow: 'hidden',
-              cursor: 'pointer',
-              userSelect: 'none'
-            }}
-            onClick={(e) => { e.stopPropagation(); setIsModalOpen(true); }}
-            title={language === 'es' ? 'Clic para ver más detalles' : 'Click to view details'}
-          >
-            "{car.Comment}"
-          </div>
-        )}
+        <div 
+          style={{
+            marginTop: '0.75rem',
+            padding: '0.45rem 0.6rem',
+            background: 'rgba(255, 255, 255, 0.03)', 
+            borderLeft: `3px solid ${car.Comment ? 'var(--accent)' : 'var(--border)'}`, 
+            borderRadius: '4px',
+            fontSize: '0.85rem',
+            fontStyle: 'italic',
+            color: 'var(--text-muted)',
+            lineHeight: '1.4',
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+            cursor: 'pointer',
+            userSelect: 'none',
+            minHeight: '72px'
+          }}
+          onClick={(e) => { e.stopPropagation(); setIsModalOpen(true); }}
+          title={car.Comment ? (language === 'es' ? 'Clic para ver más detalles' : 'Click to view details') : undefined}
+        >
+          {car.Comment ? `"${car.Comment}"` : (language === 'es' ? 'Sin comentarios del vendedor' : 'No seller comments')}
+        </div>
 
         {/* Feature Tags: Display maximum of 3 feature pills, plus a "+[X] más" pill that triggers the modal */}
         {car.Equipments && Object.keys(car.Equipments).length > 0 && (
@@ -422,22 +426,8 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage, isSelec
         {/* Modal trigger details button */}
         {hasMoreDetails && (
           <button 
+            className="btn-details-trigger"
             onClick={(e) => { e.stopPropagation(); setIsModalOpen(true); }}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'var(--accent)',
-              fontSize: '0.75rem',
-              fontWeight: '600',
-              cursor: 'pointer',
-              padding: '0.25rem 0',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.25rem',
-              marginTop: '0.5rem',
-              textAlign: 'left',
-              width: 'fit-content'
-            }}
           >
             <span>▼</span> {language === 'es' ? 'Mostrar más detalles' : 'Show more details'}
           </button>
@@ -447,7 +437,7 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage, isSelec
       {/* View on Crautos button: Pinned to the absolute bottom of the card using margin-top: auto */}
       <div className="car-footer" style={{ marginTop: 'auto' }}>
         <a href={car.URL} target="_blank" rel="noreferrer" className="btn-link">
-          {t('view')} on Crautos
+          {t('view')}{language === 'es' ? ' en Crautos' : ' on Crautos'}
         </a>
       </div>
 
@@ -457,6 +447,7 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage, isSelec
         onClose={() => setIsModalOpen(false)} 
         car={car} 
         t={t}
+        language={language}
       />
     </div>
   );

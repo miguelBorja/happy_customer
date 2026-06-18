@@ -448,7 +448,7 @@ const CarsPage = ({
                     <th>{t('priceHeader')}</th>
                     <th>{t('mileageHeader')}</th>
                     <th>{t('province')}</th>
-                    <th>{t('action')}</th>
+                    <th className="text-right">{t('action')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -496,25 +496,19 @@ const CarsPage = ({
                           </span>
                         </td>
                         <td>{car.Year}</td>
-                        <td style={{ color: 'var(--success)', fontWeight: '600' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <span>{car.Price > 0 ? `$${car.Price.toLocaleString()}` : car.PriceText}</span>
-                            <PriceBar price={car.Price} maxPrice={filters.priceMax ? Number(filters.priceMax) : 0} />
-                          </div>
+                        <td>
+                          <PriceBar price={car.Price} maxPrice={filters.priceMax ? Number(filters.priceMax) : 0} priceText={car.PriceText} />
                         </td>
                         <td>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <span>{car.Kilometraje > 0 ? car.Kilometraje.toLocaleString() : 'N/A'}</span>
-                            <MileageBar km={car.Kilometraje} />
-                          </div>
+                          <MileageBar km={car.Kilometraje} maxMileage={filters.kmMax ? Number(filters.kmMax) : 0} />
                         </td>
                         <td>{car.Provincia}</td>
-                        <td>
+                        <td className="text-right">
                           <a 
                             href={car.URL} 
                             target="_blank" 
                             rel="noreferrer" 
-                            style={{ color: 'var(--accent)', textDecoration: 'none' }}
+                            className="btn-table-action"
                             onClick={() => markSeen(car.URL)}
                           >
                             {t('view')}
