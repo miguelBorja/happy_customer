@@ -3,6 +3,7 @@ import CarsPage from './pages/CarsPage';
 import FavoritesPage from './pages/FavoritesPage';
 import StatsPage from './pages/StatsPage';
 import AboutPage from './pages/AboutPage';
+import BargainsPage from './pages/BargainsPage';
 import CompareModal from './components/CompareModal';
 import { fetchStats, recordVisit } from './api/client';
 import { useFavorites } from './hooks/useFavorites';
@@ -95,6 +96,15 @@ function App() {
         );
       case 'stats': return <StatsPage />;
       case 'about': return <AboutPage stats={stats} />;
+      case 'bargains': 
+        return (
+          <BargainsPage 
+            selectedCars={selectedCars}
+            toggleSelectCar={toggleSelectCar}
+            viewMode={viewMode}
+            setViewMode={handleSetViewMode}
+          />
+        );
       default: 
         return (
           <CarsPage 
@@ -166,6 +176,12 @@ function App() {
               {favCount > 0 && <span className="nav-fav-count">{favCount}</span>}
             </button>
             <button 
+              className={activeTab === 'bargains' ? 'active' : ''} 
+              onClick={() => setActiveTab('bargains')}
+            >
+              <span style={{ color: '#10b981' }}>💰</span> {language === 'es' ? 'Gangas' : 'Bargains'}
+            </button>
+            <button 
               className={activeTab === 'stats' ? 'active' : ''} 
               onClick={() => setActiveTab('stats')}
             >
@@ -200,6 +216,13 @@ function App() {
           <span className="bottom-nav-icon">★</span>
           <span>{t('navFavs')}</span>
           {favCount > 0 && <span className="bottom-nav-badge">{favCount}</span>}
+        </button>
+        <button 
+          className={`bottom-nav-btn ${activeTab === 'bargains' ? 'active' : ''}`}
+          onClick={() => setActiveTab('bargains')}
+        >
+          <span className="bottom-nav-icon">💰</span>
+          <span>{language === 'es' ? 'Gangas' : 'Bargains'}</span>
         </button>
         <button 
           className={`bottom-nav-btn ${activeTab === 'stats' ? 'active' : ''}`}

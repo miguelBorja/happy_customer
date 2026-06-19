@@ -221,8 +221,8 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage, isSelec
   const getDynamicColors = (percent) => {
     const hue = Math.max(0, Math.min(120, 120 - (percent * 1.2)));
     return {
-      text: `hsl(${hue}, 85%, 48%)`,
-      fill: `hsla(${hue}, 85%, 48%, 0.3)`,
+      text: `hsl(${hue}, 90%, 65%)`,
+      fill: `hsla(${hue}, 85%, 48%, 0.2)`,
       border: `hsla(${hue}, 85%, 48%, 0.25)`,
       bg: `hsla(${hue}, 85%, 48%, 0.03)`
     };

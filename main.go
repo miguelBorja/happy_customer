@@ -20,6 +20,7 @@ func main() {
 	backfillCommentsFlag := flag.Bool("backfill-comments", false, "Backfill comments for active cars")
 	portFlag := flag.String("port", "8080", "Port for the API server")
 	migrateFlag := flag.Bool("migrate", false, "Migrate all data from local SQLite (cars.db) to Supabase")
+	forceScrapeFlag := flag.Bool("force-scrape", false, "Force scrape all cars even if they exist in the database")
 	flag.Parse()
 
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
@@ -107,7 +108,7 @@ func main() {
 
 	if *scrapeFlag || *backfillFlag || *backfillCommentsFlag {
 		runScraper := func() {
-			s, err := scraper.NewScraper(scraper.ChromeDriverPath, scraper.SeleniumPort, database)
+			s, err := scraper.NewScraper(scraper.ChromeDriverPath, scraper.SeleniumPort, database, *forceScrapeFlag)
 			if err != nil {
 				log.Fatalf("Failed to create scraper: %v", err)
 			}
@@ -142,6 +143,7 @@ func main() {
 		mux := http.NewServeMux()
 		mux.HandleFunc("/api/cars", server.HandleCars)
 		mux.HandleFunc("/api/cars/favorites", server.HandleCarsByURLs)
+		mux.HandleFunc("/api/bargains", server.HandleBargains)
 		mux.HandleFunc("/api/brands", server.HandleBrands)
 		mux.HandleFunc("/api/brands/filtered", server.HandleFilteredBrands)
 		mux.HandleFunc("/api/provinces", server.HandleProvinces)

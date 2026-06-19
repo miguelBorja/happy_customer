@@ -64,10 +64,11 @@ type Scraper struct {
 	Service *selenium.Service
 	Port    int
 	DB      *db.DB
+	Force   bool
 	mu      sync.Mutex
 }
 
-func NewScraper(driverPath string, port int, database *db.DB) (*Scraper, error) {
+func NewScraper(driverPath string, port int, database *db.DB, force bool) (*Scraper, error) {
 	opts := []selenium.ServiceOption{
 		selenium.Output(io.Discard),
 	}
@@ -75,7 +76,7 @@ func NewScraper(driverPath string, port int, database *db.DB) (*Scraper, error) 
 	if err != nil {
 		return nil, fmt.Errorf("chromedriver error: %w", err)
 	}
-	return &Scraper{Service: service, Port: port, DB: database}, nil
+	return &Scraper{Service: service, Port: port, DB: database, Force: force}, nil
 }
 
 func (s *Scraper) Run() {
@@ -413,8 +414,8 @@ func (s *Scraper) producer(wd selenium.WebDriver, brandName, brandID string, job
 				href, _ := el.GetAttribute("href")
 				if href != "" && (strings.HasPrefix(href, "http") || strings.Contains(href, "cardetail.cfm")) {
 					seenUrls[href] = true
-					// Always scrape if not active to ensure we get updates or new cars
-					if !active[href] {
+					// Always scrape if not active or if force scraping is enabled to ensure we get updates (e.g. price updates)
+					if s.Force || !active[href] {
 						jobs <- href
 					}
 				}

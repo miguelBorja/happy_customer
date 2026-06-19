@@ -17,6 +17,12 @@ export const fetchCars = async (filters) => {
   return res.json();
 };
 
+export const fetchBargains = async () => {
+  const res = await fetch(`${BASE_URL}/bargains`);
+  if (!res.ok) throw new Error('Failed to fetch bargains');
+  return res.json();
+};
+
 export const fetchBrands = async () => {
   const res = await fetch(`${BASE_URL}/brands`);
   if (!res.ok) throw new Error('Failed to fetch brands');

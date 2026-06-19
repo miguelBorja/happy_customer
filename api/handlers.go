@@ -445,3 +445,21 @@ Provide the comparison in these exact, short sections:
 		}
 	}
 }
+
+func (s *Server) HandleBargains(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	bargains, err := s.DB.GetBargains()
+	if err != nil {
+		log.Printf("[API ERROR] GetBargains failed: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if bargains == nil {
+		bargains = []db.BargainResult{}
+	}
+
+	json.NewEncoder(w).Encode(bargains)
+}
