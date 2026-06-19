@@ -16,4 +16,9 @@ cars.db
 
 # Helper scripts / credentials
 run_all.ps1
+run_all-old.ps1
+.DS_Store
+crautosdb
+download_chromedriver.js
+run_local.sh
 
