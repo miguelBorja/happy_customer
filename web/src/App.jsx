@@ -14,13 +14,27 @@ function App() {
   const [stats, setStats] = useState({ total: 0, active: 0, sold: 0, visits: 0 });
   const { favCount } = useFavorites();
   const { language, toggleLanguage, t } = useLanguage();
-  const [viewMode, setViewMode] = useState(() => {
-    return localStorage.getItem('happy_customer_view_mode') || 'cards';
+  const [browseViewMode, setBrowseViewMode] = useState(() => {
+    return localStorage.getItem('happy_customer_browse_view_mode') || 'cards';
+  });
+  const [favsViewMode, setFavsViewMode] = useState(() => {
+    return localStorage.getItem('happy_customer_favs_view_mode') || 'cards';
+  });
+  const [bargainsViewMode, setBargainsViewMode] = useState(() => {
+    return localStorage.getItem('happy_customer_bargains_view_mode') || 'cards';
   });
 
-  const handleSetViewMode = (mode) => {
-    setViewMode(mode);
-    localStorage.setItem('happy_customer_view_mode', mode);
+  const handleSetBrowseViewMode = (mode) => {
+    setBrowseViewMode(mode);
+    localStorage.setItem('happy_customer_browse_view_mode', mode);
+  };
+  const handleSetFavsViewMode = (mode) => {
+    setFavsViewMode(mode);
+    localStorage.setItem('happy_customer_favs_view_mode', mode);
+  };
+  const handleSetBargainsViewMode = (mode) => {
+    setBargainsViewMode(mode);
+    localStorage.setItem('happy_customer_bargains_view_mode', mode);
   };
 
   // Unified Filter States
@@ -37,6 +51,8 @@ function App() {
     kmMode: '',
     transmision: '',
     combustible: '',
+    sellerName: '',
+    sellerMode: '',
     isSold: 'false',
     equipments: [],
     scrapedFrom: '',
@@ -88,8 +104,8 @@ function App() {
       case 'favorites': 
         return (
           <FavoritesPage 
-            viewMode={viewMode} 
-            setViewMode={handleSetViewMode} 
+            viewMode={favsViewMode} 
+            setViewMode={handleSetFavsViewMode} 
             selectedCars={selectedCars}
             toggleSelectCar={toggleSelectCar}
           />
@@ -101,8 +117,8 @@ function App() {
           <BargainsPage 
             selectedCars={selectedCars}
             toggleSelectCar={toggleSelectCar}
-            viewMode={viewMode}
-            setViewMode={handleSetViewMode}
+            viewMode={bargainsViewMode}
+            setViewMode={handleSetBargainsViewMode}
           />
         );
       default: 
@@ -114,8 +130,8 @@ function App() {
             setLocalTitle={setLocalTitle}
             showFavsOnly={showFavsOnly}
             setShowFavsOnly={setShowFavsOnly}
-            viewMode={viewMode}
-            setViewMode={handleSetViewMode}
+            viewMode={browseViewMode}
+            setViewMode={handleSetBrowseViewMode}
             selectedCars={selectedCars}
             toggleSelectCar={toggleSelectCar}
           />

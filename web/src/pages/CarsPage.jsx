@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { fetchCars, fetchBrands, fetchCarsByUrls, fetchProvinces } from '../api/client';
+import { fetchCars, fetchBrands, fetchCarsByUrls, fetchProvinces, fetchTopSellers, fetchFilteredBrands } from '../api/client';
 import CarCard from '../components/CarCard';
 import MileageBar from '../components/MileageBar';
 import PriceBar from '../components/PriceBar';
@@ -23,6 +23,7 @@ const CarsPage = ({
   const [cars, setCars] = useState([]);
   const [brands, setBrands] = useState([]);
   const [provinces, setProvinces] = useState([]);
+  const [sellers, setSellers] = useState([]);
   const [loading, setLoading] = useState(true);
   const { isNew, markSeen, markAllSeen } = useSeenCars();
   const { isFavorite, toggleFavorite, favCount, getAllUrls } = useFavorites();
@@ -32,9 +33,39 @@ const CarsPage = ({
   const [isSortOpen, setIsSortOpen] = useState(false);
 
   useEffect(() => {
-    fetchBrands().then(setBrands).catch(console.error);
     fetchProvinces().then(setProvinces).catch(console.error);
+    fetchTopSellers().then(setSellers).catch(console.error);
   }, []);
+
+  // Dynamically load brands matching all other filters
+  useEffect(() => {
+    const filtersForBrands = { ...filters };
+    delete filtersForBrands.brand;
+    delete filtersForBrands.limit;
+    delete filtersForBrands.sortTitle;
+    delete filtersForBrands.sortYear;
+    delete filtersForBrands.sortPrice;
+    delete filtersForBrands.sortKm;
+
+    fetchFilteredBrands(filtersForBrands)
+      .then(setBrands)
+      .catch(console.error);
+  }, [
+    filters.title,
+    filters.provincia,
+    filters.yearMin,
+    filters.yearMax,
+    filters.priceMin,
+    filters.priceMax,
+    filters.kmMax,
+    filters.transmision,
+    filters.combustible,
+    filters.sellerName,
+    filters.isSold,
+    filters.equipments,
+    filters.scrapedFrom,
+    filters.scrapedTo,
+  ]);
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -102,6 +133,8 @@ const CarsPage = ({
       kmMode: '',
       transmision: '',
       combustible: '',
+      sellerName: '',
+      sellerMode: '',
       isSold: 'false',
       equipments: [],
       scrapedFrom: '',
@@ -174,6 +207,7 @@ const CarsPage = ({
     if (filters.kmMax) tags.push({ id: 'kmMax', label: `Max km: ${Number(filters.kmMax).toLocaleString()}`, clear: () => setFilters(f => ({ ...f, kmMax: '', kmMode: '' })) });
     if (filters.transmision) tags.push({ id: 'transmision', label: `${t('transmission')}: ${t(filters.transmision.toLowerCase()) || filters.transmision}`, clear: () => setFilters(f => ({ ...f, transmision: '' })) });
     if (filters.combustible) tags.push({ id: 'combustible', label: `${t('fuel')}: ${t(filters.combustible.toLowerCase()) || filters.combustible}`, clear: () => setFilters(f => ({ ...f, combustible: '' })) });
+    if (filters.sellerName) tags.push({ id: 'sellerName', label: `${t('sellerName') || 'Seller'}: ${filters.sellerName}`, clear: () => setFilters(f => ({ ...f, sellerName: '', sellerMode: '' })) });
     if (filters.scrapedPeriod) {
       let label = '';
       if (filters.scrapedPeriod === 'today') label = t('today');
@@ -365,6 +399,7 @@ const CarsPage = ({
         onReset={handleResetFilters}
         brands={brands}
         provinces={provinces}
+        sellers={sellers}
       />
 
       {/* Results Container */}

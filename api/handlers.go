@@ -38,6 +38,7 @@ func (s *Server) HandleCars(w http.ResponseWriter, r *http.Request) {
 		TitleQuery:  q.Get("title"),
 		ScrapedFrom: q.Get("scrapedFrom"),
 		ScrapedTo:   q.Get("scrapedTo"),
+		SellerName:  q.Get("sellerName"),
 	}
 
 	if y, _ := strconv.Atoi(q.Get("yearMin")); y > 0 { f.YearMin = y }
@@ -115,10 +116,15 @@ func (s *Server) HandleFilteredBrands(w http.ResponseWriter, r *http.Request) {
 	f := db.FilterParams{
 		TitleQuery:  q.Get("title"),
 		Provincia:   q.Get("provincia"),
+		Transmision: q.Get("transmision"),
+		Combustible: q.Get("combustible"),
+		SellerName:  q.Get("sellerName"),
 		ScrapedFrom: q.Get("scrapedFrom"),
 		ScrapedTo:   q.Get("scrapedTo"),
 	}
 
+	if y, _ := strconv.Atoi(q.Get("yearMin")); y > 0 { f.YearMin = y }
+	if y, _ := strconv.Atoi(q.Get("yearMax")); y > 0 { f.YearMax = y }
 	if k, _ := strconv.Atoi(q.Get("kmMax")); k > 0 { f.KmMax = k }
 	if k, _ := strconv.Atoi(q.Get("kmMin")); k > 0 { f.KmMin = k }
 	if p, _ := strconv.Atoi(q.Get("priceMax")); p > 0 { f.PriceMax = p }
@@ -127,6 +133,10 @@ func (s *Server) HandleFilteredBrands(w http.ResponseWriter, r *http.Request) {
 	if isSoldStr := q.Get("isSold"); isSoldStr != "" {
 		b := isSoldStr == "true"
 		f.IsSold = &b
+	}
+
+	if eq := q.Get("equipments"); eq != "" {
+		f.Equipments = strings.Split(eq, ",")
 	}
 
 	brands, err := s.DB.GetFilteredBrands(f)
@@ -462,4 +472,18 @@ func (s *Server) HandleBargains(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json.NewEncoder(w).Encode(bargains)
+}
+
+func (s *Server) HandleTopSellers(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	sellers, err := s.DB.GetTopSellers()
+	if err != nil {
+		log.Printf("[API ERROR] GetTopSellers failed: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(sellers)
 }

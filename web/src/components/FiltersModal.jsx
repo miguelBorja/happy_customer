@@ -57,7 +57,8 @@ const FiltersModal = ({
   resultsCount,
   onReset,
   brands = [],
-  provinces = []
+  provinces = [],
+  sellers = []
 }) => {
   const { t } = useLanguage();
 
@@ -184,6 +185,39 @@ const FiltersModal = ({
               <option value="">{t('allProvinces')}</option>
               {provinces.map(p => <option key={p} value={p}>{p}</option>)}
             </select>
+          </div>
+
+          {/* Seller */}
+          <div className="filter-group">
+            <label>{t('sellerName')}</label>
+            <select
+              name="sellerModeSelect"
+              className="select-field"
+              value={filters.sellerMode === 'custom' ? 'custom' : filters.sellerName || ''}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === 'custom') {
+                  setFilters(f => ({ ...f, sellerMode: 'custom', sellerName: '' }));
+                } else {
+                  setFilters(f => ({ ...f, sellerName: val, sellerMode: '' }));
+                }
+              }}
+            >
+              <option value="">{t('allSellers')}</option>
+              {sellers.map(s => <option key={s} value={s}>{s}</option>)}
+              <option value="custom">{t('custom')}</option>
+            </select>
+            {filters.sellerMode === 'custom' && (
+              <input
+                type="text"
+                name="sellerName"
+                className="input-field"
+                style={{ marginTop: '0.5rem' }}
+                placeholder={t('enterSellerName')}
+                value={filters.sellerName || ''}
+                onChange={handleChange}
+              />
+            )}
           </div>
  
           {/* Year Range Slider */}

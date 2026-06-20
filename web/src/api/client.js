@@ -35,6 +35,12 @@ export const fetchProvinces = async () => {
   return res.json();
 };
 
+export const fetchTopSellers = async () => {
+  const res = await fetch(`${BASE_URL}/sellers/top`);
+  if (!res.ok) throw new Error('Failed to fetch top sellers');
+  return res.json();
+};
+
 export const fetchFilteredBrands = async (filters) => {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(filters)) {

@@ -151,6 +151,7 @@ func main() {
 		mux.HandleFunc("/api/stats/detailed", server.HandleDetailedStats)
 		mux.HandleFunc("/api/visit", server.HandleRecordVisit)
 		mux.HandleFunc("/api/ai/compare", server.HandleAICompare)
+		mux.HandleFunc("/api/sellers/top", server.HandleTopSellers)
 
 		// Serve static frontend files if they exist
 		if _, err := os.Stat("web/dist"); err == nil {

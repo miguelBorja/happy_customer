@@ -44,19 +44,35 @@ var (
 	precioNumRegexp  = regexp.MustCompile(`[^\d]`)
 
 	targetBrands = map[string]string{
-		"kia":           "19",
-		"toyota":        "35",
-		"hyundai":       "16",
-		"honda":         "15",
+		"electric":      "4",
+		"daihatsu":      "10",
+		"Fiat":          "12",
 		"ford":          "13",
-		"nissan":        "26",
-		"suzuki":        "34",
+		"honda":         "15",
+		"hyundai":       "16",
+		"kia":           "19",
 		"mazda":         "23",
+		"mitsubishi":    "25",
+		"nissan":        "26",
+		"Peugeot":       "27",
+		"suzuki":        "34",
+		"toyota":        "35",
+		"volkswagen":    "36",
+		"volvo":         "37",
+		"citroen":       "46",
+		"mini":          "51",
+		"skoda":         "53",
 		"donfeng (ZNA)": "64",
+		"JAC":           "75",
 		"chery":         "88",
 		"BYD":           "97",
 		"changan":       "108",
-		"electric":      "4",
+		"Haval":         "121",
+		"xpeng":         "122",
+		"omoda":         "129",
+		"kaiyi":         "131",
+		"neta":          "133",
+		"zeekr":         "132",
 	}
 )
 
@@ -272,7 +288,6 @@ func (s *Scraper) BackfillComments() {
 	wg.Wait()
 	log.Printf("Comment backfill complete. Checked %d cars. Found comments for %d cars. No comment for %d cars.", len(urls), successCount, noCommentCount)
 }
-
 
 func (s *Scraper) ProcessBrand(brandName, brandID string) {
 	var activeURLs []string

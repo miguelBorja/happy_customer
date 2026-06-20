@@ -275,6 +275,7 @@ type FilterParams struct {
 	TitleQuery   string
 	ScrapedFrom  string
 	ScrapedTo    string
+	SellerName   string
 }
 
 func (d *DB) GetCars(f FilterParams) ([]Car, error) {
@@ -370,6 +371,10 @@ func (d *DB) GetCars(f FilterParams) ([]Car, error) {
 	if f.ScrapedTo != "" {
 		q += " AND scraped_at <= ?"
 		args = append(args, f.ScrapedTo+" 23:59:59")
+	}
+	if f.SellerName != "" {
+		q += " AND LOWER(seller_name) LIKE ?"
+		args = append(args, "%"+strings.ToLower(f.SellerName)+"%")
 	}
 	
 	// Handle equipments map mapping to DB column
@@ -559,6 +564,14 @@ func (d *DB) GetFilteredBrands(f FilterParams) ([]string, error) {
 		query = strings.ToLower(query)
 		args = append(args, query, query)
 	}
+	if f.YearMin > 0 {
+		q += " AND year >= ?"
+		args = append(args, f.YearMin)
+	}
+	if f.YearMax > 0 {
+		q += " AND year <= ?"
+		args = append(args, f.YearMax)
+	}
 	if f.KmMax > 0 {
 		q += " AND kilometraje <= ?"
 		args = append(args, f.KmMax)
@@ -574,6 +587,18 @@ func (d *DB) GetFilteredBrands(f FilterParams) ([]string, error) {
 	if f.PriceMin > 0 {
 		q += " AND price >= ?"
 		args = append(args, f.PriceMin)
+	}
+	if f.Transmision != "" {
+		q += " AND transmision = ?"
+		args = append(args, f.Transmision)
+	}
+	if f.Combustible != "" {
+		q += " AND combustible = ?"
+		args = append(args, f.Combustible)
+	}
+	if f.SellerName != "" {
+		q += " AND LOWER(seller_name) LIKE ?"
+		args = append(args, "%"+strings.ToLower(f.SellerName)+"%")
 	}
 	if f.IsSold != nil {
 		q += " AND is_sold = ?"
@@ -594,6 +619,55 @@ func (d *DB) GetFilteredBrands(f FilterParams) ([]string, error) {
 	if f.ScrapedTo != "" {
 		q += " AND scraped_at <= ?"
 		args = append(args, f.ScrapedTo+" 23:59:59")
+	}
+
+	// Handle equipments map mapping to DB column
+	equipMap := map[string]string{
+		"Aire acondicionado": "equip_aire_ac",
+		"Aire acondicionado climatizado": "equip_aire_climatizado",
+		"Alarma": "equip_alarma",
+		"Android Auto": "equip_android_auto",
+		"Apple CarPlay": "equip_apple_carplay",
+		"Aros de lujo": "equip_aros_lujo",
+		"Asiento con memoria": "equip_asiento_memoria",
+		"Asientos eléctricos": "equip_asientos_electricos",
+		"Bluetooth": "equip_bluetooth",
+		"Bolsa de aire": "equip_bolsa_aire",
+		"Caja de cambios dual": "equip_caja_dual",
+		"Cierre central": "equip_cierre_central",
+		"Computadora de viaje": "equip_computadora",
+		"Control crucero": "equip_control_crucero",
+		"Control de descenso": "equip_control_descenso",
+		"Control de radio en el volante": "equip_radio_volante",
+		"Control electrónico de estabilidad": "equip_estabilidad",
+		"Cámara 360": "equip_camara_360",
+		"Cámara de retroceso": "equip_camara_retroceso",
+		"Desempañador Trasero": "equip_desempanador",
+		"Dirección Hidráulica/Electroasistida": "equip_direccion",
+		"Espejos eléctricos": "equip_espejos_electricos",
+		"Frenos ABS": "equip_frenos_abs",
+		"Halógenos": "equip_halogenos",
+		"Llave inteligente/botón de arranque": "equip_llave_inteligente",
+		"Luces de Xenón/Bixenón": "equip_xenon",
+		"Radio con USB/AUX": "equip_radio_usb",
+		"Retrovisores auto-retractibles": "equip_retrovisores",
+		"Revisión Técnica al día": "equip_revision_tecnica",
+		"Sensor de lluvia": "equip_sensor_lluvia",
+		"Sensores de retroceso": "equip_sensores_retroceso",
+		"Sensores frontales": "equip_sensores_frontales",
+		"Sunroof/techo panorámico": "equip_sunroof",
+		"Tapicería de cuero": "equip_tapiceria_cuero",
+		"Turbo": "equip_turbo",
+		"Vidrios eléctricos": "equip_vidrios_electricos",
+		"Vidrios tintados": "equip_vidrios_tintados",
+		"Volante ajustable": "equip_volante_ajustable",
+		"Volante multifuncional": "equip_volante_multifuncional",
+	}
+
+	for _, eq := range f.Equipments {
+		if col, ok := equipMap[eq]; ok {
+			q += fmt.Sprintf(" AND %s = 1", col)
+		}
 	}
 
 	q += " ORDER BY brand ASC"
@@ -1210,4 +1284,30 @@ func (d *DB) GetBargains() ([]BargainResult, error) {
 	}
 
 	return results, nil
+}
+
+func (d *DB) GetTopSellers() ([]string, error) {
+	q := `SELECT seller_name 
+		FROM cars 
+		WHERE seller_name != '' AND seller_name IS NOT NULL 
+		GROUP BY seller_name 
+		ORDER BY COUNT(*) DESC 
+		LIMIT 20`
+	rows, err := d.Query(d.queryFormat(q))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var sellers []string
+	for rows.Next() {
+		var s string
+		if err := rows.Scan(&s); err == nil {
+			sellers = append(sellers, s)
+		}
+	}
+	if sellers == nil {
+		sellers = []string{}
+	}
+	return sellers, nil
 }
