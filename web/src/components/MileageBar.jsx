@@ -52,7 +52,8 @@ const MileageBar = ({ km, maxMileage }) => {
           fontWeight: '700',
           color: colors.text,
           zIndex: 2,
-          position: 'relative'
+          position: 'relative',
+          whiteSpace: 'nowrap'
         }}
       >
         {displayVal}
