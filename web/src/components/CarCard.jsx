@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLanguage } from '../context/LanguageContext';
+import { trackEvent } from '../utils/analytics';
 
 const MAX_PRICE = 100000;
 const MAX_MILEAGE = 150000;
@@ -195,7 +196,14 @@ const CarDetailsModal = ({ isOpen, onClose, car, t, language }) => {
         </div>
 
         <div className="details-modal-footer">
-          <a href={car.URL} target="_blank" rel="noreferrer" className="btn-link" style={{ width: '100%', textDecoration: 'none', margin: 0 }}>
+          <a 
+            href={car.URL} 
+            target="_blank" 
+            rel="noreferrer" 
+            className="btn-link" 
+            style={{ width: '100%', textDecoration: 'none', margin: 0 }}
+            onClick={() => trackEvent('view_external_car', 'outbound', car.Title || car.URL)}
+          >
             {t('view')}{language === 'es' ? ' en Crautos' : ' on Crautos'}
           </a>
         </div>
@@ -436,7 +444,13 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage, isSelec
       
       {/* View on Crautos button: Pinned to the absolute bottom of the card using margin-top: auto */}
       <div className="car-footer" style={{ marginTop: 'auto' }}>
-        <a href={car.URL} target="_blank" rel="noreferrer" className="btn-link">
+        <a 
+          href={car.URL} 
+          target="_blank" 
+          rel="noreferrer" 
+          className="btn-link"
+          onClick={() => trackEvent('view_external_car', 'outbound', car.Title || car.URL)}
+        >
           {t('view')}{language === 'es' ? ' en Crautos' : ' on Crautos'}
         </a>
       </div>

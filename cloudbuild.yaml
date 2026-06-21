@@ -5,12 +5,15 @@ substitutions:
   _REGION: us-central1
   _SERVICE: crautosdb-web
   _REPO: crautosdb-repo
+  _VITE_GA_MEASUREMENT_ID: '' # Set your GA4 tag (e.g. G-DTWKTLNF9L) in GCP Console Cloud Build trigger settings to keep it private
 
 steps:
   # Step 1: Build the Docker image
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
+      - '--build-arg'
+      - 'VITE_GA_MEASUREMENT_ID=$_VITE_GA_MEASUREMENT_ID'
       - '-t'
       - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$COMMIT_SHA'
       - '-t'

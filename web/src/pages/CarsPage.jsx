@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { fetchCars, fetchBrands, fetchCarsByUrls, fetchProvinces, fetchTopSellers, fetchFilteredBrands } from '../api/client';
+import { trackEvent } from '../utils/analytics';
 import CarCard from '../components/CarCard';
 import MileageBar from '../components/MileageBar';
 import PriceBar from '../components/PriceBar';
@@ -544,7 +545,10 @@ const CarsPage = ({
                             target="_blank" 
                             rel="noreferrer" 
                             className="btn-table-action"
-                            onClick={() => markSeen(car.URL)}
+                            onClick={() => {
+                              markSeen(car.URL);
+                              trackEvent('view_external_car', 'outbound', car.Title || car.URL);
+                            }}
                           >
                             {t('view')}
                           </a>
@@ -617,7 +621,10 @@ const CarsPage = ({
                           target="_blank" 
                           rel="noreferrer" 
                           style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: '600', fontSize: '0.9rem' }}
-                          onClick={() => markSeen(car.URL)}
+                          onClick={() => {
+                            markSeen(car.URL);
+                            trackEvent('view_external_car', 'outbound', car.Title || car.URL);
+                          }}
                         >
                           {t('view')} →
                         </a>

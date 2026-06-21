@@ -8,6 +8,7 @@ import CompareModal from './components/CompareModal';
 import { fetchStats, recordVisit } from './api/client';
 import { useFavorites } from './hooks/useFavorites';
 import { useLanguage } from './context/LanguageContext';
+import { trackPageView } from './utils/analytics';
 
 function App() {
   const [activeTab, setActiveTab] = useState('browse');
@@ -98,6 +99,11 @@ function App() {
     }, 30000);
     return () => clearInterval(interval);
   }, []);
+
+  // Track page view in GA4 on tab change
+  useEffect(() => {
+    trackPageView(`/${activeTab}`, activeTab);
+  }, [activeTab]);
 
   const renderPage = () => {
     switch (activeTab) {

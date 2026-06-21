@@ -1,4 +1,5 @@
 import React, { createContext, useState, useContext, useCallback } from 'react';
+import { trackEvent } from '../utils/analytics';
 
 export const FavoritesContext = createContext();
 
@@ -25,12 +26,21 @@ export const FavoritesProvider = ({ children }) => {
   const toggleFavorite = useCallback((url) => {
     setFavorites(prev => {
       const updated = new Set(prev);
+      const isAdding = !updated.has(url);
       if (updated.has(url)) {
         updated.delete(url);
       } else {
         updated.add(url);
       }
       saveFavorites(updated);
+      
+      // Track favorite event in GA4
+      trackEvent(
+        isAdding ? 'add_to_favorites' : 'remove_from_favorites',
+        'engagement',
+        url
+      );
+
       return updated;
     });
   }, []);
