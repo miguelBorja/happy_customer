@@ -21,4 +21,5 @@ run_all-old.ps1
 crautosdb
 download_chromedriver.js
 run_local.sh
-
+deploy*
+run_*

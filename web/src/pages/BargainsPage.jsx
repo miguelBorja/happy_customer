@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { fetchBargains } from '../api/client';
 import CarCard from '../components/CarCard';
 import MileageBar from '../components/MileageBar';
@@ -9,6 +9,7 @@ import { useSeenCars } from '../hooks/useSeenCars';
 
 const BargainsPage = ({ selectedCars = [], toggleSelectCar, viewMode, setViewMode }) => {
   const [bargains, setBargains] = useState([]);
+  const [sortBy, setSortBy] = useState('discount');
   const [loading, setLoading] = useState(true);
   const { language } = useLanguage();
   const { isFavorite, toggleFavorite } = useFavorites();
@@ -20,6 +21,29 @@ const BargainsPage = ({ selectedCars = [], toggleSelectCar, viewMode, setViewMod
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
+
+  const sortedBargains = useMemo(() => {
+    return [...bargains].sort((a, b) => {
+      if (sortBy === 'title') {
+        return (a.car.Title || '').localeCompare(b.car.Title || '');
+      }
+      if (sortBy === 'year') {
+        return (b.car.Year || 0) - (a.car.Year || 0);
+      }
+      if (sortBy === 'price') {
+        const aPrice = a.car.Price || Infinity;
+        const bPrice = b.car.Price || Infinity;
+        return aPrice - bPrice;
+      }
+      if (sortBy === 'mileage') {
+        const aKm = a.car.Kilometraje === 0 ? Infinity : (a.car.Kilometraje || Infinity);
+        const bKm = b.car.Kilometraje === 0 ? Infinity : (b.car.Kilometraje || Infinity);
+        return aKm - bKm;
+      }
+      // Default: discount percent descending
+      return b.discountPercent - a.discountPercent;
+    });
+  }, [bargains, sortBy]);
 
   return (
     <div style={{ paddingBottom: '4rem' }}>
@@ -36,19 +60,39 @@ const BargainsPage = ({ selectedCars = [], toggleSelectCar, viewMode, setViewMod
             </p>
           </div>
           
-          <div className="view-mode-toggle">
-            <button 
-              className={`btn-view-toggle ${viewMode === 'cards' ? 'active' : ''}`}
-              onClick={() => setViewMode('cards')}
-            >
-              {language === 'es' ? 'Tarjetas' : 'Cards'}
-            </button>
-            <button 
-              className={`btn-view-toggle ${viewMode === 'table' ? 'active' : ''}`}
-              onClick={() => setViewMode('table')}
-            >
-              {language === 'es' ? 'Tabla' : 'Table'}
-            </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>
+                {language === 'es' ? 'Ordenar por:' : 'Sort by:'}
+              </span>
+              <select 
+                value={sortBy} 
+                onChange={(e) => setSortBy(e.target.value)} 
+                className="select-field" 
+                style={{ width: 'auto', padding: '0.4rem 2rem 0.4rem 1rem', fontSize: '0.9rem', borderRadius: '8px', minWidth: '150px' }}
+              >
+                <option value="discount">{language === 'es' ? 'Descuento' : 'Discount'}</option>
+                <option value="title">{language === 'es' ? 'Título' : 'Title'}</option>
+                <option value="year">{language === 'es' ? 'Año' : 'Year'}</option>
+                <option value="price">{language === 'es' ? 'Precio Oferta' : 'Deal Price'}</option>
+                <option value="mileage">{language === 'es' ? 'Kilometraje' : 'Mileage'}</option>
+              </select>
+            </div>
+
+            <div className="view-mode-toggle">
+              <button 
+                className={`btn-view-toggle ${viewMode === 'cards' ? 'active' : ''}`}
+                onClick={() => setViewMode('cards')}
+              >
+                {language === 'es' ? 'Tarjetas' : 'Cards'}
+              </button>
+              <button 
+                className={`btn-view-toggle ${viewMode === 'table' ? 'active' : ''}`}
+                onClick={() => setViewMode('table')}
+              >
+                {language === 'es' ? 'Tabla' : 'Table'}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -71,7 +115,7 @@ const BargainsPage = ({ selectedCars = [], toggleSelectCar, viewMode, setViewMod
         </div>
       ) : viewMode === 'cards' ? (
         <div className="results-grid fav-cards-container active-view">
-          {bargains.map(b => (
+          {sortedBargains.map(b => (
             <div key={b.car.URL} style={{ position: 'relative', display: 'flex', flexDirection: 'column' }}>
               <div 
                 style={{
@@ -144,7 +188,7 @@ const BargainsPage = ({ selectedCars = [], toggleSelectCar, viewMode, setViewMod
               </tr>
             </thead>
             <tbody>
-              {bargains.map((b) => {
+              {sortedBargains.map((b) => {
                 const car = b.car;
                 const carIsNew = isNew(car.URL);
                 const carIsFav = isFavorite(car.URL);
