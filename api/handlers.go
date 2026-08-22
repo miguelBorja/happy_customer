@@ -4,12 +4,16 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"html"
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"crautosdb/db"
 )
@@ -302,6 +306,81 @@ func (s *Server) HandleCarsByURLs(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(cars)
 }
 
+type OpenRouterToolCall struct {
+	ID       string `json:"id"`
+	Type     string `json:"type"`
+	Function struct {
+		Name      string `json:"name"`
+		Arguments string `json:"arguments"`
+	} `json:"function"`
+}
+
+type OpenRouterMessage struct {
+	Role       string               `json:"role"`
+	Content    string               `json:"content,omitempty"`
+	ToolCalls  []OpenRouterToolCall `json:"tool_calls,omitempty"`
+	ToolCallID string               `json:"tool_call_id,omitempty"`
+}
+
+type OpenRouterResponse struct {
+	Choices []struct {
+		Message OpenRouterMessage `json:"message"`
+	} `json:"choices"`
+}
+
+func searchDuckDuckGo(query string) ([]map[string]string, error) {
+	client := &http.Client{Timeout: 8 * time.Second}
+	form := url.Values{}
+	form.Add("q", query)
+
+	req, err := http.NewRequest("POST", "https://html.duckduckgo.com/html/", strings.NewReader(form.Encode()))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	htmlStr := string(bodyBytes)
+	var results []map[string]string
+
+	reSnippet := regexp.MustCompile(`(?s)<a class="result__snippet"[^>]*>(.*?)</a>`)
+	reTitle := regexp.MustCompile(`(?s)<a class="result__url"[^>]*>(.*?)</a>`)
+	reTag := regexp.MustCompile(`<[^>]+>`)
+
+	matches := reSnippet.FindAllStringSubmatch(htmlStr, 5)
+	urlMatches := reTitle.FindAllStringSubmatch(htmlStr, 5)
+
+	for i, m := range matches {
+		if len(m) > 1 {
+			snippet := html.UnescapeString(reTag.ReplaceAllString(m[1], ""))
+			snippet = strings.TrimSpace(snippet)
+			site := ""
+			if i < len(urlMatches) && len(urlMatches[i]) > 1 {
+				site = strings.TrimSpace(html.UnescapeString(reTag.ReplaceAllString(urlMatches[i][1], "")))
+			}
+			if snippet != "" {
+				results = append(results, map[string]string{
+					"source":  site,
+					"snippet": snippet,
+				})
+			}
+		}
+	}
+
+	return results, nil
+}
+
 func (s *Server) HandleAICompare(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
@@ -328,6 +407,10 @@ func (s *Server) HandleAICompare(w http.ResponseWriter, r *http.Request) {
 		Car1     map[string]interface{} `json:"car1"`
 		Car2     map[string]interface{} `json:"car2"`
 		Language string                 `json:"language"`
+		Messages []struct {
+			Role    string `json:"role"`
+			Content string `json:"content"`
+		} `json:"messages"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		http.Error(w, "Invalid JSON body", http.StatusBadRequest)
@@ -366,56 +449,188 @@ func (s *Server) HandleAICompare(w http.ResponseWriter, r *http.Request) {
 		hGanador = "WINNER"
 	}
 
-	prompt := fmt.Sprintf(`You are an expert automotive advisor specializing in the Costa Rican used car market. Compare these two cars and respond entirely in %[1]s.
-Keep your response extremely concise, direct, and fact-focused. Avoid conversational fluff or general introductions.
+	systemPrompt := fmt.Sprintf(`You are an expert automotive advisor specializing in the Costa Rican used car market and an assistant for the "Happy Customer" car platform.
+You have direct access to database tools ("query_car_market_stats", "query_cars_db") and live internet search ("search_web").
+Language to respond in: %[1]s.
 
-You MUST refer to the cars exactly as "%[8]s" (which is %[2]s %[3]d) and "%[9]s" (which is %[4]s %[5]d) throughout your entire response. Never use Spanish terms like "Carro 1" or "Carro 2" when the language is English, and never translate or deviate from "%[8]s" and "%[9]s".
-
-If the vehicles belong to different segments (e.g., Sedan vs SUV), have different powertrains (e.g., EV vs Gas/Diesel), or represent different brands, explicitly analyze the trade-offs regarding segment utility, resale value, availability of spare parts in Costa Rica, and brand reputation in the Costa Rican market.
-
-CAR 1: %[2]s (%[3]d)
+VEHICLES CURRENTLY BEING COMPARED:
+- %[8]s (%[2]s %[3]d):
 %[6]s
 
-CAR 2: %[4]s (%[5]d)
+- %[9]s (%[4]s %[5]d):
 %[7]s
 
-Provide the comparison in these exact, short sections:
-
-1. **📊 %[10]s**: A single sentence comparing both vehicles, highlighting segment or brand differences if applicable.
-2. **⚙️ %[11]s**: 3-4 bullet points highlighting the main trade-offs (price vs year/mileage, segment pros/cons, brand reliability, parts availability in Costa Rica).
-3. **✅ %[12]s**:
-   - *%[8]s (%[2]s)*: 2 key pros / 1 con.
-   - *%[9]s (%[4]s)*: 2 key pros / 1 con.
-4. **🏆 %[13]s**: Clearly declare the WINNER and justify it in 2-3 sentences max. You MUST start this section with "Winner: %[8]s" or "Winner: %[9]s" (or "Ganador: %[8]s" or "Ganador: %[9]s" if Spanish).`, 
+COSTA RICAN AUTOMOTIVE MARKET CONTEXT & GUIDELINES:
+1. Always refer to the cars as "%[8]s" and "%[9]s" when comparing them.
+2. Official agencies and spare parts networks in Costa Rica:
+   - Purdy Motor (Toyota, Lexus): Best and most abundant spare parts availability in Costa Rica, very extensive aftermarket.
+   - Grupo Q (Hyundai, Isuzu, Chevrolet): Very high availability of OEM and generic parts nationwide.
+   - Agencia Datsun (Nissan): Very high availability and widespread mechanics familiarity.
+   - Motortec / Audi Costa Rica (Audi, Porsche, Volkswagen): High availability for routine maintenance parts; specialized EV/high-voltage electrical components (e-tron battery modules, inverters) require agency ordering.
+   - Bavarian Motors (BMW, Mini): Premium agency support, higher maintenance costs, specialized independent shops available.
+   - Veinsa Motors (Mitsubishi, Geely, Citroën, JMC): Standard agency network.
+   - AutoStar (Mercedes-Benz, Jeep, Dodge, RAM): Premium network.
+3. When asked about spare parts accessibility, maintenance costs, reliability, recall issues, or distributor networks, ALWAYS give a comprehensive, knowledgeable, and detailed answer. Use "search_web" to look up live internet information or official agency details whenever helpful. NEVER say you lack access to spare parts information.
+4. If asked about market trends, average prices, similar vehicles, or inventory statistics in Costa Rica, call your database tools ("query_car_market_stats", "query_cars_db").
+5. Keep answers concise, factual, structured, and easy to read with markdown.
+6. For initial vehicle comparisons, structure your response in:
+   1. **📊 %[10]s**: Single sentence comparison.
+   2. **⚙️ %[11]s**: 3-4 bullet points on trade-offs (price vs year/km, maintenance, parts availability in Costa Rica).
+   3. **✅ %[12]s**: 2 key pros / 1 con for each car.
+   4. **🏆 %[13]s**: Declare the winner ("Winner: %[8]s" or "Winner: %[9]s" / "Ganador: %[8]s" or "Ganador: %[9]s").`,
 		lang, car1Name, car1Year, car2Name, car2Year, string(car1JSON), string(car2JSON),
 		labelCar1, labelCar2, hResumen, hDiferencias, hProsContras, hGanador)
 
-	openRouterBody := map[string]interface{}{
-		"model": "google/gemini-2.5-flash",
-		"messages": []map[string]string{
-			{"role": "user", "content": prompt},
+	initialPrompt := fmt.Sprintf(`Please provide a comprehensive head-to-head comparison of %s and %s following the required format.`, labelCar1, labelCar2)
+
+	var promptMessages []OpenRouterMessage
+	promptMessages = append(promptMessages, OpenRouterMessage{
+		Role:    "system",
+		Content: systemPrompt,
+	})
+
+	if len(body.Messages) > 0 {
+		for _, msg := range body.Messages {
+			promptMessages = append(promptMessages, OpenRouterMessage{
+				Role:    msg.Role,
+				Content: msg.Content,
+			})
+		}
+	} else {
+		promptMessages = append(promptMessages, OpenRouterMessage{
+			Role:    "user",
+			Content: initialPrompt,
+		})
+	}
+
+	// Define Tools (Database Queries + Live Internet Search)
+	tools := []map[string]interface{}{
+		{
+			"type": "function",
+			"function": map[string]interface{}{
+				"name": "search_web",
+				"description": "Search the live internet for automotive technical specifications, spare parts accessibility, maintenance costs, common problems, recall notices, or dealer/agency information in Costa Rica and globally.",
+				"parameters": map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"query": map[string]interface{}{
+							"type":        "string",
+							"description": "Search query keywords, e.g. 'Audi e-tron repuestos Costa Rica disponibilidad agencias' or 'Toyota RAV4 vs Audi e-tron mantenimiento'",
+						},
+					},
+					"required": []string{"query"},
+				},
+			},
 		},
-		"stream": true,
+		{
+			"type": "function",
+			"function": map[string]interface{}{
+				"name": "query_car_market_stats",
+				"description": "Query aggregated market stats (average price, min/max price, average mileage, total listings, sold count) from the Costa Rican cars database for a brand/model/year.",
+				"parameters": map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"brand": map[string]interface{}{
+							"type":        "string",
+							"description": "Vehicle brand, e.g. Toyota, Audi, Hyundai, Nissan, BMW",
+						},
+						"model": map[string]interface{}{
+							"type":        "string",
+							"description": "Vehicle model name or keyword, e.g. E-TRON, RAV4, Tucson, Hilux",
+						},
+						"year_min": map[string]interface{}{
+							"type":        "integer",
+							"description": "Optional minimum year filter",
+						},
+						"year_max": map[string]interface{}{
+							"type":        "integer",
+							"description": "Optional maximum year filter",
+						},
+					},
+				},
+			},
+		},
+		{
+			"type": "function",
+			"function": map[string]interface{}{
+				"name": "query_cars_db",
+				"description": "Search actual car classifieds listings in the database with filters (brand, title/keywords, price range, year range, fuel, transmission).",
+				"parameters": map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"brand": map[string]interface{}{
+							"type":        "string",
+							"description": "Brand filter",
+						},
+						"title": map[string]interface{}{
+							"type":        "string",
+							"description": "Search keywords or model",
+						},
+						"price_min": map[string]interface{}{
+							"type":        "integer",
+							"description": "Minimum price in USD",
+						},
+						"price_max": map[string]interface{}{
+							"type":        "integer",
+							"description": "Maximum price in USD",
+						},
+						"year_min": map[string]interface{}{
+							"type":        "integer",
+							"description": "Minimum year",
+						},
+						"year_max": map[string]interface{}{
+							"type":        "integer",
+							"description": "Maximum year",
+						},
+						"fuel": map[string]interface{}{
+							"type":        "string",
+							"description": "Fuel type: Gasolina, Diesel, Eléctrico, Híbrido",
+						},
+						"transmission": map[string]interface{}{
+							"type":        "string",
+							"description": "Transmisión: Manual, Automática, Dual",
+						},
+						"limit": map[string]interface{}{
+							"type":        "integer",
+							"description": "Max listings to return (default 5, max 10)",
+						},
+					},
+				},
+			},
+		},
 	}
 
-	reqBody, err := json.Marshal(openRouterBody)
-	if err != nil {
-		http.Error(w, "Failed to marshal request", http.StatusInternalServerError)
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "Streaming not supported", http.StatusInternalServerError)
 		return
 	}
 
-	req, err := http.NewRequest("POST", "https://openrouter.ai/api/v1/chat/completions", bytes.NewReader(reqBody))
-	if err != nil {
-		http.Error(w, "Failed to create request", http.StatusInternalServerError)
-		return
+	client := &http.Client{Timeout: 60 * time.Second}
+
+	// 1. First call to evaluate if tool calls are requested
+	firstReqBodyMap := map[string]interface{}{
+		"model":    "google/gemini-2.5-flash",
+		"messages": promptMessages,
+		"tools":    tools,
 	}
 
+	firstReqBytes, _ := json.Marshal(firstReqBodyMap)
+	req, err := http.NewRequest("POST", "https://openrouter.ai/api/v1/chat/completions", bytes.NewReader(firstReqBytes))
+	if err != nil {
+		http.Error(w, "Failed to create AI request", http.StatusInternalServerError)
+		return
+	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 	req.Header.Set("HTTP-Referer", "https://happy-customer.app")
 	req.Header.Set("X-Title", "Happy Customer")
 
-	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Printf("[API ERROR] OpenRouter request failed: %v", err)
@@ -431,28 +646,182 @@ Provide the comparison in these exact, short sections:
 		return
 	}
 
-	// Stream SSE response to client
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("X-Accel-Buffering", "no")
-
-	flusher, ok := w.(http.Flusher)
-	if !ok {
-		http.Error(w, "Streaming not supported", http.StatusInternalServerError)
+	var openRouterResp OpenRouterResponse
+	if err := json.NewDecoder(resp.Body).Decode(&openRouterResp); err != nil {
+		log.Printf("[API ERROR] Failed to decode OpenRouter response: %v", err)
+		http.Error(w, "Failed to parse AI response", http.StatusInternalServerError)
 		return
 	}
 
-	buf := make([]byte, 4096)
-	for {
-		n, err := resp.Body.Read(buf)
-		if n > 0 {
-			w.Write(buf[:n])
-			flusher.Flush()
+	if len(openRouterResp.Choices) == 0 {
+		http.Error(w, "No response choice returned by AI", http.StatusInternalServerError)
+		return
+	}
+
+	choiceMsg := openRouterResp.Choices[0].Message
+
+	// If the model called tools, execute them against DB/Web and do a streamed completion
+	if len(choiceMsg.ToolCalls) > 0 {
+		promptMessages = append(promptMessages, choiceMsg)
+
+		for _, toolCall := range choiceMsg.ToolCalls {
+			fnName := toolCall.Function.Name
+			fnArgsJSON := toolCall.Function.Arguments
+			var toolOutput string
+
+			if fnName == "search_web" {
+				var args struct {
+					Query string `json:"query"`
+				}
+				json.Unmarshal([]byte(fnArgsJSON), &args)
+				webResults, err := searchDuckDuckGo(args.Query)
+				if err != nil || len(webResults) == 0 {
+					toolOutput = fmt.Sprintf(`{"status": "search completed", "query": "%s", "results": "No specific external snippets found. Use Costa Rican market context and general knowledge."}`, args.Query)
+				} else {
+					outBytes, _ := json.Marshal(webResults)
+					toolOutput = string(outBytes)
+				}
+			} else if fnName == "query_car_market_stats" {
+				var args struct {
+					Brand   string `json:"brand"`
+					Model   string `json:"model"`
+					YearMin int    `json:"year_min"`
+					YearMax int    `json:"year_max"`
+				}
+				json.Unmarshal([]byte(fnArgsJSON), &args)
+				stats, err := s.DB.GetMarketStats(args.Brand, args.Model, args.YearMin, args.YearMax)
+				if err != nil {
+					toolOutput = fmt.Sprintf(`{"error": "%s"}`, err.Error())
+				} else {
+					outBytes, _ := json.Marshal(stats)
+					toolOutput = string(outBytes)
+				}
+			} else if fnName == "query_cars_db" {
+				var args struct {
+					Brand        string `json:"brand"`
+					Title        string `json:"title"`
+					PriceMin     int    `json:"price_min"`
+					PriceMax     int    `json:"price_max"`
+					YearMin      int    `json:"year_min"`
+					YearMax      int    `json:"year_max"`
+					Fuel         string `json:"fuel"`
+					Transmission string `json:"transmission"`
+					Limit        int    `json:"limit"`
+				}
+				json.Unmarshal([]byte(fnArgsJSON), &args)
+				limit := args.Limit
+				if limit <= 0 || limit > 10 {
+					limit = 5
+				}
+				f := db.FilterParams{
+					Brand:       args.Brand,
+					TitleQuery:  args.Title,
+					PriceMin:    args.PriceMin,
+					PriceMax:    args.PriceMax,
+					YearMin:     args.YearMin,
+					YearMax:     args.YearMax,
+					Combustible: args.Fuel,
+					Transmision: args.Transmission,
+					Limit:       limit,
+				}
+				cars, err := s.DB.GetCars(f)
+				if err != nil {
+					toolOutput = fmt.Sprintf(`{"error": "%s"}`, err.Error())
+				} else {
+					type SimpleCar struct {
+						Title       string `json:"title"`
+						Year        int    `json:"year"`
+						Price       int    `json:"price"`
+						PriceText   string `json:"price_text"`
+						Kilometraje int    `json:"kilometraje"`
+						Combustible string `json:"combustible"`
+						Transmision string `json:"transmision"`
+						Provincia   string `json:"provincia"`
+						URL         string `json:"url"`
+					}
+					var simple []SimpleCar
+					for _, c := range cars {
+						simple = append(simple, SimpleCar{
+							Title:       c.Title,
+							Year:        c.Year,
+							Price:       c.Price,
+							PriceText:   c.PriceText,
+							Kilometraje: c.Kilometraje,
+							Combustible: c.Combustible,
+							Transmision: c.Transmision,
+							Provincia:   c.Provincia,
+							URL:         c.URL,
+						})
+					}
+					outBytes, _ := json.Marshal(simple)
+					toolOutput = string(outBytes)
+				}
+			} else {
+				toolOutput = `{"error": "Unknown tool"}`
+			}
+
+			promptMessages = append(promptMessages, OpenRouterMessage{
+				Role:       "tool",
+				ToolCallID: toolCall.ID,
+				Content:    toolOutput,
+			})
 		}
+
+		// Stream the final answer after tool execution
+		secondReqBodyMap := map[string]interface{}{
+			"model":    "google/gemini-2.5-flash",
+			"messages": promptMessages,
+			"stream":   true,
+		}
+		secondReqBytes, _ := json.Marshal(secondReqBodyMap)
+		secondReq, err := http.NewRequest("POST", "https://openrouter.ai/api/v1/chat/completions", bytes.NewReader(secondReqBytes))
 		if err != nil {
-			break
+			http.Error(w, "Failed to create streaming request", http.StatusInternalServerError)
+			return
 		}
+		secondReq.Header.Set("Content-Type", "application/json")
+		secondReq.Header.Set("Authorization", "Bearer "+apiKey)
+		secondReq.Header.Set("HTTP-Referer", "https://happy-customer.app")
+		secondReq.Header.Set("X-Title", "Happy Customer")
+
+		secondResp, err := client.Do(secondReq)
+		if err != nil {
+			log.Printf("[API ERROR] Streamed OpenRouter request failed: %v", err)
+			http.Error(w, "Failed to stream AI response", http.StatusInternalServerError)
+			return
+		}
+		defer secondResp.Body.Close()
+
+		buf := make([]byte, 4096)
+		for {
+			n, err := secondResp.Body.Read(buf)
+			if n > 0 {
+				w.Write(buf[:n])
+				flusher.Flush()
+			}
+			if err != nil {
+				break
+			}
+		}
+		return
+	}
+
+	// If no tool was called, stream the choice content directly as SSE
+	if choiceMsg.Content != "" {
+		// Send standard SSE chunk
+		deltaPayload := map[string]interface{}{
+			"choices": []map[string]interface{}{
+				{
+					"delta": map[string]string{
+						"content": choiceMsg.Content,
+					},
+				},
+			},
+		}
+		deltaBytes, _ := json.Marshal(deltaPayload)
+		fmt.Fprintf(w, "data: %s\n\n", string(deltaBytes))
+		fmt.Fprintf(w, "data: [DONE]\n\n")
+		flusher.Flush()
 	}
 }
 

@@ -130,14 +130,16 @@ function detectWinner(text) {
 const CompareModal = ({ isOpen, onClose, car1, car2 }) => {
   const { language, t } = useLanguage();
   const { isFavorite, toggleFavorite } = useFavorites();
-  const [aiResponse, setAiResponse] = useState('');
+  const [chatMessages, setChatMessages] = useState([]);
+  const [inputText, setInputText] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('specs'); // 'specs' or 'ai'
-  const aiPanelRef = useRef(null);
+  const chatScrollRef = useRef(null);
   const abortRef = useRef(null);
 
-  const winner = detectWinner(aiResponse);
+  const initialComparison = chatMessages.find(m => m.role === 'assistant')?.content || '';
+  const winner = detectWinner(initialComparison);
 
   // Lock body scroll & Escape key
   useEffect(() => {
@@ -155,7 +157,8 @@ const CompareModal = ({ isOpen, onClose, car1, car2 }) => {
   // Reset state when cars change
   useEffect(() => {
     if (isOpen) {
-      setAiResponse('');
+      setChatMessages([]);
+      setInputText('');
       setError('');
       setIsGenerating(false);
       setActiveTab('specs');
@@ -169,21 +172,29 @@ const CompareModal = ({ isOpen, onClose, car1, car2 }) => {
 
   // Auto-scroll AI response
   useEffect(() => {
-    if (aiPanelRef.current && isGenerating) {
-      aiPanelRef.current.scrollTop = aiPanelRef.current.scrollHeight;
+    if (chatScrollRef.current && isGenerating) {
+      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
     }
-  }, [aiResponse, isGenerating]);
+  }, [chatMessages, isGenerating]);
 
-  const handleGenerate = useCallback(async () => {
+  const handleGenerateInitial = useCallback(async () => {
     if (abortRef.current) abortRef.current.abort();
     abortRef.current = new AbortController();
     setIsGenerating(true);
-    setAiResponse('');
     setError('');
+    
+    // Initialize with empty assistant message
+    const initialMsgId = `asst-init-${Date.now()}`;
+    setChatMessages([{ id: initialMsgId, role: 'assistant', content: '' }]);
 
     try {
-      await compareWithAI(car1, car2, language, (chunk) => {
-        setAiResponse(prev => prev + chunk);
+      await compareWithAI(car1, car2, language, [], (chunk) => {
+        setChatMessages(prev => {
+          if (prev.length === 0) return [{ id: initialMsgId, role: 'assistant', content: chunk }];
+          const updated = [...prev];
+          updated[0] = { ...updated[0], content: updated[0].content + chunk };
+          return updated;
+        });
       }, abortRef.current.signal);
     } catch (err) {
       if (err.name !== 'AbortError') {
@@ -194,12 +205,64 @@ const CompareModal = ({ isOpen, onClose, car1, car2 }) => {
     }
   }, [car1, car2, language, t]);
 
+  const handleSendQuestion = async (queryText) => {
+    const textToSend = (queryText || inputText).trim();
+    if (!textToSend || isGenerating) return;
+
+    if (abortRef.current) abortRef.current.abort();
+    abortRef.current = new AbortController();
+
+    const userMsgId = `user-${Date.now()}`;
+    const asstMsgId = `asst-${Date.now()}`;
+
+    const newUserMsg = { id: userMsgId, role: 'user', content: textToSend };
+    const newAsstMsg = { id: asstMsgId, role: 'assistant', content: '' };
+
+    const updatedHistory = [...chatMessages, newUserMsg];
+    setChatMessages([...updatedHistory, newAsstMsg]);
+    setInputText('');
+    setIsGenerating(true);
+    setError('');
+
+    // Prepare message history for AI
+    const historyPayload = updatedHistory.map(m => ({
+      role: m.role,
+      content: m.content
+    }));
+
+    try {
+      await compareWithAI(car1, car2, language, historyPayload, (chunk) => {
+        setChatMessages(prev => {
+          const next = [...prev];
+          const lastIdx = next.length - 1;
+          if (lastIdx >= 0) {
+            next[lastIdx] = { ...next[lastIdx], content: next[lastIdx].content + chunk };
+          }
+          return next;
+        });
+      }, abortRef.current.signal);
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        setError(err.message || t('aiError'));
+      }
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendQuestion();
+    }
+  };
+
   // Auto-generate AI analysis on tab activation
   useEffect(() => {
-    if (activeTab === 'ai' && !aiResponse && !isGenerating && !error) {
-      handleGenerate();
+    if (activeTab === 'ai' && chatMessages.length === 0 && !isGenerating && !error) {
+      handleGenerateInitial();
     }
-  }, [activeTab, aiResponse, isGenerating, error, handleGenerate]);
+  }, [activeTab, chatMessages.length, isGenerating, error, handleGenerateInitial]);
 
   if (!isOpen || !car1 || !car2) return null;
 
@@ -239,6 +302,12 @@ const CompareModal = ({ isOpen, onClose, car1, car2 }) => {
     { label: t('fuel'), v1: car1.Combustible || 'N/A', v2: car2.Combustible || 'N/A' },
     { label: t('province'), v1: car1.Provincia || 'N/A', v2: car2.Provincia || 'N/A' },
     { label: t('equipment'), v1: `${car1EquipCount}`, v2: `${car2EquipCount}`, better: betterEquip },
+  ];
+
+  const suggestions = [
+    t('askAISuggestion1'),
+    t('askAISuggestion2'),
+    t('askAISuggestion3')
   ];
 
   return (
@@ -349,10 +418,10 @@ const CompareModal = ({ isOpen, onClose, car1, car2 }) => {
             <div className="ai-panel">
               <div className="ai-panel-header">
                 <h3>💡 {t('aiAnalysis')}</h3>
-                {(isGenerating || error) && (
+                {(isGenerating || error || chatMessages.length > 0) && (
                   <button
                     className={`ai-generate-btn ${isGenerating ? 'generating' : ''}`}
-                    onClick={handleGenerate}
+                    onClick={handleGenerateInitial}
                     disabled={isGenerating}
                   >
                     {isGenerating ? (
@@ -406,22 +475,83 @@ const CompareModal = ({ isOpen, onClose, car1, car2 }) => {
 
               {error && <div className="ai-error">{error}</div>}
 
-              {aiResponse && (
-                <div className="ai-response" ref={aiPanelRef}>
-                  <div
-                    className="ai-content"
-                    dangerouslySetInnerHTML={{ __html: renderMarkdown(aiResponse) }}
-                  />
-                  {isGenerating && <span className="ai-cursor">▊</span>}
-                </div>
-              )}
+              {/* Scrollable Conversation History */}
+              <div className="ai-chat-thread" ref={chatScrollRef}>
+                {chatMessages.length === 0 && !error && (
+                  <div className="ai-placeholder">
+                    <span className="ai-placeholder-icon" style={{ animation: 'aiPlaceholderFloat 1.5s ease-in-out infinite' }}>🤖</span>
+                    <p>{t('aiGenerating')}</p>
+                  </div>
+                )}
 
-              {!aiResponse && !error && (
-                <div className="ai-placeholder">
-                  <span className="ai-placeholder-icon" style={{ animation: 'aiPlaceholderFloat 1.5s ease-in-out infinite' }}>🤖</span>
-                  <p>{t('aiGenerating')}</p>
-                </div>
-              )}
+                {chatMessages.map((msg, index) => (
+                  <div key={msg.id || index} className={`ai-chat-message ${msg.role}`}>
+                    <div className="ai-message-header">
+                      {msg.role === 'user' ? (
+                        <span className="ai-message-sender user-sender">👤 {language === 'es' ? 'Tú' : 'You'}</span>
+                      ) : (
+                        <span className="ai-message-sender ai-sender">💡 {language === 'es' ? 'Asesor IA' : 'AI Advisor'}</span>
+                      )}
+                    </div>
+                    <div className="ai-message-bubble">
+                      <div
+                        className="ai-content"
+                        dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }}
+                      />
+                      {isGenerating && index === chatMessages.length - 1 && msg.role === 'assistant' && (
+                        <span className="ai-cursor">▊</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Ask AI Input Box & Suggestions */}
+              <div className="ai-input-wrapper">
+                {chatMessages.length > 0 && !isGenerating && (
+                  <div className="ai-suggestions-row">
+                    {suggestions.map((sug, idx) => (
+                      <button
+                        key={idx}
+                        className="ai-suggestion-chip"
+                        onClick={() => handleSendQuestion(sug)}
+                      >
+                        {sug}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                
+                <form
+                  className="ai-input-form"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleSendQuestion();
+                  }}
+                >
+                  <input
+                    type="text"
+                    className="ai-input-field"
+                    placeholder={t('askAIPlaceholder')}
+                    value={inputText}
+                    onChange={(e) => setInputText(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    disabled={isGenerating}
+                  />
+                  <button
+                    type="submit"
+                    className="ai-send-btn"
+                    disabled={!inputText.trim() || isGenerating}
+                    title={t('askAISend')}
+                  >
+                    {isGenerating ? (
+                      <span className="ai-spinner"></span>
+                    ) : (
+                      <><span>{t('askAI')}</span> <span className="send-arrow">➤</span></>
+                    )}
+                  </button>
+                </form>
+              </div>
             </div>
           )}
         </div>

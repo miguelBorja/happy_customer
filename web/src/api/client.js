@@ -79,11 +79,26 @@ export const fetchCarsByUrls = async (urls) => {
   return res.json();
 };
 
-export const compareWithAI = async (car1, car2, language, onChunk, signal) => {
+export const compareWithAI = async (car1, car2, language, messagesOrOnChunk, onChunkOrSignal, optionalSignal) => {
+  let messages = [];
+  let onChunk = () => {};
+  let signal = undefined;
+
+  if (typeof messagesOrOnChunk === 'function') {
+    // Legacy signature: compareWithAI(car1, car2, language, onChunk, signal)
+    onChunk = messagesOrOnChunk;
+    signal = onChunkOrSignal;
+  } else {
+    // New signature: compareWithAI(car1, car2, language, messages, onChunk, signal)
+    messages = Array.isArray(messagesOrOnChunk) ? messagesOrOnChunk : [];
+    onChunk = onChunkOrSignal || (() => {});
+    signal = optionalSignal;
+  }
+
   const res = await fetch(`${BASE_URL}/ai/compare`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ car1, car2, language }),
+    body: JSON.stringify({ car1, car2, language, messages }),
     signal,
   });
 

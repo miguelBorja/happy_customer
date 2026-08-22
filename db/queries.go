@@ -1358,6 +1358,71 @@ func (d *DB) GetTopSellers() ([]string, error) {
 	return sellers, nil
 }
 
+type MarketStats struct {
+	TotalCount  int     `json:"total_count"`
+	ActiveCount int     `json:"active_count"`
+	SoldCount   int     `json:"sold_count"`
+	AvgPrice    float64 `json:"avg_price"`
+	MinPrice    int     `json:"min_price"`
+	MaxPrice    int     `json:"max_price"`
+	AvgKm       float64 `json:"avg_km"`
+	Brand       string  `json:"brand"`
+	Model       string  `json:"model"`
+	YearMin     int     `json:"year_min"`
+	YearMax     int     `json:"year_max"`
+}
+
+func (d *DB) GetMarketStats(brand, model string, yearMin, yearMax int) (*MarketStats, error) {
+	q := `SELECT 
+		COUNT(*),
+		COALESCE(SUM(CASE WHEN is_sold = 0 THEN 1 ELSE 0 END), 0),
+		COALESCE(SUM(CASE WHEN is_sold = 1 THEN 1 ELSE 0 END), 0),
+		COALESCE(AVG(CASE WHEN price > 0 THEN price END), 0),
+		COALESCE(MIN(CASE WHEN price > 0 THEN price END), 0),
+		COALESCE(MAX(CASE WHEN price > 0 THEN price END), 0),
+		COALESCE(AVG(CASE WHEN kilometraje > 0 THEN kilometraje END), 0)
+	FROM cars WHERE 1=1`
+
+	var args []interface{}
+	if brand != "" {
+		q += " AND LOWER(brand) = LOWER(?)"
+		args = append(args, brand)
+	}
+	if model != "" {
+		q += " AND (LOWER(model) LIKE LOWER(?) OR LOWER(title) LIKE LOWER(?))"
+		args = append(args, "%"+model+"%", "%"+model+"%")
+	}
+	if yearMin > 0 {
+		q += " AND year >= ?"
+		args = append(args, yearMin)
+	}
+	if yearMax > 0 {
+		q += " AND year <= ?"
+		args = append(args, yearMax)
+	}
+
+	var stats MarketStats
+	stats.Brand = brand
+	stats.Model = model
+	stats.YearMin = yearMin
+	stats.YearMax = yearMax
+
+	row := d.QueryRow(d.queryFormat(q), args...)
+	err := row.Scan(
+		&stats.TotalCount,
+		&stats.ActiveCount,
+		&stats.SoldCount,
+		&stats.AvgPrice,
+		&stats.MinPrice,
+		&stats.MaxPrice,
+		&stats.AvgKm,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &stats, nil
+}
+
 func parseTimeHelper(ns sql.NullString) time.Time {
 	if !ns.Valid || ns.String == "" {
 		return time.Time{}
