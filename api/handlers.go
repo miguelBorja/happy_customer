@@ -404,9 +404,10 @@ func (s *Server) HandleAICompare(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var body struct {
-		Car1     map[string]interface{} `json:"car1"`
-		Car2     map[string]interface{} `json:"car2"`
-		Language string                 `json:"language"`
+		Car1     map[string]interface{}   `json:"car1"`
+		Car2     map[string]interface{}   `json:"car2"`
+		Cars     []map[string]interface{} `json:"cars"`
+		Language string                   `json:"language"`
 		Messages []struct {
 			Role    string `json:"role"`
 			Content string `json:"content"`
@@ -422,23 +423,106 @@ func (s *Server) HandleAICompare(w http.ResponseWriter, r *http.Request) {
 		lang = "English"
 	}
 
-	hasCar1 := len(body.Car1) > 0
-	hasCar2 := len(body.Car2) > 0
+	var cars []map[string]interface{}
+	if len(body.Cars) > 0 {
+		for _, c := range body.Cars {
+			if len(c) > 0 {
+				cars = append(cars, c)
+			}
+		}
+	} else {
+		if len(body.Car1) > 0 {
+			cars = append(cars, body.Car1)
+		}
+		if len(body.Car2) > 0 {
+			cars = append(cars, body.Car2)
+		}
+	}
 
 	var systemPrompt string
 	var initialPrompt string
 
-	if hasCar1 && hasCar2 {
-		car1Name, _ := body.Car1["Title"].(string)
-		car1YearVal, _ := body.Car1["Year"].(float64)
+	if len(cars) >= 3 {
+		hResumenTabla := "Tabla Comparativa"
+		hAnalisis := "Análisis y Diferencias Clave"
+		hVeredicto := "Veredicto & Ranking"
+		hMejorGeneral := "Ganador / Mejor Compra General"
+		hMejorPresupuesto := "Mejor Opción Económica"
+		hMejorConfiabilidad := "Mejor en Confiabilidad & Repuestos"
+
+		if body.Language == "en" {
+			hResumenTabla = "Comparison Matrix"
+			hAnalisis = "Key Analysis & Trade-offs"
+			hVeredicto = "Verdict & Ranking"
+			hMejorGeneral = "Winner / Best Overall Buy"
+			hMejorPresupuesto = "Best Budget Option"
+			hMejorConfiabilidad = "Best Reliability & Parts Support"
+		}
+
+		var vehiclesText strings.Builder
+		var vehicleLabels []string
+		for i, car := range cars {
+			label := fmt.Sprintf("Carro %d", i+1)
+			if body.Language == "en" {
+				label = fmt.Sprintf("Car %d", i+1)
+			}
+			vehicleLabels = append(vehicleLabels, label)
+			title, _ := car["Title"].(string)
+			yearVal, _ := car["Year"].(float64)
+			year := int(yearVal)
+			carJSON, _ := json.MarshalIndent(car, "", "  ")
+			vehiclesText.WriteString(fmt.Sprintf("- %s (%s %d):\n%s\n\n", label, title, year, string(carJSON)))
+		}
+
+		systemPrompt = fmt.Sprintf(`You are an expert automotive advisor specializing in the Costa Rican used car market and an assistant for the "Happy Customer" car platform.
+You have direct access to database tools ("query_car_market_stats", "query_cars_db") and live internet search ("search_web").
+Language to respond in: %[1]s.
+
+VEHICLES CURRENTLY BEING COMPARED (%[2]d vehicles):
+%[3]s
+COSTA RICAN AUTOMOTIVE MARKET CONTEXT & GUIDELINES:
+1. Always refer to the cars by their labels: %[4]s.
+2. Official agencies and spare parts networks in Costa Rica:
+   - Purdy Motor (Toyota, Lexus): Best and most abundant spare parts availability in Costa Rica, very extensive aftermarket.
+   - Grupo Q (Hyundai, Isuzu, Chevrolet): Very high availability of OEM and generic parts nationwide.
+   - Agencia Datsun (Nissan): Very high availability and widespread mechanics familiarity.
+   - Motortec / Audi Costa Rica (Audi, Porsche, Volkswagen): High availability for routine maintenance parts; specialized EV/high-voltage electrical components require agency ordering.
+   - Bavarian Motors (BMW, Mini): Premium agency support, higher maintenance costs, specialized independent shops available.
+   - Veinsa Motors (Mitsubishi, Geely, Citroën, JMC): Standard agency network.
+   - AutoStar (Mercedes-Benz, Jeep, Dodge, RAM): Premium network.
+3. When asked about spare parts accessibility, maintenance costs, reliability, recall issues, or distributor networks, ALWAYS give a comprehensive, knowledgeable, and detailed answer. Use "search_web" to look up live internet information or official agency details whenever helpful. NEVER say you lack access to spare parts information.
+4. If asked about market trends, average prices, similar vehicles, or inventory statistics in Costa Rica, call your database tools ("query_car_market_stats", "query_cars_db").
+5. Keep answers concise, factual, structured, and easy to read with markdown.
+6. For initial multi-vehicle comparisons, structure your response in:
+   1. **📊 %[5]s**: A clean markdown comparison table containing columns: [Vehicle, Year, Mileage, Price, Fuel/Trans, Parts & Agency Support in CR].
+   2. **⚙️ %[6]s**: 2-3 concise bullet points per vehicle analyzing strengths, weaknesses, and maintenance/fuel trade-offs for Costa Rican conditions.
+   3. **🏆 %[7]s**:
+      - **Ranking General**: Ranked list from #1 (best) to #%[2]d (worst value/fit).
+      - **%[8]s**: Declare the overall top recommendation (e.g. "Ganador: Carro X" / "Winner: Car X").
+      - **%[9]s**: Best choice for strict budget or lowest ongoing costs.
+      - **%[10]s**: Best choice for durability, easiest resale, and spare parts availability.`,
+			lang, len(cars), vehiclesText.String(), strings.Join(vehicleLabels, ", "),
+			hResumenTabla, hAnalisis, hVeredicto,
+			hMejorGeneral, hMejorPresupuesto, hMejorConfiabilidad)
+
+		if body.Language == "en" {
+			initialPrompt = fmt.Sprintf("Please provide a structured comparative analysis, ranking, and comparison table for all %d vehicles (%s).", len(cars), strings.Join(vehicleLabels, ", "))
+		} else {
+			initialPrompt = fmt.Sprintf("Por favor proporciona un análisis comparativo estructurado, tabla comparativa y ranking de los %d vehículos (%s).", len(cars), strings.Join(vehicleLabels, ", "))
+		}
+	} else if len(cars) == 2 {
+		car1 := cars[0]
+		car2 := cars[1]
+		car1Name, _ := car1["Title"].(string)
+		car1YearVal, _ := car1["Year"].(float64)
 		car1Year := int(car1YearVal)
 
-		car2Name, _ := body.Car2["Title"].(string)
-		car2YearVal, _ := body.Car2["Year"].(float64)
+		car2Name, _ := car2["Title"].(string)
+		car2YearVal, _ := car2["Year"].(float64)
 		car2Year := int(car2YearVal)
 
-		car1JSON, _ := json.MarshalIndent(body.Car1, "", "  ")
-		car2JSON, _ := json.MarshalIndent(body.Car2, "", "  ")
+		car1JSON, _ := json.MarshalIndent(car1, "", "  ")
+		car2JSON, _ := json.MarshalIndent(car2, "", "  ")
 
 		labelCar1 := "Carro 1"
 		labelCar2 := "Carro 2"
@@ -489,11 +573,12 @@ COSTA RICAN AUTOMOTIVE MARKET CONTEXT & GUIDELINES:
 			labelCar1, labelCar2, hResumen, hDiferencias, hProsContras, hGanador)
 
 		initialPrompt = fmt.Sprintf(`Please provide a comprehensive head-to-head comparison of %s and %s following the required format.`, labelCar1, labelCar2)
-	} else if hasCar1 {
-		car1Name, _ := body.Car1["Title"].(string)
-		car1YearVal, _ := body.Car1["Year"].(float64)
+	} else if len(cars) == 1 {
+		car1 := cars[0]
+		car1Name, _ := car1["Title"].(string)
+		car1YearVal, _ := car1["Year"].(float64)
 		car1Year := int(car1YearVal)
-		car1JSON, _ := json.MarshalIndent(body.Car1, "", "  ")
+		car1JSON, _ := json.MarshalIndent(car1, "", "  ")
 
 		systemPrompt = fmt.Sprintf(`You are an expert automotive advisor specializing in the Costa Rican used car market and an assistant for the "Happy Customer" car platform.
 You have direct access to database tools ("query_car_market_stats", "query_cars_db") and live internet search ("search_web").

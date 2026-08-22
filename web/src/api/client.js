@@ -79,26 +79,53 @@ export const fetchCarsByUrls = async (urls) => {
   return res.json();
 };
 
-export const compareWithAI = async (car1, car2, language, messagesOrOnChunk, onChunkOrSignal, optionalSignal) => {
+export const compareWithAI = async (carsOrCar1, car2OrLang, langOrMessages, messagesOrOnChunk, onChunkOrSignal, optionalSignal) => {
+  let cars = [];
+  let language = 'es';
   let messages = [];
   let onChunk = () => {};
   let signal = undefined;
 
-  if (typeof messagesOrOnChunk === 'function') {
-    // Legacy signature: compareWithAI(car1, car2, language, onChunk, signal)
-    onChunk = messagesOrOnChunk;
-    signal = onChunkOrSignal;
+  if (Array.isArray(carsOrCar1)) {
+    cars = carsOrCar1.filter(Boolean);
+    language = typeof car2OrLang === 'string' ? car2OrLang : 'es';
+    messages = Array.isArray(langOrMessages) ? langOrMessages : [];
+    if (typeof messagesOrOnChunk === 'function') {
+      onChunk = messagesOrOnChunk;
+      signal = onChunkOrSignal;
+    } else {
+      onChunk = onChunkOrSignal || (() => {});
+      signal = optionalSignal;
+    }
   } else {
-    // New signature: compareWithAI(car1, car2, language, messages, onChunk, signal)
-    messages = Array.isArray(messagesOrOnChunk) ? messagesOrOnChunk : [];
-    onChunk = onChunkOrSignal || (() => {});
-    signal = optionalSignal;
+    const car1 = carsOrCar1 || null;
+    const car2 = (car2OrLang && typeof car2OrLang === 'object') ? car2OrLang : null;
+    if (car1) cars.push(car1);
+    if (car2) cars.push(car2);
+    language = typeof langOrMessages === 'string' ? langOrMessages : (typeof car2OrLang === 'string' ? car2OrLang : 'es');
+
+    if (typeof messagesOrOnChunk === 'function') {
+      // Legacy signature: compareWithAI(car1, car2, language, onChunk, signal)
+      onChunk = messagesOrOnChunk;
+      signal = onChunkOrSignal;
+    } else {
+      // Signature: compareWithAI(car1, car2, language, messages, onChunk, signal)
+      messages = Array.isArray(messagesOrOnChunk) ? messagesOrOnChunk : (Array.isArray(langOrMessages) ? langOrMessages : []);
+      onChunk = onChunkOrSignal || (() => {});
+      signal = optionalSignal;
+    }
   }
 
   const res = await fetch(`${BASE_URL}/ai/compare`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ car1, car2, language, messages }),
+    body: JSON.stringify({
+      cars,
+      car1: cars[0] || null,
+      car2: cars[1] || null,
+      language,
+      messages,
+    }),
     signal,
   });
 

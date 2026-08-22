@@ -78,6 +78,7 @@ function App() {
   const [showFavsOnly, setShowFavsOnly] = useState(false);
   
   // AI Copilot State & Attached Cars Context
+  const MAX_COPILOT_CARS = 5;
   const [isCopilotOpen, setIsCopilotOpen] = useState(false);
   const [isCopilotMinimized, setIsCopilotMinimized] = useState(false);
   const [isCopilotExpanded, setIsCopilotExpanded] = useState(false);
@@ -87,9 +88,9 @@ function App() {
     setAttachedCars((prev) => {
       const exists = prev.some((c) => c.URL === car.URL);
       if (exists) return prev;
-      if (prev.length >= 2) {
-        // If already 2 cars, replace the 2nd one
-        return [prev[0], car];
+      if (prev.length >= MAX_COPILOT_CARS) {
+        // If already at max (5 cars), replace the last one
+        return [...prev.slice(0, MAX_COPILOT_CARS - 1), car];
       }
       return [...prev, car];
     });

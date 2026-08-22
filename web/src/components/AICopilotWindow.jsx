@@ -3,6 +3,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { compareWithAI } from '../api/client';
 import { useFavorites } from '../hooks/useFavorites';
 import { useChatHistory } from '../hooks/useChatHistory';
+import { getDynamicSuggestions } from '../utils/aiSuggestions';
 import {
   SparkleClusterIcon,
   SparkleIcon,
@@ -14,7 +15,8 @@ import {
   ExpandIcon,
   CloseIcon,
   ChevronUpIcon,
-  ChevronDownIcon
+  ChevronDownIcon,
+  ShuffleIcon
 } from './icons/AppIcons';
 
 function renderMarkdown(text) {
@@ -114,13 +116,14 @@ function detectWinner(text) {
   const lower = text.toLowerCase();
   
   const declRegexes = [
-    /(?:ganador|winner)\s*:\s*(?:carro|car)\s*([12])/i,
-    /(?:carro|car)\s*([12]).*?es\s+el\s+ganador/i,
-    /(?:carro|car)\s*([12]).*?is\s+the\s+winner/i,
-    /el\s+ganador\s+es\s+(?:el\s+)?(?:carro|car)\s*([12])/i,
-    /the\s+winner\s+is\s+(?:the\s+)?(?:carro|car)\s*([12])/i,
-    /ganador\s*=>\s*(?:carro|car)\s*([12])/i,
-    /winner\s*=>\s*(?:carro|car)\s*([12])/i
+    /(?:ganador|winner)\s*:\s*(?:carro|car)\s*([1-9])/i,
+    /(?:carro|car)\s*([1-9]).*?es\s+el\s+(?:ganador|mejor)/i,
+    /(?:carro|car)\s*([1-9]).*?is\s+the\s+(?:winner|best)/i,
+    /el\s+ganador\s+es\s+(?:el\s+)?(?:carro|car)\s*([1-9])/i,
+    /the\s+winner\s+is\s+(?:the\s+)?(?:carro|car)\s*([1-9])/i,
+    /(?:ganador|winner)\s*=>\s*(?:carro|car)\s*([1-9])/i,
+    /#1\s*[:\-]\s*(?:carro|car)\s*([1-9])/i,
+    /1º\s*[:\-]\s*(?:carro|car)\s*([1-9])/i
   ];
 
   for (const regex of declRegexes) {
@@ -130,26 +133,10 @@ function detectWinner(text) {
     }
   }
 
-  const lastSecIndex = lower.lastIndexOf('4.');
-  if (lastSecIndex !== -1) {
-    const secText = lower.substring(lastSecIndex);
-    const idx1 = Math.min(
-      secText.indexOf("carro 1") === -1 ? Infinity : secText.indexOf("carro 1"),
-      secText.indexOf("car 1") === -1 ? Infinity : secText.indexOf("car 1")
-    );
-    const idx2 = Math.min(
-      secText.indexOf("carro 2") === -1 ? Infinity : secText.indexOf("carro 2"),
-      secText.indexOf("car 2") === -1 ? Infinity : secText.indexOf("car 2")
-    );
-    if (idx1 !== Infinity || idx2 !== Infinity) {
-      return idx1 < idx2 ? 1 : 2;
-    }
-  }
-
   const winIndex = Math.max(lower.lastIndexOf("ganador"), lower.lastIndexOf("winner"));
   if (winIndex !== -1) {
-    const context = lower.substring(Math.max(0, winIndex - 40), Math.min(lower.length, winIndex + 40));
-    const match = context.match(/(?:carro|car)\s*([12])/);
+    const context = lower.substring(Math.max(0, winIndex - 40), Math.min(lower.length, winIndex + 60));
+    const match = context.match(/(?:carro|car)\s*([1-9])/);
     if (match) {
       return parseInt(match[1], 10);
     }
@@ -191,6 +178,7 @@ const AICopilotWindow = ({
   const [error, setError] = useState('');
   const [isDragOverWindow, setIsDragOverWindow] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [shuffleIndex, setShuffleIndex] = useState(0);
   const [isSuggestionsCollapsed, setIsSuggestionsCollapsed] = useState(() => {
     try {
       return localStorage.getItem('crautos_ai_suggestions_collapsed') === 'true';
@@ -258,20 +246,21 @@ const AICopilotWindow = ({
     }
   }, [chatMessages, attachedCars, isGenerating, activeSessionId, saveSession]);
 
-  // Reset error when cars change
+  // Reset error & shuffle when cars change
   const lastCarsRef = useRef('');
   useEffect(() => {
-    const currentKey = `${car1?.URL || ''}_${car2?.URL || ''}`;
+    const currentKey = attachedCars.map(c => c.URL || '').join('_');
     if (lastCarsRef.current !== currentKey && lastCarsRef.current !== '') {
       if (chatMessages.length > 0) {
         setError('');
       }
+      setShuffleIndex(0);
     }
     lastCarsRef.current = currentKey;
-  }, [car1?.URL, car2?.URL, chatMessages.length]);
+  }, [attachedCars, chatMessages.length]);
 
   const handleGenerateComparison = useCallback(async () => {
-    if (!car1 || isGenerating) return;
+    if (attachedCars.length === 0 || isGenerating) return;
     if (abortRef.current) abortRef.current.abort();
     abortRef.current = new AbortController();
     setIsGenerating(true);
@@ -282,7 +271,7 @@ const AICopilotWindow = ({
     setChatMessages(newMessages);
 
     try {
-      await compareWithAI(car1, car2, language, [], (chunk) => {
+      await compareWithAI(attachedCars, language, [], (chunk) => {
         setChatMessages(prev => {
           if (prev.length === 0) return [{ id: initialMsgId, role: 'assistant', content: chunk }];
           const updated = [...prev];
@@ -297,7 +286,7 @@ const AICopilotWindow = ({
     } finally {
       setIsGenerating(false);
     }
-  }, [car1, car2, language, isGenerating, t]);
+  }, [attachedCars, language, isGenerating, t]);
 
   const handleSendQuestion = async (queryText) => {
     const textToSend = (queryText || inputText).trim();
@@ -324,7 +313,7 @@ const AICopilotWindow = ({
     }));
 
     try {
-      await compareWithAI(car1, car2, language, historyPayload, (chunk) => {
+      await compareWithAI(attachedCars, language, historyPayload, (chunk) => {
         setChatMessages(prev => {
           const next = [...prev];
           const lastIdx = next.length - 1;
@@ -462,27 +451,15 @@ const AICopilotWindow = ({
     );
   }
 
-  // Get Suggestions based on context
-  let currentSuggestions = [];
-  if (car1 && car2) {
-    currentSuggestions = [
-      t('askAISuggestion3'),
-      t('askAISuggestion2'),
-      t('askAISuggestion1')
-    ];
-  } else if (car1) {
-    currentSuggestions = [
-      t('aiSugSingle2'),
-      t('aiSugSingle1'),
-      t('aiSugSingle3')
-    ];
-  } else {
-    currentSuggestions = [
-      t('aiSugGeneral2'),
-      t('aiSugGeneral1'),
-      t('aiSugGeneral3')
-    ];
-  }
+  // Get dynamic suggestions tailored to vehicle attributes & market context
+  const currentSuggestions = getDynamicSuggestions({
+    attachedCars,
+    car1,
+    car2,
+    language,
+    messageCount: chatMessages.length,
+    shuffleIndex
+  });
 
   return (
     <div 
@@ -509,7 +486,7 @@ const AICopilotWindow = ({
           <div className="ai-drop-overlay-box">
             <span className="ai-drop-icon">📥</span>
             <h4>{t('aiDropActive')}</h4>
-            <p>{attachedCars.length >= 2 ? t('aiMaxCars') : t('aiDropHint')}</p>
+            <p>{attachedCars.length >= 5 ? t('aiMaxCars') : t('aiDropHint')}</p>
           </div>
         </div>
       )}
@@ -636,7 +613,11 @@ const AICopilotWindow = ({
                         </span>
                         {cars.length > 0 && (
                           <span className="ai-meta-tag car-tag" title={cars.map(c => c.Title).join(', ')}>
-                            🚗 {cars.length === 2 ? `${cars[0].Title.split(' ')[0]} vs ${cars[1].Title.split(' ')[0]}` : cars[0].Title.split(' ')[0]}
+                            🚗 {cars.length > 2 
+                              ? `${cars[0].Title.split(' ')[0]} + ${cars.length - 1} más` 
+                              : (cars.length === 2 
+                                  ? `${cars[0].Title.split(' ')[0]} vs ${cars[1].Title.split(' ')[0]}` 
+                                  : cars[0].Title.split(' ')[0])}
                           </span>
                         )}
                         {isActive && (
@@ -687,9 +668,9 @@ const AICopilotWindow = ({
                     ℹ️ {t('aiSingleCarReady')}
                   </div>
                 )}
-                {attachedCars.length === 2 && (
+                {attachedCars.length >= 2 && (
                   <div className="ai-welcome-tip highlight">
-                    ✨ {t('aiCompareReady')}
+                    ✨ {(t('aiCompareReady') || '').replace('{count}', attachedCars.length)}
                     <button 
                       className="ai-inline-compare-btn"
                       onClick={handleGenerateComparison}
@@ -722,32 +703,44 @@ const AICopilotWindow = ({
             ))}
           </div>
 
-          {/* Suggestion Pills Section with Collapse/Expand */}
+          {/* Dynamic Suggestion Pills Section with Shuffle & Collapse/Expand */}
           {currentSuggestions.length > 0 && !isGenerating && (
             <div className={`ai-suggestions-wrapper ${isSuggestionsCollapsed ? 'collapsed' : 'expanded'}`}>
               {!isSuggestionsCollapsed ? (
                 <div className="ai-suggestions-row">
                   <div className="ai-suggestions-stack">
-                    {currentSuggestions.map((sug, idx) => (
+                    {currentSuggestions.map((sug) => (
                       <button
-                        key={idx}
+                        key={sug.id || sug.text}
                         className="ai-suggestion-pill"
-                        onClick={() => handleSendQuestion(sug)}
-                        title={sug}
+                        onClick={() => handleSendQuestion(sug.text)}
+                        title={sug.text}
                       >
-                        {sug}
+                        <span className="ai-sug-icon">{sug.icon}</span>
+                        <span className="ai-sug-text">{sug.text}</span>
                       </button>
                     ))}
                   </div>
-                  <button
-                    type="button"
-                    className="ai-suggestions-toggle-btn"
-                    onClick={toggleSuggestionsCollapse}
-                    title={t('aiCollapseSuggestions')}
-                    aria-label={t('aiCollapseSuggestions')}
-                  >
-                    <ChevronUpIcon size={15} />
-                  </button>
+                  <div className="ai-suggestions-actions">
+                    <button
+                      type="button"
+                      className="ai-suggestions-action-btn ai-suggestions-shuffle-btn"
+                      onClick={() => setShuffleIndex(prev => prev + 1)}
+                      title={t('aiShuffleSuggestions')}
+                      aria-label={t('aiShuffleSuggestions')}
+                    >
+                      <ShuffleIcon size={13} />
+                    </button>
+                    <button
+                      type="button"
+                      className="ai-suggestions-action-btn ai-suggestions-toggle-btn"
+                      onClick={toggleSuggestionsCollapse}
+                      title={t('aiCollapseSuggestions')}
+                      aria-label={t('aiCollapseSuggestions')}
+                    >
+                      <ChevronUpIcon size={14} />
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div className="ai-suggestions-collapsed-bar">
@@ -782,14 +775,16 @@ const AICopilotWindow = ({
                   <div className="ai-embedded-chips-row">
                     {attachedCars.map((car, idx) => {
                       const isWinnerCar = winner === (idx + 1);
-                      const isCar1 = idx === 0;
+                      const CHIP_BULLETS = ['🔵', '🟣', '🟢', '🟠', '🔴'];
+                      const bullet = CHIP_BULLETS[idx % CHIP_BULLETS.length];
                       return (
                         <div 
                           key={car.URL || idx} 
-                          className={`ai-embedded-car-chip ${isCar1 ? 'chip-a' : 'chip-b'} ${isWinnerCar ? 'chip-winner' : ''}`}
-                          title={car.Title}
+                          className={`ai-embedded-car-chip chip-${idx % 5} ${isWinnerCar ? 'chip-winner' : ''}`}
+                          title={`#${idx + 1} - ${car.Title}`}
                         >
-                          <span className="ai-chip-bullet">{isCar1 ? '🔵' : '🟣'}</span>
+                          <span className="ai-chip-bullet">{bullet}</span>
+                          <span className="ai-chip-num-badge">#{idx + 1}</span>
                           <button
                             type="button"
                             className={`ai-chip-fav-star ${isFavorite(car.URL) ? 'active' : ''}`}

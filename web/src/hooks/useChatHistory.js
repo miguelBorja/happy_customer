@@ -7,6 +7,10 @@ const MAX_SESSIONS = 25;
 const generateId = () => `chat_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
 const generateTitle = (messages, attachedCars) => {
+  if (attachedCars && attachedCars.length > 2) {
+    const firstTitle = attachedCars[0].Title ? attachedCars[0].Title.split(' ')[0] : 'Auto';
+    return `${firstTitle} + ${attachedCars.length - 1} (${attachedCars.length} autos)`;
+  }
   if (attachedCars && attachedCars.length === 2) {
     return `${attachedCars[0].Title} vs ${attachedCars[1].Title}`;
   }

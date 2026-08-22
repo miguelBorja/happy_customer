@@ -500,3 +500,48 @@ export const ChevronDownIcon = ({ size = 14, color = 'currentColor', className =
   </svg>
 );
 
+/**
+ * 21. Shuffle / Rotate Suggestions Icon
+ */
+export const ShuffleIcon = ({ size = 14, color = 'currentColor', className = '', style = {} }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth="2.2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={`hc-icon hc-icon-shuffle ${className}`}
+    style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0, ...style }}
+  >
+    <path d="M16 3h5v5" />
+    <path d="M4 20L21 3" />
+    <path d="M21 16v5h-5" />
+    <path d="M15 15l6 6" />
+    <path d="M4 4l5 5" />
+  </svg>
+);
+
+export const RefreshCwIcon = ({ size = 14, color = 'currentColor', className = '', style = {} }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth="2.2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={`hc-icon hc-icon-refresh-cw ${className}`}
+    style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0, ...style }}
+  >
+    <path d="M21 2v6h-6" />
+    <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
+    <path d="M3 22v-6h6" />
+    <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
+  </svg>
+);
+
+
