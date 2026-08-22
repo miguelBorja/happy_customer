@@ -198,6 +198,46 @@ func (d *DB) GetActiveURLsByFuel(fuel string) ([]string, error) {
 	return urls, nil
 }
 
+func (d *DB) GetActiveCarsLastSeen(brand string) (map[string]time.Time, error) {
+	q := `SELECT url, last_seen_at FROM cars WHERE LOWER(brand)=LOWER(?) AND is_sold=0`
+	rows, err := d.Query(d.queryFormat(q), brand)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	res := make(map[string]time.Time)
+	for rows.Next() {
+		var u string
+		var lastSeenStr sql.NullString
+		if err := rows.Scan(&u, &lastSeenStr); err != nil {
+			return nil, err
+		}
+		res[u] = parseTimeHelper(lastSeenStr)
+	}
+	return res, nil
+}
+
+func (d *DB) GetActiveCarsLastSeenByFuel(fuel string) (map[string]time.Time, error) {
+	q := `SELECT url, last_seen_at FROM cars WHERE LOWER(combustible) LIKE '%' || LOWER(?) || '%' AND is_sold=0`
+	rows, err := d.Query(d.queryFormat(q), fuel)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	res := make(map[string]time.Time)
+	for rows.Next() {
+		var u string
+		var lastSeenStr sql.NullString
+		if err := rows.Scan(&u, &lastSeenStr); err != nil {
+			return nil, err
+		}
+		res[u] = parseTimeHelper(lastSeenStr)
+	}
+	return res, nil
+}
+
 func (d *DB) GetURLsWithoutSeller() ([]string, error) {
 	q := `SELECT url FROM cars WHERE is_sold=0 AND (seller_name='' OR seller_name IS NULL)`
 	rows, err := d.Query(d.queryFormat(q))
@@ -479,7 +519,7 @@ func (d *DB) GetCars(f FilterParams) ([]Car, error) {
 	for rows.Next() {
 		var c Car
 		var isSold int
-		var soldAt sql.NullTime
+		var scrapedAtStr, lastSeenStr, soldAtStr sql.NullString
 		
 		eMap := make(map[string]bool)
 		var e_aire_ac, e_aire_climatizado, e_alarma, e_android_auto, e_apple_carplay, e_aros_lujo, e_asiento_memoria, e_asientos_electricos, e_bluetooth, e_bolsa_aire, e_caja_dual, e_cierre_central, e_computadora, e_control_crucero, e_control_descenso, e_radio_volante, e_estabilidad, e_camara_360, e_camara_retroceso, e_desempanador, e_direccion, e_espejos_electricos, e_frenos_abs, e_halogenos, e_llave_inteligente, e_xenon, e_radio_usb, e_retrovisores, e_revision_tecnica, e_sensor_lluvia, e_sensores_retroceso, e_sensores_frontales, e_sunroof, e_tapiceria_cuero, e_turbo, e_vidrios_electricos, e_vidrios_tintados, e_volante_ajustable, e_volante_multifuncional int
@@ -490,14 +530,17 @@ func (d *DB) GetCars(f FilterParams) ([]Car, error) {
 			&c.Kilometraje, &c.Placa, &c.PrecioNegociable, &c.Provincia, &c.SeRecibe, &c.Transmision, &c.PagoImpuestos,
 			&e_aire_ac, &e_aire_climatizado, &e_alarma, &e_android_auto, &e_apple_carplay, &e_aros_lujo, &e_asiento_memoria, &e_asientos_electricos, &e_bluetooth, &e_bolsa_aire, &e_caja_dual, &e_cierre_central, &e_computadora, &e_control_crucero, &e_control_descenso, &e_radio_volante, &e_estabilidad, &e_camara_360, &e_camara_retroceso, &e_desempanador, &e_direccion, &e_espejos_electricos, &e_frenos_abs, &e_halogenos, &e_llave_inteligente, &e_xenon, &e_radio_usb, &e_retrovisores, &e_revision_tecnica, &e_sensor_lluvia, &e_sensores_retroceso, &e_sensores_frontales, &e_sunroof, &e_tapiceria_cuero, &e_turbo, &e_vidrios_electricos, &e_vidrios_tintados, &e_volante_ajustable, &e_volante_multifuncional,
 			&c.SellerName, &c.SellerPhone, &c.SellerAddress, &c.Comment,
-			&isSold, &c.ScrapedAt, &c.LastSeenAt, &soldAt,
+			&isSold, &scrapedAtStr, &lastSeenStr, &soldAtStr,
 		); err != nil {
 			return nil, err
 		}
 		
 		c.IsSold = isSold == 1
-		if soldAt.Valid {
-			c.SoldAt = &soldAt.Time
+		c.ScrapedAt = parseTimeHelper(scrapedAtStr)
+		c.LastSeenAt = parseTimeHelper(lastSeenStr)
+		if soldAtStr.Valid && soldAtStr.String != "" {
+			parsedSoldAt := parseTimeHelper(soldAtStr)
+			c.SoldAt = &parsedSoldAt
 		}
 		if c.Comment == "-" {
 			c.Comment = ""
@@ -726,7 +769,7 @@ func (d *DB) GetCarsByURLs(urls []string) ([]Car, error) {
 	for rows.Next() {
 		var c Car
 		var isSold int
-		var soldAt sql.NullTime
+		var scrapedAtStr, lastSeenStr, soldAtStr sql.NullString
 
 		eMap := make(map[string]bool)
 		var e_aire_ac, e_aire_climatizado, e_alarma, e_android_auto, e_apple_carplay, e_aros_lujo, e_asiento_memoria, e_asientos_electricos, e_bluetooth, e_bolsa_aire, e_caja_dual, e_cierre_central, e_computadora, e_control_crucero, e_control_descenso, e_radio_volante, e_estabilidad, e_camara_360, e_camara_retroceso, e_desempanador, e_direccion, e_espejos_electricos, e_frenos_abs, e_halogenos, e_llave_inteligente, e_xenon, e_radio_usb, e_retrovisores, e_revision_tecnica, e_sensor_lluvia, e_sensores_retroceso, e_sensores_frontales, e_sunroof, e_tapiceria_cuero, e_turbo, e_vidrios_electricos, e_vidrios_tintados, e_volante_ajustable, e_volante_multifuncional int
@@ -737,14 +780,17 @@ func (d *DB) GetCarsByURLs(urls []string) ([]Car, error) {
 			&c.Kilometraje, &c.Placa, &c.PrecioNegociable, &c.Provincia, &c.SeRecibe, &c.Transmision, &c.PagoImpuestos,
 			&e_aire_ac, &e_aire_climatizado, &e_alarma, &e_android_auto, &e_apple_carplay, &e_aros_lujo, &e_asiento_memoria, &e_asientos_electricos, &e_bluetooth, &e_bolsa_aire, &e_caja_dual, &e_cierre_central, &e_computadora, &e_control_crucero, &e_control_descenso, &e_radio_volante, &e_estabilidad, &e_camara_360, &e_camara_retroceso, &e_desempanador, &e_direccion, &e_espejos_electricos, &e_frenos_abs, &e_halogenos, &e_llave_inteligente, &e_xenon, &e_radio_usb, &e_retrovisores, &e_revision_tecnica, &e_sensor_lluvia, &e_sensores_retroceso, &e_sensores_frontales, &e_sunroof, &e_tapiceria_cuero, &e_turbo, &e_vidrios_electricos, &e_vidrios_tintados, &e_volante_ajustable, &e_volante_multifuncional,
 			&c.SellerName, &c.SellerPhone, &c.SellerAddress, &c.Comment,
-			&isSold, &c.ScrapedAt, &c.LastSeenAt, &soldAt,
+			&isSold, &scrapedAtStr, &lastSeenStr, &soldAtStr,
 		); err != nil {
 			return nil, err
 		}
 
 		c.IsSold = isSold == 1
-		if soldAt.Valid {
-			c.SoldAt = &soldAt.Time
+		c.ScrapedAt = parseTimeHelper(scrapedAtStr)
+		c.LastSeenAt = parseTimeHelper(lastSeenStr)
+		if soldAtStr.Valid && soldAtStr.String != "" {
+			parsedSoldAt := parseTimeHelper(soldAtStr)
+			c.SoldAt = &parsedSoldAt
 		}
 		if c.Comment == "-" {
 			c.Comment = ""
@@ -1310,4 +1356,27 @@ func (d *DB) GetTopSellers() ([]string, error) {
 		sellers = []string{}
 	}
 	return sellers, nil
+}
+
+func parseTimeHelper(ns sql.NullString) time.Time {
+	if !ns.Valid || ns.String == "" {
+		return time.Time{}
+	}
+	
+	val := ns.String
+	// Sometimes sqlite returns datetime with trailing Z or timezone offsets.
+	// Try RFC3339
+	if t, err := time.Parse(time.RFC3339, val); err == nil {
+		return t
+	}
+	// Try standard SQLite/MySQL datetime: "2006-01-02 15:04:05"
+	if t, err := time.Parse("2006-01-02 15:04:05", val); err == nil {
+		return t
+	}
+	// Try date only: "2006-01-02"
+	if t, err := time.Parse("2006-01-02", val); err == nil {
+		return t
+	}
+	log.Printf("[DB Warning] Failed to parse time string %q", val)
+	return time.Time{}
 }

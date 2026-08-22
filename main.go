@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -21,6 +22,7 @@ func main() {
 	portFlag := flag.String("port", "8080", "Port for the API server")
 	migrateFlag := flag.Bool("migrate", false, "Migrate all data from local SQLite (cars.db) to Supabase")
 	forceScrapeFlag := flag.Bool("force-scrape", false, "Force scrape all cars even if they exist in the database")
+	skipRefreshedHoursFlag := flag.Int("skip-refreshed-hours", 24, "Skip force-scraping cars that were already refreshed within this number of hours (0 to disable skipping)")
 	flag.Parse()
 
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
@@ -95,7 +97,11 @@ func main() {
 	dbPath := "cars.db"
 	if envURL := os.Getenv("DATABASE_URL"); envURL != "" {
 		dbPath = envURL
-		log.Println("Database connection: Supabase PostgreSQL (from DATABASE_URL)")
+		if strings.HasPrefix(envURL, "libsql://") || strings.HasPrefix(envURL, "libsqls://") {
+			log.Println("Database connection: Turso SQLite (from DATABASE_URL)")
+		} else {
+			log.Println("Database connection: Supabase PostgreSQL (from DATABASE_URL)")
+		}
 	} else {
 		log.Println("Database connection: Local SQLite (cars.db)")
 	}
@@ -108,7 +114,7 @@ func main() {
 
 	if *scrapeFlag || *backfillFlag || *backfillCommentsFlag {
 		runScraper := func() {
-			s, err := scraper.NewScraper(scraper.ChromeDriverPath, scraper.SeleniumPort, database, *forceScrapeFlag)
+			s, err := scraper.NewScraper(scraper.ChromeDriverPath, scraper.SeleniumPort, database, *forceScrapeFlag, *skipRefreshedHoursFlag)
 			if err != nil {
 				log.Fatalf("Failed to create scraper: %v", err)
 			}

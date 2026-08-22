@@ -8,23 +8,30 @@ import (
 	"unicode"
 
 	_ "github.com/lib/pq"
+	_ "github.com/tursodatabase/libsql-client-go/libsql"
 	_ "modernc.org/sqlite"
 )
 
 // DB wraps sql.DB
 type DB struct {
 	*sql.DB
-	DriverName string // "sqlite" or "postgres"
+	DriverName string // "sqlite", "postgres", or "libsql"
 }
 
 // Init opens (or creates) the database at path and runs migrations.
-// Supports standard SQLite paths or postgres:// connection strings.
+// Supports standard SQLite paths, postgres://, or libsql:// connection strings.
 func Init(path string) (*DB, error) {
 	var sqlDB *sql.DB
 	var err error
 	var driverName string
 
-	if strings.HasPrefix(path, "postgres://") || strings.HasPrefix(path, "postgresql://") {
+	if strings.HasPrefix(path, "libsql://") || strings.HasPrefix(path, "libsqls://") {
+		driverName = "libsql"
+		sqlDB, err = sql.Open("libsql", path)
+		if err != nil {
+			return nil, fmt.Errorf("open libsql: %w", err)
+		}
+	} else if strings.HasPrefix(path, "postgres://") || strings.HasPrefix(path, "postgresql://") {
 		driverName = "postgres"
 		// Append binary_parameters=yes to support PgBouncer transaction pooling mode without prepared statement errors
 		if !strings.Contains(path, "binary_parameters=") {
@@ -84,8 +91,8 @@ func (d *DB) migrate() error {
 	if _, err := d.Exec(s); err != nil {
 		return err
 	}
-	// Add seller columns if they don't exist (for existing SQLite databases)
-	if d.DriverName == "sqlite" {
+	// Add seller columns if they don't exist (for existing SQLite/libsql databases)
+	if d.DriverName == "sqlite" || d.DriverName == "libsql" {
 		for _, col := range []string{
 			"ALTER TABLE cars ADD COLUMN seller_name TEXT DEFAULT ''",
 			"ALTER TABLE cars ADD COLUMN seller_phone TEXT DEFAULT ''",
@@ -97,6 +104,7 @@ func (d *DB) migrate() error {
 	} else if d.DriverName == "postgres" {
 		d.Exec("ALTER TABLE cars ADD COLUMN IF NOT EXISTS comment TEXT DEFAULT ''")
 		d.Exec("ALTER TABLE cars ENABLE ROW LEVEL SECURITY")
+		d.Exec("ALTER TABLE page_views ENABLE ROW LEVEL SECURITY")
 	}
 	return nil
 }

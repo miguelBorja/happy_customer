@@ -77,14 +77,15 @@ var (
 )
 
 type Scraper struct {
-	Service *selenium.Service
-	Port    int
-	DB      *db.DB
-	Force   bool
-	mu      sync.Mutex
+	Service            *selenium.Service
+	Port               int
+	DB                 *db.DB
+	Force              bool
+	SkipRefreshedHours int
+	mu                 sync.Mutex
 }
 
-func NewScraper(driverPath string, port int, database *db.DB, force bool) (*Scraper, error) {
+func NewScraper(driverPath string, port int, database *db.DB, force bool, skipRefreshedHours int) (*Scraper, error) {
 	opts := []selenium.ServiceOption{
 		selenium.Output(io.Discard),
 	}
@@ -92,7 +93,13 @@ func NewScraper(driverPath string, port int, database *db.DB, force bool) (*Scra
 	if err != nil {
 		return nil, fmt.Errorf("chromedriver error: %w", err)
 	}
-	return &Scraper{Service: service, Port: port, DB: database, Force: force}, nil
+	return &Scraper{
+		Service:            service,
+		Port:               port,
+		DB:                 database,
+		Force:              force,
+		SkipRefreshedHours: skipRefreshedHours,
+	}, nil
 }
 
 func (s *Scraper) Run() {
@@ -289,21 +296,31 @@ func (s *Scraper) BackfillComments() {
 	log.Printf("Comment backfill complete. Checked %d cars. Found comments for %d cars. No comment for %d cars.", len(urls), successCount, noCommentCount)
 }
 
+func isRecentlyRefreshed(lastSeen time.Time, skipHours int) bool {
+	if lastSeen.IsZero() {
+		return false
+	}
+	if time.Since(lastSeen) < time.Duration(skipHours)*time.Hour {
+		return true
+	}
+	now := time.Now()
+	if lastSeen.Year() == now.Year() && lastSeen.YearDay() == now.YearDay() {
+		return true
+	}
+	return false
+}
+
 func (s *Scraper) ProcessBrand(brandName, brandID string) {
-	var activeURLs []string
+	var activeCars map[string]time.Time
 	var err error
 	if brandName == "electric" {
-		activeURLs, err = s.DB.GetActiveURLsByFuel("eléctric")
+		activeCars, err = s.DB.GetActiveCarsLastSeenByFuel("eléctric")
 	} else {
-		activeURLs, err = s.DB.GetActiveURLs(brandName)
+		activeCars, err = s.DB.GetActiveCarsLastSeen(brandName)
 	}
 	if err != nil {
 		log.Printf("Error getting active URLs for %s: %v", brandName, err)
 		return
-	}
-	activeMap := make(map[string]bool)
-	for _, u := range activeURLs {
-		activeMap[u] = true
 	}
 
 	drivers := make([]selenium.WebDriver, 0, WorkerCount)
@@ -343,7 +360,7 @@ func (s *Scraper) ProcessBrand(brandName, brandID string) {
 	producerDone := make(chan map[string]bool)
 	go func() {
 		defer prodWd.Quit()
-		seen := s.producer(prodWd, brandName, brandID, jobs, activeMap)
+		seen := s.producer(prodWd, brandName, brandID, jobs, activeCars)
 		close(jobs)
 		producerDone <- seen
 	}()
@@ -371,7 +388,7 @@ func (s *Scraper) ProcessBrand(brandName, brandID string) {
 
 	if seenUrls != nil {
 		var sold []string
-		for url := range activeMap {
+		for url := range activeCars {
 			if !seenUrls[url] {
 				sold = append(sold, url)
 			}
@@ -383,10 +400,10 @@ func (s *Scraper) ProcessBrand(brandName, brandID string) {
 			log.Printf("Marked %d cars as sold.", len(sold))
 		}
 	}
-	log.Printf("Finished brand %s. Saved %d cars.\n", brandName, savedCount)
+	log.Printf("Finished brand %s. Saved/updated %d cars.\n", brandName, savedCount)
 }
 
-func (s *Scraper) producer(wd selenium.WebDriver, brandName, brandID string, jobs chan<- string, active map[string]bool) map[string]bool {
+func (s *Scraper) producer(wd selenium.WebDriver, brandName, brandID string, jobs chan<- string, active map[string]time.Time) map[string]bool {
 
 	if err := wd.Get("https://crautos.com/autosusados/index.cfm"); err != nil {
 		log.Printf("Failed to load home page: %v\n", err)
@@ -395,6 +412,7 @@ func (s *Scraper) producer(wd selenium.WebDriver, brandName, brandID string, job
 
 	searchBoxs, err := wd.FindElements(selenium.ByCSSSelector, ".searchform")
 	if err != nil || len(searchBoxs) == 0 {
+		log.Printf("[%s] Failed to find search form (count=%d, err=%v)", brandName, len(searchBoxs), err)
 		return nil
 	}
 	searchForm := searchBoxs[len(searchBoxs)-1]
@@ -417,11 +435,15 @@ func (s *Scraper) producer(wd selenium.WebDriver, brandName, brandID string, job
 	}, 20*time.Second, 1*time.Second)
 
 	if err != nil {
+		log.Printf("[%s] Timeout waiting for search results (td.brandtitle): %v", brandName, err)
 		return nil
 	}
 
 	pageCount := 1
 	seenUrls := make(map[string]bool)
+	queuedCount := 0
+	skippedCount := 0
+
 	for {
 		elements, err := wd.FindElements(selenium.ByCSSSelector, "td.brandtitle a")
 		if err == nil {
@@ -429,9 +451,23 @@ func (s *Scraper) producer(wd selenium.WebDriver, brandName, brandID string, job
 				href, _ := el.GetAttribute("href")
 				if href != "" && (strings.HasPrefix(href, "http") || strings.Contains(href, "cardetail.cfm")) {
 					seenUrls[href] = true
-					// Always scrape if not active or if force scraping is enabled to ensure we get updates (e.g. price updates)
-					if s.Force || !active[href] {
+					lastSeen, exists := active[href]
+					shouldScrape := false
+					if !exists {
+						// New car not in DB -> scrape
+						shouldScrape = true
+					} else if s.Force {
+						// Car is in DB and force refresh is enabled
+						if s.SkipRefreshedHours > 0 && isRecentlyRefreshed(lastSeen, s.SkipRefreshedHours) {
+							skippedCount++
+						} else {
+							shouldScrape = true
+						}
+					}
+
+					if shouldScrape {
 						jobs <- href
+						queuedCount++
 					}
 				}
 			}
@@ -457,6 +493,13 @@ func (s *Scraper) producer(wd selenium.WebDriver, brandName, brandID string, job
 			break
 		}
 	}
+
+	if skippedCount > 0 {
+		log.Printf("[%s] Producer summary: %d queued, %d skipped (already refreshed within %dh)", brandName, queuedCount, skippedCount, s.SkipRefreshedHours)
+	} else {
+		log.Printf("[%s] Producer summary: %d queued", brandName, queuedCount)
+	}
+
 	return seenUrls
 }
 
@@ -760,14 +803,14 @@ func (s *Scraper) scrapeNewCar(wd selenium.WebDriver, car *db.Car) {
 
 func (s *Scraper) createWebDriver() (selenium.WebDriver, error) {
 	caps := selenium.Capabilities{
-		"browserName":      "chrome",
-		"pageLoadStrategy": "eager",
+		"browserName": "chrome",
 	}
 	chromeCaps := chrome.Capabilities{
 		Args: []string{
-			"--headless", "--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu",
+			"--headless=new", "--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu",
 			"--window-size=1920,1080", "--log-level=3", "--disable-extensions", "--disable-images",
 			"--disable-logging", "--silent",
+			"--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
 		},
 	}
 	caps.AddChrome(chromeCaps)
