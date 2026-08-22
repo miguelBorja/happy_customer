@@ -462,3 +462,41 @@ export const CloseIcon = ({ size = 14, color = 'currentColor', className = '' })
     <line x1="6" y1="6" x2="18" y2="18" />
   </svg>
 );
+
+/**
+ * 20. Chevron Icons for Expand / Collapse
+ */
+export const ChevronUpIcon = ({ size = 14, color = 'currentColor', className = '', style = {} }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth="2.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={`hc-icon hc-icon-chevron-up ${className}`}
+    style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0, ...style }}
+  >
+    <path d="M18 15L12 9L6 15" />
+  </svg>
+);
+
+export const ChevronDownIcon = ({ size = 14, color = 'currentColor', className = '', style = {} }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth="2.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={`hc-icon hc-icon-chevron-down ${className}`}
+    style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0, ...style }}
+  >
+    <path d="M6 9L12 15L18 9" />
+  </svg>
+);
+

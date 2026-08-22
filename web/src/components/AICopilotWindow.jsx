@@ -5,13 +5,16 @@ import { useFavorites } from '../hooks/useFavorites';
 import { useChatHistory } from '../hooks/useChatHistory';
 import {
   SparkleClusterIcon,
+  SparkleIcon,
   AdvisorOrb,
   SendAirplaneIcon,
   StarIcon,
   StopIcon,
   MinimizeIcon,
   ExpandIcon,
-  CloseIcon
+  CloseIcon,
+  ChevronUpIcon,
+  ChevronDownIcon
 } from './icons/AppIcons';
 
 function renderMarkdown(text) {
@@ -188,6 +191,25 @@ const AICopilotWindow = ({
   const [error, setError] = useState('');
   const [isDragOverWindow, setIsDragOverWindow] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [isSuggestionsCollapsed, setIsSuggestionsCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('crautos_ai_suggestions_collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleSuggestionsCollapse = () => {
+    setIsSuggestionsCollapsed(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem('crautos_ai_suggestions_collapsed', String(next));
+      } catch (e) {
+        console.warn(e);
+      }
+      return next;
+    });
+  };
   
   const chatScrollRef = useRef(null);
   const abortRef = useRef(null);
@@ -700,18 +722,48 @@ const AICopilotWindow = ({
             ))}
           </div>
 
-          {/* Suggestion Pills Stack */}
+          {/* Suggestion Pills Section with Collapse/Expand */}
           {currentSuggestions.length > 0 && !isGenerating && (
-            <div className="ai-suggestions-stack">
-              {currentSuggestions.map((sug, idx) => (
-                <button
-                  key={idx}
-                  className="ai-suggestion-pill"
-                  onClick={() => handleSendQuestion(sug)}
-                >
-                  {sug}
-                </button>
-              ))}
+            <div className={`ai-suggestions-wrapper ${isSuggestionsCollapsed ? 'collapsed' : 'expanded'}`}>
+              {!isSuggestionsCollapsed ? (
+                <div className="ai-suggestions-row">
+                  <div className="ai-suggestions-stack">
+                    {currentSuggestions.map((sug, idx) => (
+                      <button
+                        key={idx}
+                        className="ai-suggestion-pill"
+                        onClick={() => handleSendQuestion(sug)}
+                        title={sug}
+                      >
+                        {sug}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    className="ai-suggestions-toggle-btn"
+                    onClick={toggleSuggestionsCollapse}
+                    title={t('aiCollapseSuggestions')}
+                    aria-label={t('aiCollapseSuggestions')}
+                  >
+                    <ChevronUpIcon size={15} />
+                  </button>
+                </div>
+              ) : (
+                <div className="ai-suggestions-collapsed-bar">
+                  <button
+                    type="button"
+                    className="ai-suggestions-expand-btn"
+                    onClick={toggleSuggestionsCollapse}
+                    title={t('aiExpandSuggestions')}
+                    aria-label={t('aiExpandSuggestions')}
+                  >
+                    <SparkleIcon size={13} color="#fef08a" />
+                    <span>{t('aiSuggestedQuestions')}</span>
+                    <ChevronDownIcon size={14} />
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
