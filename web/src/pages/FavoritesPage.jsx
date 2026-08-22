@@ -6,6 +6,7 @@ import CarCard from '../components/CarCard';
 import MileageBar from '../components/MileageBar';
 import PriceBar from '../components/PriceBar';
 import { useLanguage } from '../context/LanguageContext';
+import { StarIcon, CardsGridIcon, TableListIcon } from '../components/icons/AppIcons';
 
 const FavoritesPage = ({ viewMode, setViewMode }) => {
   const [cars, setCars] = useState([]);
@@ -46,9 +47,9 @@ const FavoritesPage = ({ viewMode, setViewMode }) => {
     <div style={{ paddingBottom: '4rem' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '2rem' }}>
         <div>
-          <h2 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>
-            <span style={{ color: '#fbbf24', marginRight: '0.5rem' }}>★</span>
-            {t('myFavoritesTitle')}
+          <h2 style={{ fontSize: '2rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+            <StarIcon size={26} color="#fbbf24" />
+            <span>{t('myFavoritesTitle')}</span>
           </h2>
           <p style={{ color: 'var(--text-muted)' }}>
             {favCount === 1 
@@ -63,14 +64,18 @@ const FavoritesPage = ({ viewMode, setViewMode }) => {
           <button
             className={`btn-view-mode ${viewMode === 'cards' ? 'active' : ''}`}
             onClick={() => setViewMode('cards')}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
           >
-            {t('viewCards')}
+            <CardsGridIcon size={14} color="currentColor" />
+            <span>{t('viewCards')}</span>
           </button>
           <button
             className={`btn-view-mode ${viewMode === 'table' ? 'active' : ''}`}
             onClick={() => setViewMode('table')}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
           >
-            {t('viewTable')}
+            <TableListIcon size={14} color="currentColor" />
+            <span>{t('viewTable')}</span>
           </button>
         </div>
       </div>

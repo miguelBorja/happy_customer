@@ -8,6 +8,14 @@ import { useSeenCars } from '../hooks/useSeenCars';
 import { useFavorites } from '../hooks/useFavorites';
 import { useLanguage } from '../context/LanguageContext';
 import FiltersModal, { commonEquipments } from '../components/FiltersModal';
+import {
+  SearchIcon,
+  SortIcon,
+  FilterFunnelIcon,
+  CardsGridIcon,
+  TableListIcon,
+  NewBadgeIcon
+} from '../components/icons/AppIcons';
 
 const CarsPage = ({
   filters,
@@ -247,8 +255,6 @@ const CarsPage = ({
     if (filters.isSold !== 'false') tags.push({ id: 'isSold', label: t('showSold'), clear: () => setFilters(f => ({ ...f, isSold: 'false' })) });
     if (showFavsOnly) tags.push({ id: 'showFavsOnly', label: t('showFavsOnly'), clear: () => setShowFavsOnly(false) });
     
-
-    
     return tags;
   };
 
@@ -266,7 +272,7 @@ const CarsPage = ({
       {/* Top Search & Filter Bar */}
       <div className="search-filter-bar">
         <div className="search-input-wrapper">
-          <span className="search-input-icon">🔍</span>
+          <SearchIcon size={16} color="var(--text-muted)" className="search-input-icon" />
           <input 
             type="text" 
             name="title" 
@@ -279,14 +285,18 @@ const CarsPage = ({
         <button 
           className={`btn-all-filters ${hasActiveSort ? 'active' : ''}`}
           onClick={() => setIsSortOpen(true)}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
         >
-          ⇅ {language === 'es' ? 'Ordenar' : 'Sort'}
+          <SortIcon size={15} color="currentColor" />
+          <span>{language === 'es' ? 'Ordenar' : 'Sort'}</span>
         </button>
         <button 
           className={`btn-all-filters ${hasActiveFilters ? 'active' : ''}`}
           onClick={() => setIsFiltersOpen(true)}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
         >
-          🎛️ {t('allFilters')}
+          <FilterFunnelIcon size={15} color="currentColor" />
+          <span>{t('allFilters')}</span>
         </button>
       </div>
 
@@ -416,14 +426,18 @@ const CarsPage = ({
               <button 
                 className={`btn-view-toggle ${viewMode === 'cards' ? 'active' : ''}`}
                 onClick={() => setViewMode('cards')}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
               >
-                {t('viewCards')}
+                <CardsGridIcon size={14} color="currentColor" />
+                <span>{t('viewCards')}</span>
               </button>
               <button 
                 className={`btn-view-toggle ${viewMode === 'table' ? 'active' : ''}`}
                 onClick={() => setViewMode('table')}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
               >
-                {t('viewTable')}
+                <TableListIcon size={14} color="currentColor" />
+                <span>{t('viewTable')}</span>
               </button>
             </div>
           </div>
@@ -432,7 +446,7 @@ const CarsPage = ({
         {!loading && newCarsCountVisible > 0 && (
           <div className="new-cars-bar" style={{ marginBottom: '1.5rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <span className="new-badge-pulse">{t('newBadge')}</span>
+              <NewBadgeIcon size={22} />
               <span>
                 {newCarsCountVisible === 1 
                   ? t('newCarsCount', { count: newCarsCountVisible }) 
@@ -444,7 +458,7 @@ const CarsPage = ({
             </button>
           </div>
         )}
-        
+
         {!loading && cars.length === 0 && (
           <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>
             {t('noCarsFound')}

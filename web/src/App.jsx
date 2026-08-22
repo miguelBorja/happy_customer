@@ -9,6 +9,15 @@ import { fetchStats, recordVisit } from './api/client';
 import { useFavorites } from './hooks/useFavorites';
 import { useLanguage } from './context/LanguageContext';
 import { trackPageView } from './utils/analytics';
+import {
+  FlagIcon,
+  StarIcon,
+  TagIcon,
+  StatsChartIcon,
+  InfoCircleIcon,
+  SearchIcon,
+  SparkleClusterIcon
+} from './components/icons/AppIcons';
 
 function App() {
   const [activeTab, setActiveTab] = useState('browse');
@@ -186,22 +195,25 @@ function App() {
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '0.35rem',
+              gap: '0.45rem',
               transition: 'var(--transition)'
             }}
             onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.15)'}
             onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)'}
           >
-            🌐 {language === 'es' ? 'English' : 'Español'}
+            <FlagIcon size={15} color="#cbd5e1" />
+            <span>{language === 'es' ? 'English' : 'Español'}</span>
           </button>
 
-          {/* AI Copilot Toolbar Button */}
+          {/* AI Copilot Toolbar Button - Styled after custom kit (1) */}
           <button
             className={`nav-ai-copilot-btn ${isCopilotOpen ? 'active' : ''}`}
             onClick={handleToggleCopilot}
             title={t('copilotTitle')}
           >
-            <span className="nav-ai-icon">✨</span>
+            <span className="nav-ai-icon">
+              <SparkleClusterIcon size={18} color="#fef08a" />
+            </span>
             <span className="nav-ai-label">{t('copilotButton')}</span>
             {attachedCars.length > 0 && (
               <span className="nav-ai-badge">{attachedCars.length}</span>
@@ -218,27 +230,35 @@ function App() {
             <button 
               className={activeTab === 'favorites' ? 'active' : ''} 
               onClick={() => setActiveTab('favorites')}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
             >
-              <span style={{ color: '#fbbf24' }}>★</span> {t('favorites')}
+              <StarIcon size={16} color="#fbbf24" />
+              <span>{t('favorites')}</span>
               {favCount > 0 && <span className="nav-fav-count">{favCount}</span>}
             </button>
             <button 
               className={activeTab === 'bargains' ? 'active' : ''} 
               onClick={() => setActiveTab('bargains')}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
             >
-              <span style={{ color: '#10b981' }}>💰</span> {language === 'es' ? 'Gangas' : 'Bargains'}
+              <TagIcon size={16} color="#fbbf24" />
+              <span>{language === 'es' ? 'Gangas' : 'Bargains'}</span>
             </button>
             <button 
               className={activeTab === 'stats' ? 'active' : ''} 
               onClick={() => setActiveTab('stats')}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
             >
-              {t('stats')}
+              <StatsChartIcon size={16} color="#fbbf24" />
+              <span>{t('stats')}</span>
             </button>
             <button 
               className={activeTab === 'about' ? 'active' : ''} 
               onClick={() => setActiveTab('about')}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
             >
-              {t('about')}
+              <InfoCircleIcon size={16} color="#cbd5e1" />
+              <span>{t('about')}</span>
             </button>
           </div>
         </div>
@@ -253,14 +273,18 @@ function App() {
           className={`bottom-nav-btn ${activeTab === 'browse' ? 'active' : ''}`}
           onClick={() => setActiveTab('browse')}
         >
-          <span className="bottom-nav-icon">🔍</span>
+          <span className="bottom-nav-icon">
+            <SearchIcon size={20} color="currentColor" />
+          </span>
           <span>{t('navBrowse')}</span>
         </button>
         <button 
           className={`bottom-nav-btn ${activeTab === 'favorites' ? 'active' : ''}`}
           onClick={() => setActiveTab('favorites')}
         >
-          <span className="bottom-nav-icon">★</span>
+          <span className="bottom-nav-icon">
+            <StarIcon size={20} color="#fbbf24" />
+          </span>
           <span>{t('navFavs')}</span>
           {favCount > 0 && <span className="bottom-nav-badge">{favCount}</span>}
         </button>
@@ -268,14 +292,18 @@ function App() {
           className={`bottom-nav-btn ${activeTab === 'bargains' ? 'active' : ''}`}
           onClick={() => setActiveTab('bargains')}
         >
-          <span className="bottom-nav-icon">💰</span>
+          <span className="bottom-nav-icon">
+            <TagIcon size={20} color="#fbbf24" />
+          </span>
           <span>{language === 'es' ? 'Gangas' : 'Bargains'}</span>
         </button>
         <button 
           className={`bottom-nav-btn ${isCopilotOpen ? 'active' : ''}`}
           onClick={handleToggleCopilot}
         >
-          <span className="bottom-nav-icon">✨</span>
+          <span className="bottom-nav-icon">
+            <SparkleClusterIcon size={22} color="#fef08a" />
+          </span>
           <span>{t('copilotButton')}</span>
           {attachedCars.length > 0 && <span className="bottom-nav-badge">{attachedCars.length}</span>}
         </button>
@@ -283,14 +311,18 @@ function App() {
           className={`bottom-nav-btn ${activeTab === 'stats' ? 'active' : ''}`}
           onClick={() => setActiveTab('stats')}
         >
-          <span className="bottom-nav-icon">📊</span>
+          <span className="bottom-nav-icon">
+            <StatsChartIcon size={20} color="#fbbf24" />
+          </span>
           <span>{t('stats')}</span>
         </button>
         <button 
           className={`bottom-nav-btn ${activeTab === 'about' ? 'active' : ''}`}
           onClick={() => setActiveTab('about')}
         >
-          <span className="bottom-nav-icon">ℹ️</span>
+          <span className="bottom-nav-icon">
+            <InfoCircleIcon size={20} color="#cbd5e1" />
+          </span>
           <span>{t('navAbout')}</span>
         </button>
       </nav>
@@ -302,6 +334,7 @@ function App() {
         onAddCar={handleAddCarToCopilot}
         onRemoveCar={handleRemoveCarFromCopilot}
         onClearCars={handleClearCopilotCars}
+        onSetAttachedCars={setAttachedCars}
         isMinimized={isCopilotMinimized}
         onToggleMinimize={() => setIsCopilotMinimized(prev => !prev)}
         isExpanded={isCopilotExpanded}

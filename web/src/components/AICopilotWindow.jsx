@@ -2,6 +2,17 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLanguage } from '../context/LanguageContext';
 import { compareWithAI } from '../api/client';
 import { useFavorites } from '../hooks/useFavorites';
+import { useChatHistory } from '../hooks/useChatHistory';
+import {
+  SparkleClusterIcon,
+  AdvisorOrb,
+  SendAirplaneIcon,
+  StarIcon,
+  StopIcon,
+  MinimizeIcon,
+  ExpandIcon,
+  CloseIcon
+} from './icons/AppIcons';
 
 function renderMarkdown(text) {
   if (!text) return '';
@@ -75,6 +86,26 @@ const formatPrice = (price, text) => {
   return text || 'N/A';
 };
 
+const formatSessionTime = (timestamp, lang) => {
+  if (!timestamp) return '';
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diffMs = now - date;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return lang === 'es' ? 'Hace un momento' : 'Just now';
+  if (diffMins < 60) return `${diffMins}m`;
+  if (diffHours < 24) return `${diffHours}h`;
+  if (diffDays === 1) return lang === 'es' ? 'Ayer' : 'Yesterday';
+  if (diffDays < 7) return `${diffDays}d`;
+  return date.toLocaleDateString(lang === 'es' ? 'es-CR' : 'en-US', {
+    month: 'short',
+    day: 'numeric'
+  });
+};
+
 function detectWinner(text) {
   if (!text) return null;
   const lower = text.toLowerCase();
@@ -131,6 +162,7 @@ const AICopilotWindow = ({
   onAddCar,
   onRemoveCar,
   onClearCars,
+  onSetAttachedCars,
   isMinimized,
   onToggleMinimize,
   isExpanded,
@@ -139,15 +171,43 @@ const AICopilotWindow = ({
   const { language, t } = useLanguage();
   const { isFavorite, toggleFavorite } = useFavorites();
   
-  const [chatMessages, setChatMessages] = useState([]);
+  const {
+    sessions,
+    activeSessionId,
+    activeSession,
+    saveSession,
+    createNewChat,
+    selectChat,
+    deleteChat,
+    clearAllChats
+  } = useChatHistory();
+
+  const [chatMessages, setChatMessages] = useState(() => activeSession?.messages || []);
   const [inputText, setInputText] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState('');
   const [isDragOverWindow, setIsDragOverWindow] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   
   const chatScrollRef = useRef(null);
   const abortRef = useRef(null);
   const inputRef = useRef(null);
+  const initialLoadedRef = useRef(false);
+
+  // Restore initial active session messages & cars on mount
+  useEffect(() => {
+    if (!initialLoadedRef.current) {
+      initialLoadedRef.current = true;
+      if (activeSession) {
+        if (activeSession.messages && activeSession.messages.length > 0) {
+          setChatMessages(activeSession.messages);
+        }
+        if (activeSession.attachedCars && activeSession.attachedCars.length > 0 && onSetAttachedCars) {
+          onSetAttachedCars(activeSession.attachedCars);
+        }
+      }
+    }
+  }, [activeSession, onSetAttachedCars]);
 
   const car1 = attachedCars[0] || null;
   const car2 = attachedCars[1] || null;
@@ -157,10 +217,10 @@ const AICopilotWindow = ({
 
   // Auto-scroll AI response
   useEffect(() => {
-    if (chatScrollRef.current && isGenerating) {
+    if (chatScrollRef.current && isGenerating && !showHistory) {
       chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
     }
-  }, [chatMessages, isGenerating]);
+  }, [chatMessages, isGenerating, showHistory]);
 
   // Cleanup abort on unmount
   useEffect(() => {
@@ -168,6 +228,13 @@ const AICopilotWindow = ({
       if (abortRef.current) abortRef.current.abort();
     };
   }, []);
+
+  // Auto-save active session state to localStorage when changes settle
+  useEffect(() => {
+    if (!isGenerating && activeSessionId && (chatMessages.length > 0 || attachedCars.length > 0)) {
+      saveSession(activeSessionId, chatMessages, attachedCars);
+    }
+  }, [chatMessages, attachedCars, isGenerating, activeSessionId, saveSession]);
 
   // Reset error when cars change
   const lastCarsRef = useRef('');
@@ -189,7 +256,8 @@ const AICopilotWindow = ({
     setError('');
 
     const initialMsgId = `asst-init-${Date.now()}`;
-    setChatMessages([{ id: initialMsgId, role: 'assistant', content: '' }]);
+    const newMessages = [{ id: initialMsgId, role: 'assistant', content: '' }];
+    setChatMessages(newMessages);
 
     try {
       await compareWithAI(car1, car2, language, [], (chunk) => {
@@ -253,37 +321,79 @@ const AICopilotWindow = ({
     }
   };
 
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendQuestion();
+    }
+  };
+
   const handleNewChat = () => {
     if (abortRef.current) abortRef.current.abort();
+    // Save current session before creating a new one
+    if (activeSessionId && (chatMessages.length > 0 || attachedCars.length > 0)) {
+      saveSession(activeSessionId, chatMessages, attachedCars);
+    }
+    createNewChat();
     setChatMessages([]);
     setInputText('');
     setError('');
     setIsGenerating(false);
+    setShowHistory(false);
+    if (onClearCars) onClearCars();
   };
 
+  const handleSelectSession = (sessionId) => {
+    if (sessionId === activeSessionId && !showHistory) return;
+    if (abortRef.current) abortRef.current.abort();
+    // Save current before switching
+    if (activeSessionId && (chatMessages.length > 0 || attachedCars.length > 0)) {
+      saveSession(activeSessionId, chatMessages, attachedCars);
+    }
+    const session = selectChat(sessionId);
+    if (session) {
+      setChatMessages(session.messages || []);
+      if (onSetAttachedCars) {
+        onSetAttachedCars(session.attachedCars || []);
+      }
+    }
+    setShowHistory(false);
+    setError('');
+    setIsGenerating(false);
+  };
+
+  const handleDeleteSession = (e, sessionId) => {
+    e.stopPropagation();
+    deleteChat(sessionId);
+    if (sessionId === activeSessionId) {
+      setChatMessages([]);
+      if (onClearCars) onClearCars();
+    }
+  };
+
+  const handleClearAllHistory = () => {
+    if (window.confirm(t('aiConfirmClearHistory') || (language === 'es' ? '¿Eliminar todo el historial de conversaciones de IA?' : 'Clear all AI conversation history?'))) {
+      clearAllChats();
+      setChatMessages([]);
+      if (onClearCars) onClearCars();
+      setShowHistory(false);
+    }
+  };
+
+  // Drag & Drop handlers for cars onto AI window
   const handleDropCar = (e) => {
     e.preventDefault();
     setIsDragOverWindow(false);
     try {
       const dataStr = e.dataTransfer.getData('application/json') || e.dataTransfer.getData('text/plain');
       if (dataStr) {
-        const car = JSON.parse(dataStr);
-        if (car && car.URL) {
-          onAddCar(car);
-          if (isMinimized) {
-            onToggleMinimize();
-          }
+        const droppedCar = JSON.parse(dataStr);
+        if (droppedCar && droppedCar.URL && onAddCar) {
+          onAddCar(droppedCar);
         }
       }
     } catch (err) {
-      console.warn('Invalid dropped car data:', err);
-    }
-  };
-
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendQuestion();
+      console.warn('Could not parse dropped car:', err);
     }
   };
 
@@ -307,7 +417,9 @@ const AICopilotWindow = ({
         onDrop={handleDropCar}
         title={t('aiRestore')}
       >
-        <span className="ai-pill-icon">✨</span>
+        <span className="ai-pill-icon">
+          <SparkleClusterIcon size={16} color="#fef08a" />
+        </span>
         <span className="ai-pill-label">{t('copilotButton')}</span>
         <span className="ai-live-badge-mini">• LIVE</span>
         {attachedCars.length > 0 && (
@@ -322,7 +434,7 @@ const AICopilotWindow = ({
           }}
           title={t('aiClose')}
         >
-          ×
+          <CloseIcon size={12} />
         </button>
       </div>
     );
@@ -383,12 +495,27 @@ const AICopilotWindow = ({
       {/* Copilot Header */}
       <div className="ai-copilot-header">
         <div className="ai-header-left">
-          <span className="ai-header-icon">✨</span>
+          <span className="ai-header-icon">
+            <SparkleClusterIcon size={18} color="#fef08a" />
+          </span>
           <h3 className="ai-header-title">{t('copilotButton')}</h3>
           <span className="ai-online-status">• LIVE</span>
         </div>
 
         <div className="ai-header-controls">
+          {/* History Toggle Button */}
+          <button 
+            className={`ai-ctrl-btn ai-ctrl-history ${showHistory ? 'active' : ''}`} 
+            onClick={() => setShowHistory(prev => !prev)}
+            title={showHistory ? t('aiBackToChat') : t('aiHistory')}
+          >
+            🕒
+            {sessions.length > 0 && (
+              <span className="ai-ctrl-badge">{sessions.length}</span>
+            )}
+          </button>
+
+          {/* New Chat Button */}
           <button 
             className="ai-ctrl-btn ai-ctrl-refresh" 
             onClick={handleNewChat}
@@ -396,178 +523,283 @@ const AICopilotWindow = ({
           >
             🔄
           </button>
+
+          {/* Minimize Button */}
           <button 
             className="ai-ctrl-btn" 
             onClick={onToggleMinimize}
             title={t('aiMinimize')}
           >
-            _
+            <MinimizeIcon size={13} color="currentColor" />
           </button>
+
+          {/* Expand / Restore Size Button */}
           <button 
             className="ai-ctrl-btn" 
             onClick={onToggleExpand}
             title={isExpanded ? t('aiMinimize') : t('aiMaximize')}
           >
-            {isExpanded ? '❐' : '⛶'}
+            <ExpandIcon size={13} color="currentColor" isExpanded={isExpanded} />
           </button>
+
+          {/* Close Window */}
           <button 
             className="ai-ctrl-btn ai-close-btn" 
             onClick={onClose}
             title={t('aiClose')}
           >
-            ✕
+            <CloseIcon size={13} color="currentColor" />
           </button>
         </div>
       </div>
 
       {/* Error Banner */}
-      {error && <div className="ai-copilot-error">{error}</div>}
+      {error && !showHistory && <div className="ai-copilot-error">{error}</div>}
 
-      {/* Chat Messages Stream Area */}
-      <div className="ai-copilot-messages" ref={chatScrollRef}>
-        {chatMessages.length === 0 && !error && (
-          <div className="ai-welcome-box">
-            <div className="ai-welcome-icon">✨</div>
-            <h4>{t('copilotTitle')}</h4>
-            <p>{t('aiPlaceholder')}</p>
-            {attachedCars.length === 1 && (
-              <div className="ai-welcome-tip">
-                ℹ️ {t('aiSingleCarReady')}
-              </div>
-            )}
-            {attachedCars.length === 2 && (
-              <div className="ai-welcome-tip highlight">
-                ✨ {t('aiCompareReady')}
-                <button 
-                  className="ai-inline-compare-btn"
-                  onClick={handleGenerateComparison}
-                >
-                  ⚡ {t('compareButton')}
-                </button>
-              </div>
-            )}
+      {/* MAIN BODY: Either Chat View or History Panel */}
+      {showHistory ? (
+        <div className="ai-history-panel">
+          <div className="ai-history-header">
+            <div className="ai-history-title-row">
+              <span className="ai-history-icon">🕒</span>
+              <h4>{t('aiHistoryTitle')}</h4>
+            </div>
+            <div className="ai-history-actions">
+              <button 
+                className="ai-history-new-btn"
+                onClick={handleNewChat}
+              >
+                + {t('aiNewChat')}
+              </button>
+              <button 
+                className="ai-history-back-btn"
+                onClick={() => setShowHistory(false)}
+                title={t('aiBackToChat')}
+              >
+                ✕
+              </button>
+            </div>
           </div>
-        )}
 
-        {chatMessages.map((msg, index) => (
-          <div key={msg.id || index} className={`ai-stream-message ${msg.role}`}>
-            {msg.role === 'user' ? (
-              <div className="ai-user-bubble">
-                <span>{msg.content}</span>
+          <div className="ai-history-list">
+            {sessions.length === 0 ? (
+              <div className="ai-history-empty">
+                <span className="ai-history-empty-icon">💬</span>
+                <p>{t('aiNoHistory')}</p>
               </div>
             ) : (
-              <div className="ai-assistant-body">
-                <div
-                  className="ai-card-content"
-                  dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }}
-                />
-                {isGenerating && index === chatMessages.length - 1 && (
-                  <span className="ai-typewriter-cursor">▊</span>
+              sessions.map((session) => {
+                const isActive = session.id === activeSessionId;
+                const msgCount = session.messages ? session.messages.length : 0;
+                const cars = session.attachedCars || [];
+                const formattedTime = formatSessionTime(session.updatedAt || session.createdAt, language);
+
+                return (
+                  <div 
+                    key={session.id}
+                    className={`ai-history-item ${isActive ? 'active' : ''}`}
+                    onClick={() => handleSelectSession(session.id)}
+                  >
+                    <div className="ai-history-item-main">
+                      <div className="ai-history-item-top">
+                        <span className="ai-history-item-title" title={session.title}>
+                          {session.title || t('aiUntitledChat')}
+                        </span>
+                        <span className="ai-history-item-time">{formattedTime}</span>
+                      </div>
+
+                      <div className="ai-history-item-meta">
+                        <span className="ai-meta-tag msg-tag">
+                          {t('aiMessagesCount').replace('{count}', msgCount)}
+                        </span>
+                        {cars.length > 0 && (
+                          <span className="ai-meta-tag car-tag" title={cars.map(c => c.Title).join(', ')}>
+                            🚗 {cars.length === 2 ? `${cars[0].Title.split(' ')[0]} vs ${cars[1].Title.split(' ')[0]}` : cars[0].Title.split(' ')[0]}
+                          </span>
+                        )}
+                        {isActive && (
+                          <span className="ai-meta-tag active-tag">● {language === 'es' ? 'Actual' : 'Active'}</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <button
+                      className="ai-history-delete-btn"
+                      onClick={(e) => handleDeleteSession(e, session.id)}
+                      title={t('aiDeleteChat')}
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {sessions.length > 0 && (
+            <div className="ai-history-footer">
+              <button 
+                className="ai-history-clear-all-btn"
+                onClick={handleClearAllHistory}
+              >
+                🗑️ {t('aiClearHistory')}
+              </button>
+            </div>
+          )}
+        </div>
+      ) : (
+        <>
+          {/* Chat Messages Stream Area */}
+          <div className="ai-copilot-messages" ref={chatScrollRef}>
+            {chatMessages.length === 0 && !error && (
+              <div className="ai-welcome-box">
+                <AdvisorOrb size={95} style={{ marginBottom: '1.25rem' }} />
+                <h4 style={{ fontSize: '1.25rem', fontWeight: '800', letterSpacing: '-0.01em', marginBottom: '0.4rem' }}>
+                  {t('copilotTitle')}
+                </h4>
+                <p style={{ color: '#94a3b8', fontSize: '0.88rem' }}>
+                  {t('copilotSubtitle')}
+                </p>
+                {attachedCars.length === 1 && (
+                  <div className="ai-welcome-tip">
+                    ℹ️ {t('aiSingleCarReady')}
+                  </div>
+                )}
+                {attachedCars.length === 2 && (
+                  <div className="ai-welcome-tip highlight">
+                    ✨ {t('aiCompareReady')}
+                    <button 
+                      className="ai-inline-compare-btn"
+                      onClick={handleGenerateComparison}
+                    >
+                      ⚡ {t('compareButton')}
+                    </button>
+                  </div>
                 )}
               </div>
             )}
-          </div>
-        ))}
-      </div>
 
-      {/* Suggestion Pills Stack */}
-      {currentSuggestions.length > 0 && !isGenerating && (
-        <div className="ai-suggestions-stack">
-          {currentSuggestions.map((sug, idx) => (
-            <button
-              key={idx}
-              className="ai-suggestion-pill"
-              onClick={() => handleSendQuestion(sug)}
-            >
-              {sug}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Unified Bottom Prompt Container */}
-      <div className="ai-bottom-container">
-        <form 
-          className="ai-unified-prompt-box"
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleSendQuestion();
-          }}
-        >
-          <div className="ai-prompt-inner-top">
-            {/* Attached Context Car Chips inside the input container */}
-            {attachedCars.length > 0 && (
-              <div className="ai-embedded-chips-row">
-                {attachedCars.map((car, idx) => {
-                  const isWinnerCar = winner === (idx + 1);
-                  const isCar1 = idx === 0;
-                  return (
-                    <div 
-                      key={car.URL || idx} 
-                      className={`ai-embedded-car-chip ${isCar1 ? 'chip-a' : 'chip-b'} ${isWinnerCar ? 'chip-winner' : ''}`}
-                      title={car.Title}
-                    >
-                      <span className="ai-chip-bullet">{isCar1 ? '🔵' : '🟣'}</span>
-                      <button
-                        type="button"
-                        className={`ai-chip-fav-star ${isFavorite(car.URL) ? 'active' : ''}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleFavorite(car.URL);
-                        }}
-                        title={isFavorite(car.URL) ? 'Remove favorite' : 'Add favorite'}
-                      >
-                        {isFavorite(car.URL) ? '★' : '☆'}
-                      </button>
-                      <a href={car.URL} target="_blank" rel="noreferrer" className="ai-chip-name">
-                        {car.Title} ({car.Year})
-                      </a>
-                      <span className="ai-chip-green-price">{formatPrice(car.Price, car.PriceText)}</span>
-                      {isWinnerCar && <span className="ai-chip-trophy">🏆</span>}
-                      <button 
-                        type="button"
-                        className="ai-chip-close-btn" 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onRemoveCar(car.URL);
-                        }}
-                        title={t('deselectCar')}
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  );
-                })}
+            {chatMessages.map((msg, index) => (
+              <div key={msg.id || index} className={`ai-stream-message ${msg.role}`}>
+                {msg.role === 'user' ? (
+                  <div className="ai-user-bubble">
+                    <span>{msg.content}</span>
+                  </div>
+                ) : (
+                  <div className="ai-assistant-body">
+                    <div
+                      className="ai-card-content"
+                      dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }}
+                    />
+                    {isGenerating && index === chatMessages.length - 1 && (
+                      <span className="ai-typewriter-cursor">▊</span>
+                    )}
+                  </div>
+                )}
               </div>
-            )}
-
-            {/* Prompt Input Text */}
-            <input
-              ref={inputRef}
-              type="text"
-              className="ai-integrated-input"
-              placeholder={t('askAIPlaceholder')}
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              onKeyDown={handleKeyDown}
-              disabled={isGenerating}
-            />
+            ))}
           </div>
 
-          <button
-            type="submit"
-            className="ai-send-action-btn"
-            disabled={!inputText.trim() || isGenerating}
-            title={t('askAISend')}
-          >
-            {isGenerating ? (
-              <span className="ai-spinner"></span>
-            ) : (
-              <span className="ai-send-arrow-icon">➤</span>
-            )}
-          </button>
-        </form>
-      </div>
+          {/* Suggestion Pills Stack */}
+          {currentSuggestions.length > 0 && !isGenerating && (
+            <div className="ai-suggestions-stack">
+              {currentSuggestions.map((sug, idx) => (
+                <button
+                  key={idx}
+                  className="ai-suggestion-pill"
+                  onClick={() => handleSendQuestion(sug)}
+                >
+                  {sug}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Unified Bottom Prompt Container */}
+          <div className="ai-bottom-container">
+            <form 
+              className="ai-unified-prompt-box"
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSendQuestion();
+              }}
+            >
+              <div className="ai-prompt-inner-top">
+                {/* Attached Context Car Chips inside the input container */}
+                {attachedCars.length > 0 && (
+                  <div className="ai-embedded-chips-row">
+                    {attachedCars.map((car, idx) => {
+                      const isWinnerCar = winner === (idx + 1);
+                      const isCar1 = idx === 0;
+                      return (
+                        <div 
+                          key={car.URL || idx} 
+                          className={`ai-embedded-car-chip ${isCar1 ? 'chip-a' : 'chip-b'} ${isWinnerCar ? 'chip-winner' : ''}`}
+                          title={car.Title}
+                        >
+                          <span className="ai-chip-bullet">{isCar1 ? '🔵' : '🟣'}</span>
+                          <button
+                            type="button"
+                            className={`ai-chip-fav-star ${isFavorite(car.URL) ? 'active' : ''}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleFavorite(car.URL);
+                            }}
+                            title={isFavorite(car.URL) ? 'Remove favorite' : 'Add favorite'}
+                          >
+                            <StarIcon size={12} color="#fbbf24" filled={isFavorite(car.URL)} />
+                          </button>
+                          <a href={car.URL} target="_blank" rel="noreferrer" className="ai-chip-name">
+                            {car.Title} ({car.Year})
+                          </a>
+                          <span className="ai-chip-green-price">{formatPrice(car.Price, car.PriceText)}</span>
+                          {isWinnerCar && <span className="ai-chip-trophy">🏆</span>}
+                          <button 
+                            type="button"
+                            className="ai-chip-close-btn" 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onRemoveCar(car.URL);
+                            }}
+                            title={t('deselectCar')}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Prompt Input Text */}
+                <input
+                  ref={inputRef}
+                  type="text"
+                  className="ai-integrated-input"
+                  placeholder={t('askAIPlaceholder')}
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  disabled={isGenerating}
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="ai-send-action-btn"
+                disabled={!inputText.trim() || isGenerating}
+                title={t('askAISend')}
+              >
+                {isGenerating ? (
+                  <span className="ai-spinner"></span>
+                ) : (
+                  <SendAirplaneIcon size={18} color="#ffffff" />
+                )}
+              </button>
+            </form>
+          </div>
+        </>
+      )}
     </div>
   );
 };

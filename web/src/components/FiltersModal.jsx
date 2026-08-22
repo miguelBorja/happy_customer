@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../context/LanguageContext';
+import { FilterFunnelIcon } from './icons/AppIcons';
 
 const commonEquipments = [
   { id: "Tapicería de cuero", labelKey: "equipLeather" },
@@ -164,7 +165,10 @@ const FiltersModal = ({
     <div className="filters-modal-overlay open" onClick={onClose}>
       <div className="filters-modal" onClick={(e) => e.stopPropagation()}>
         <div className="filters-modal-header">
-          <h3>{t('filtersHeader')}</h3>
+          <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <FilterFunnelIcon size={18} color="var(--accent)" />
+            <span>{t('filtersHeader')}</span>
+          </h3>
           <button className="filters-modal-close" onClick={onClose}>×</button>
         </div>
         

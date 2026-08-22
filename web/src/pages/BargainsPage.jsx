@@ -6,6 +6,7 @@ import PriceBar from '../components/PriceBar';
 import { useLanguage } from '../context/LanguageContext';
 import { useFavorites } from '../hooks/useFavorites';
 import { useSeenCars } from '../hooks/useSeenCars';
+import { TagIcon, CardsGridIcon, TableListIcon } from '../components/icons/AppIcons';
 
 const BargainsPage = ({ viewMode, setViewMode }) => {
   const [bargains, setBargains] = useState([]);
@@ -49,9 +50,9 @@ const BargainsPage = ({ viewMode, setViewMode }) => {
     <div style={{ paddingBottom: '4rem' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '2rem' }}>
           <div>
-            <h2 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>
-              <span style={{ color: '#10b981', marginRight: '0.5rem' }}>💰</span>
-              {language === 'es' ? '¡Una Ganga!' : 'A Bargain!'}
+            <h2 style={{ fontSize: '2rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <TagIcon size={26} color="#fbbf24" />
+              <span>{language === 'es' ? '¡Una Ganga!' : 'A Bargain!'}</span>
             </h2>
             <p style={{ color: 'var(--text-muted)' }}>
               {language === 'es' 
@@ -83,14 +84,18 @@ const BargainsPage = ({ viewMode, setViewMode }) => {
               <button 
                 className={`btn-view-toggle ${viewMode === 'cards' ? 'active' : ''}`}
                 onClick={() => setViewMode('cards')}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
               >
-                {language === 'es' ? 'Tarjetas' : 'Cards'}
+                <CardsGridIcon size={14} color="currentColor" />
+                <span>{language === 'es' ? 'Tarjetas' : 'Cards'}</span>
               </button>
               <button 
                 className={`btn-view-toggle ${viewMode === 'table' ? 'active' : ''}`}
                 onClick={() => setViewMode('table')}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
               >
-                {language === 'es' ? 'Tabla' : 'Table'}
+                <TableListIcon size={14} color="currentColor" />
+                <span>{language === 'es' ? 'Tabla' : 'Table'}</span>
               </button>
             </div>
           </div>

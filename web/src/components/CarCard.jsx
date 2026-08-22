@@ -2,6 +2,13 @@ import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLanguage } from '../context/LanguageContext';
 import { trackEvent } from '../utils/analytics';
+import {
+  AutoTransmissionIcon,
+  ElectricPlugIcon,
+  LocationPinIcon,
+  StarIcon,
+  NewBadgeIcon
+} from './icons/AppIcons';
 
 const MAX_PRICE = 100000;
 const MAX_MILEAGE = 150000;
@@ -89,41 +96,6 @@ const categorizeFeatures = (featuresArray, translateFn) => {
   return categories;
 };
 
-// Transmission (Gear) Icon SVG
-const GearIcon = () => (
-  <svg 
-    viewBox="0 0 24 24" 
-    width="14" 
-    height="14" 
-    stroke="currentColor" 
-    strokeWidth="2.5" 
-    fill="none" 
-    strokeLinecap="round" 
-    strokeLinejoin="round" 
-    style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: '4px', opacity: 0.8 }}
-  >
-    <circle cx="12" cy="12" r="3"></circle>
-    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-  </svg>
-);
-
-// Electric (Lightning Bolt) Icon SVG
-const ElectricIcon = () => (
-  <svg 
-    viewBox="0 0 24 24" 
-    width="14" 
-    height="14" 
-    stroke="currentColor" 
-    strokeWidth="2.5" 
-    fill="none" 
-    strokeLinecap="round" 
-    strokeLinejoin="round" 
-    style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: '4px', color: '#fbbf24' }}
-  >
-    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
-  </svg>
-);
-
 // Generic Fuel (Fuel Pump) Icon SVG
 const FuelPumpIcon = () => (
   <svg 
@@ -139,8 +111,8 @@ const FuelPumpIcon = () => (
   >
     <line x1="3" y1="22" x2="21" y2="22"></line>
     <path d="M4 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18"></path>
-    <path d="M6 6h6v4H6z"></path>
-    <path d="M18 18V9a2 2 0 0 0-2-2h-2"></path>
+    <path d="M14 13h2a2 2 0 0 1 2 2v2a2 2 0 0 0 2 2a2 2 0 0 0 2-2V9.83a2 2 0 0 0-.59-1.42L18 5"></path>
+    <line x1="7" y1="7" x2="11" y2="7"></line>
   </svg>
 );
 
@@ -256,11 +228,14 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage }) => {
         onClick={(e) => { e.stopPropagation(); onToggleFav && onToggleFav(car.URL); }}
         title={isFav ? 'Remove from favorites' : 'Add to favorites'}
       >
-        {isFav ? '★' : '☆'}
+        <StarIcon size={16} color="#fbbf24" filled={isFav} />
       </button>
 
       <div className="car-card-body">
-        <h3 className="car-title">{car.Title}</h3>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'space-between' }}>
+          <h3 className="car-title" style={{ margin: 0, flex: 1 }}>{car.Title}</h3>
+          {isNew && <NewBadgeIcon size={18} />}
+        </div>
         
         {/* Visual hierarchy: Price and Mileage are progress-filled pills; Year and Province are smaller/muted */}
         <div className="car-specs-block" style={{ margin: '0.25rem 0 0.75rem 0', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -355,7 +330,10 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage }) => {
             {car.Provincia && (
               <>
                 <span style={{ color: 'rgba(255, 255, 255, 0.15)' }}>•</span>
-                <span className="spec-province">📍 {car.Provincia}</span>
+                <span className="spec-province" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <LocationPinIcon size={13} color="#94a3b8" />
+                  <span>{car.Provincia}</span>
+                </span>
               </>
             )}
           </div>
@@ -364,17 +342,17 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage }) => {
         {/* Transmission & Fuel details using standard inline SVGs */}
         <div className="car-extra-details">
           {car.Transmision && (
-            <span className="detail-item">
-              <GearIcon />
+            <span className="detail-item" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+              <AutoTransmissionIcon size={16} color="#fbbf24" />
               <span>{car.Transmision}</span>
             </span>
           )}
           {car.Combustible && (
-            <span className="detail-item">
+            <span className="detail-item" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
               {String(car.Combustible).toLowerCase().includes('eléctrico') || 
                String(car.Combustible).toLowerCase().includes('electrico') || 
                String(car.Combustible).toLowerCase().includes('electric') ? (
-                <ElectricIcon />
+                <ElectricPlugIcon size={16} color="#38bdf8" />
               ) : (
                 <FuelPumpIcon />
               )}
