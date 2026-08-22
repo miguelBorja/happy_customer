@@ -17,9 +17,7 @@ const CarsPage = ({
   showFavsOnly,
   setShowFavsOnly,
   viewMode,
-  setViewMode,
-  selectedCars = [],
-  toggleSelectCar
+  setViewMode
 }) => {
   const [cars, setCars] = useState([]);
   const [brands, setBrands] = useState([]);
@@ -454,6 +452,7 @@ const CarsPage = ({
         )}
 
         {/* Dynamic Presentation Views */}
+        {/* Dynamic Presentation Views */}
         {!loading && displayCars.length > 0 && (
           viewMode === 'cards' ? (
             <div className="results-grid">
@@ -466,8 +465,6 @@ const CarsPage = ({
                   onToggleFav={toggleFavorite}
                   maxPrice={filters.priceMax ? Number(filters.priceMax) : 0}
                   maxMileage={filters.kmMax ? Number(filters.kmMax) : 0}
-                  isSelected={selectedCars.some(c => c.URL === car.URL)}
-                  onToggleSelect={toggleSelectCar}
                 />
               ))}
             </div>
@@ -476,7 +473,6 @@ const CarsPage = ({
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th></th>
                     <th></th>
                     <th>{t('rank')}</th>
                     <th>{t('title')}</th>
@@ -491,20 +487,17 @@ const CarsPage = ({
                   {displayCars.map((car, idx) => {
                     const carIsNew = isNew(car.URL);
                     const carIsFav = isFavorite(car.URL);
-                    const carIsSelected = selectedCars.some(c => c.URL === car.URL);
                     return (
-                      <tr key={car.URL} className={`${carIsNew ? 'new-car-row' : ''} ${carIsFav ? 'fav-car-row' : ''} ${carIsSelected ? 'selected' : ''}`}>
-                        <td>
-                          {toggleSelectCar && (
-                            <button
-                              className={`car-select-btn-table ${carIsSelected ? 'selected' : ''}`}
-                              onClick={() => toggleSelectCar(car)}
-                              title={carIsSelected ? t('deselectCar') : t('selectToCompare')}
-                            >
-                              {carIsSelected ? '☑' : '☐'}
-                            </button>
-                          )}
-                        </td>
+                      <tr 
+                        key={car.URL} 
+                        className={`draggable-car-row ${carIsNew ? 'new-car-row' : ''} ${carIsFav ? 'fav-car-row' : ''}`}
+                        draggable={true}
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData('application/json', JSON.stringify(car));
+                          e.dataTransfer.setData('text/plain', JSON.stringify(car));
+                          e.dataTransfer.effectAllowed = 'copy';
+                        }}
+                      >
                         <td>
                           <button
                             className={`fav-btn-table ${carIsFav ? 'active' : ''}`}
@@ -563,18 +556,17 @@ const CarsPage = ({
                 {displayCars.map((car, idx) => {
                   const carIsNew = isNew(car.URL);
                   const carIsFav = isFavorite(car.URL);
-                  const carIsSelected = selectedCars.some(c => c.URL === car.URL);
                   return (
-                    <div key={car.URL} className={`top-car-mobile-card ${carIsNew ? 'new-car-row' : ''} ${carIsFav ? 'fav-car-row' : ''} ${carIsSelected ? 'selected' : ''}`}>
-                      {toggleSelectCar && (
-                        <button
-                          className={`car-select-btn-mobile ${carIsSelected ? 'selected' : ''}`}
-                          onClick={() => toggleSelectCar(car)}
-                          title={carIsSelected ? t('deselectCar') : t('selectToCompare')}
-                        >
-                          {carIsSelected ? '☑' : '☐'}
-                        </button>
-                      )}
+                    <div 
+                      key={car.URL} 
+                      className={`top-car-mobile-card draggable-car-card ${carIsNew ? 'new-car-row' : ''} ${carIsFav ? 'fav-car-row' : ''}`}
+                      draggable={true}
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData('application/json', JSON.stringify(car));
+                        e.dataTransfer.setData('text/plain', JSON.stringify(car));
+                        e.dataTransfer.effectAllowed = 'copy';
+                      }}
+                    >
                       <button
                         className={`top-car-mobile-fav-btn ${carIsFav ? 'active' : ''}`}
                         onClick={() => toggleFavorite(car.URL)}

@@ -422,34 +422,41 @@ func (s *Server) HandleAICompare(w http.ResponseWriter, r *http.Request) {
 		lang = "English"
 	}
 
-	car1Name, _ := body.Car1["Title"].(string)
-	car1YearVal, _ := body.Car1["Year"].(float64)
-	car1Year := int(car1YearVal)
+	hasCar1 := len(body.Car1) > 0
+	hasCar2 := len(body.Car2) > 0
 
-	car2Name, _ := body.Car2["Title"].(string)
-	car2YearVal, _ := body.Car2["Year"].(float64)
-	car2Year := int(car2YearVal)
+	var systemPrompt string
+	var initialPrompt string
 
-	car1JSON, _ := json.MarshalIndent(body.Car1, "", "  ")
-	car2JSON, _ := json.MarshalIndent(body.Car2, "", "  ")
+	if hasCar1 && hasCar2 {
+		car1Name, _ := body.Car1["Title"].(string)
+		car1YearVal, _ := body.Car1["Year"].(float64)
+		car1Year := int(car1YearVal)
 
-	labelCar1 := "Carro 1"
-	labelCar2 := "Carro 2"
-	hResumen := "Resumen"
-	hDiferencias := "Diferencias Clave"
-	hProsContras := "Pros & Contras"
-	hGanador := "GANADOR"
+		car2Name, _ := body.Car2["Title"].(string)
+		car2YearVal, _ := body.Car2["Year"].(float64)
+		car2Year := int(car2YearVal)
 
-	if body.Language == "en" {
-		labelCar1 = "Car 1"
-		labelCar2 = "Car 2"
-		hResumen = "Summary"
-		hDiferencias = "Key Differences"
-		hProsContras = "Pros & Cons"
-		hGanador = "WINNER"
-	}
+		car1JSON, _ := json.MarshalIndent(body.Car1, "", "  ")
+		car2JSON, _ := json.MarshalIndent(body.Car2, "", "  ")
 
-	systemPrompt := fmt.Sprintf(`You are an expert automotive advisor specializing in the Costa Rican used car market and an assistant for the "Happy Customer" car platform.
+		labelCar1 := "Carro 1"
+		labelCar2 := "Carro 2"
+		hResumen := "Resumen"
+		hDiferencias := "Diferencias Clave"
+		hProsContras := "Pros & Contras"
+		hGanador := "GANADOR"
+
+		if body.Language == "en" {
+			labelCar1 = "Car 1"
+			labelCar2 = "Car 2"
+			hResumen = "Summary"
+			hDiferencias = "Key Differences"
+			hProsContras = "Pros & Cons"
+			hGanador = "WINNER"
+		}
+
+		systemPrompt = fmt.Sprintf(`You are an expert automotive advisor specializing in the Costa Rican used car market and an assistant for the "Happy Customer" car platform.
 You have direct access to database tools ("query_car_market_stats", "query_cars_db") and live internet search ("search_web").
 Language to respond in: %[1]s.
 
@@ -478,10 +485,47 @@ COSTA RICAN AUTOMOTIVE MARKET CONTEXT & GUIDELINES:
    2. **⚙️ %[11]s**: 3-4 bullet points on trade-offs (price vs year/km, maintenance, parts availability in Costa Rica).
    3. **✅ %[12]s**: 2 key pros / 1 con for each car.
    4. **🏆 %[13]s**: Declare the winner ("Winner: %[8]s" or "Winner: %[9]s" / "Ganador: %[8]s" or "Ganador: %[9]s").`,
-		lang, car1Name, car1Year, car2Name, car2Year, string(car1JSON), string(car2JSON),
-		labelCar1, labelCar2, hResumen, hDiferencias, hProsContras, hGanador)
+			lang, car1Name, car1Year, car2Name, car2Year, string(car1JSON), string(car2JSON),
+			labelCar1, labelCar2, hResumen, hDiferencias, hProsContras, hGanador)
 
-	initialPrompt := fmt.Sprintf(`Please provide a comprehensive head-to-head comparison of %s and %s following the required format.`, labelCar1, labelCar2)
+		initialPrompt = fmt.Sprintf(`Please provide a comprehensive head-to-head comparison of %s and %s following the required format.`, labelCar1, labelCar2)
+	} else if hasCar1 {
+		car1Name, _ := body.Car1["Title"].(string)
+		car1YearVal, _ := body.Car1["Year"].(float64)
+		car1Year := int(car1YearVal)
+		car1JSON, _ := json.MarshalIndent(body.Car1, "", "  ")
+
+		systemPrompt = fmt.Sprintf(`You are an expert automotive advisor specializing in the Costa Rican used car market and an assistant for the "Happy Customer" car platform.
+You have direct access to database tools ("query_car_market_stats", "query_cars_db") and live internet search ("search_web").
+Language to respond in: %[1]s.
+
+VEHICLE CURRENTLY ATTACHED FOR ANALYSIS:
+- %[2]s (%[3]d):
+%[4]s
+
+COSTA RICAN AUTOMOTIVE MARKET CONTEXT & GUIDELINES:
+1. Official agencies and spare parts networks in Costa Rica:
+   - Purdy Motor (Toyota, Lexus), Grupo Q (Hyundai, Isuzu, Chevrolet), Agencia Datsun (Nissan), Motortec (Audi, Porsche, VW), Bavarian Motors (BMW, Mini), Veinsa (Mitsubishi, Geely), AutoStar (Mercedes, Jeep).
+2. Evaluate price vs mileage/year fairness against the Costa Rican market using database query tools if needed.
+3. Highlight pros, potential maintenance considerations, and spare parts availability in Costa Rica.
+4. Keep answers concise, factual, structured, and easy to read with markdown.`,
+			lang, car1Name, car1Year, string(car1JSON))
+
+		initialPrompt = fmt.Sprintf(`Please provide a detailed valuation and analysis of %s (%d) for the Costa Rican market.`, car1Name, car1Year)
+	} else {
+		systemPrompt = fmt.Sprintf(`You are an expert automotive advisor specializing in the Costa Rican used car market and an assistant for the "Happy Customer" car platform.
+You have direct access to database tools ("query_car_market_stats", "query_cars_db") and live internet search ("search_web").
+Language to respond in: %[1]s.
+
+GUIDELINES:
+1. Help users discover cars, compare models, assess market prices, understand agency spare parts availability, and make informed car buying decisions in Costa Rica.
+2. If asked about market stats, models for sale, or average prices in Costa Rica, call your database tools ("query_car_market_stats", "query_cars_db").
+3. If asked about specific specs, recalls, or agency networks, use "search_web" to look up live internet information.
+4. Keep answers concise, helpful, friendly, and structured with markdown.`,
+			lang)
+
+		initialPrompt = "Hello! How can I assist you with your car search or questions about the Costa Rican automotive market today?"
+	}
 
 	var promptMessages []OpenRouterMessage
 	promptMessages = append(promptMessages, OpenRouterMessage{

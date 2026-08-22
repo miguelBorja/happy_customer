@@ -213,7 +213,7 @@ const CarDetailsModal = ({ isOpen, onClose, car, t, language }) => {
   );
 };
 
-const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage, isSelected, onToggleSelect }) => {
+const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage }) => {
   const { t, language } = useLanguage();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -242,16 +242,15 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage, isSelec
   const hasMoreDetails = car.Comment || (car.Equipments && Object.keys(car.Equipments).length > 3);
 
   return (
-    <div className={`car-card ${car.IsSold ? 'sold' : ''} ${isNew ? 'new-car-card' : ''} ${isFav ? 'fav-car-card' : ''} ${isSelected ? 'selected' : ''}`}>
-      {onToggleSelect && (
-        <button
-          className={`car-select-btn ${isSelected ? 'selected' : ''}`}
-          onClick={(e) => { e.stopPropagation(); onToggleSelect(car); }}
-          title={isSelected ? t('deselectCar') : t('selectToCompare')}
-        >
-          {isSelected ? '☑' : '☐'}
-        </button>
-      )}
+    <div 
+      className={`car-card draggable-car-card ${car.IsSold ? 'sold' : ''} ${isNew ? 'new-car-card' : ''} ${isFav ? 'fav-car-card' : ''}`}
+      draggable={true}
+      onDragStart={(e) => {
+        e.dataTransfer.setData('application/json', JSON.stringify(car));
+        e.dataTransfer.setData('text/plain', JSON.stringify(car));
+        e.dataTransfer.effectAllowed = 'copy';
+      }}
+    >
       <button
         className={`fav-btn-card ${isFav ? 'active' : ''}`}
         onClick={(e) => { e.stopPropagation(); onToggleFav && onToggleFav(car.URL); }}

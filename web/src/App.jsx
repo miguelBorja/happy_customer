@@ -4,7 +4,7 @@ import FavoritesPage from './pages/FavoritesPage';
 import StatsPage from './pages/StatsPage';
 import AboutPage from './pages/AboutPage';
 import BargainsPage from './pages/BargainsPage';
-import CompareModal from './components/CompareModal';
+import AICopilotWindow from './components/AICopilotWindow';
 import { fetchStats, recordVisit } from './api/client';
 import { useFavorites } from './hooks/useFavorites';
 import { useLanguage } from './context/LanguageContext';
@@ -67,26 +67,44 @@ function App() {
   });
   const [localTitle, setLocalTitle] = useState('');
   const [showFavsOnly, setShowFavsOnly] = useState(false);
-  const [selectedCars, setSelectedCars] = useState([]);
-  const [isCompareOpen, setIsCompareOpen] = useState(false);
+  
+  // AI Copilot State & Attached Cars Context
+  const [isCopilotOpen, setIsCopilotOpen] = useState(false);
+  const [isCopilotMinimized, setIsCopilotMinimized] = useState(false);
+  const [isCopilotExpanded, setIsCopilotExpanded] = useState(false);
+  const [attachedCars, setAttachedCars] = useState([]);
 
-  const toggleSelectCar = (car) => {
-    setSelectedCars((prev) => {
+  const handleAddCarToCopilot = (car) => {
+    setAttachedCars((prev) => {
       const exists = prev.some((c) => c.URL === car.URL);
-      if (exists) {
-        return prev.filter((c) => c.URL !== car.URL);
-      } else {
-        if (prev.length >= 2) {
-          alert(t('maxCarsSelected'));
-          return prev;
-        }
-        return [...prev, car];
+      if (exists) return prev;
+      if (prev.length >= 2) {
+        // If already 2 cars, replace the 2nd one
+        return [prev[0], car];
       }
+      return [...prev, car];
     });
+    setIsCopilotOpen(true);
+    setIsCopilotMinimized(false);
   };
 
-  const clearSelection = () => {
-    setSelectedCars([]);
+  const handleRemoveCarFromCopilot = (url) => {
+    setAttachedCars((prev) => prev.filter((c) => c.URL !== url));
+  };
+
+  const handleClearCopilotCars = () => {
+    setAttachedCars([]);
+  };
+
+  const handleToggleCopilot = () => {
+    if (!isCopilotOpen) {
+      setIsCopilotOpen(true);
+      setIsCopilotMinimized(false);
+    } else if (isCopilotMinimized) {
+      setIsCopilotMinimized(false);
+    } else {
+      setIsCopilotOpen(false);
+    }
   };
 
   useEffect(() => {
@@ -112,8 +130,6 @@ function App() {
           <FavoritesPage 
             viewMode={favsViewMode} 
             setViewMode={handleSetFavsViewMode} 
-            selectedCars={selectedCars}
-            toggleSelectCar={toggleSelectCar}
           />
         );
       case 'stats': return <StatsPage />;
@@ -121,10 +137,8 @@ function App() {
       case 'bargains': 
         return (
           <BargainsPage 
-            selectedCars={selectedCars}
-            toggleSelectCar={toggleSelectCar}
-            viewMode={bargainsViewMode}
-            setViewMode={handleSetBargainsViewMode}
+            viewMode={bargainsViewMode} 
+            setViewMode={handleSetBargainsViewMode} 
           />
         );
       default: 
@@ -138,8 +152,6 @@ function App() {
             setShowFavsOnly={setShowFavsOnly}
             viewMode={browseViewMode}
             setViewMode={handleSetBrowseViewMode}
-            selectedCars={selectedCars}
-            toggleSelectCar={toggleSelectCar}
           />
         );
     }
@@ -181,6 +193,19 @@ function App() {
             onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)'}
           >
             🌐 {language === 'es' ? 'English' : 'Español'}
+          </button>
+
+          {/* AI Copilot Toolbar Button */}
+          <button
+            className={`nav-ai-copilot-btn ${isCopilotOpen ? 'active' : ''}`}
+            onClick={handleToggleCopilot}
+            title={t('copilotTitle')}
+          >
+            <span className="nav-ai-icon">✨</span>
+            <span className="nav-ai-label">{t('copilotButton')}</span>
+            {attachedCars.length > 0 && (
+              <span className="nav-ai-badge">{attachedCars.length}</span>
+            )}
           </button>
           
           <div className="nav-links">
@@ -247,6 +272,14 @@ function App() {
           <span>{language === 'es' ? 'Gangas' : 'Bargains'}</span>
         </button>
         <button 
+          className={`bottom-nav-btn ${isCopilotOpen ? 'active' : ''}`}
+          onClick={handleToggleCopilot}
+        >
+          <span className="bottom-nav-icon">✨</span>
+          <span>{t('copilotButton')}</span>
+          {attachedCars.length > 0 && <span className="bottom-nav-badge">{attachedCars.length}</span>}
+        </button>
+        <button 
           className={`bottom-nav-btn ${activeTab === 'stats' ? 'active' : ''}`}
           onClick={() => setActiveTab('stats')}
         >
@@ -262,40 +295,17 @@ function App() {
         </button>
       </nav>
 
-      {selectedCars.length > 0 && (
-        <div className="compare-fab">
-          <div className="compare-fab-content">
-            <span className="compare-fab-text">
-              {selectedCars.length}/2 {t('carsSelected')}
-            </span>
-            <div className="compare-fab-buttons">
-              {selectedCars.length === 2 && (
-                <button 
-                  className="compare-fab-btn" 
-                  onClick={() => setIsCompareOpen(true)}
-                >
-                  🤖 {t('compareButton')}
-                </button>
-              )}
-              <button 
-                className="compare-fab-clear" 
-                onClick={clearSelection}
-              >
-                {t('clearAll')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <CompareModal 
-        isOpen={isCompareOpen}
-        onClose={() => {
-          setIsCompareOpen(false);
-          clearSelection();
-        }}
-        car1={selectedCars[0]}
-        car2={selectedCars[1]}
+      <AICopilotWindow 
+        isOpen={isCopilotOpen}
+        onClose={() => setIsCopilotOpen(false)}
+        attachedCars={attachedCars}
+        onAddCar={handleAddCarToCopilot}
+        onRemoveCar={handleRemoveCarFromCopilot}
+        onClearCars={handleClearCopilotCars}
+        isMinimized={isCopilotMinimized}
+        onToggleMinimize={() => setIsCopilotMinimized(prev => !prev)}
+        isExpanded={isCopilotExpanded}
+        onToggleExpand={() => setIsCopilotExpanded(prev => !prev)}
       />
     </div>
   );

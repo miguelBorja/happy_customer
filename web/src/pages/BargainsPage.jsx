@@ -7,7 +7,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { useFavorites } from '../hooks/useFavorites';
 import { useSeenCars } from '../hooks/useSeenCars';
 
-const BargainsPage = ({ selectedCars = [], toggleSelectCar, viewMode, setViewMode }) => {
+const BargainsPage = ({ viewMode, setViewMode }) => {
   const [bargains, setBargains] = useState([]);
   const [sortBy, setSortBy] = useState('discount');
   const [loading, setLoading] = useState(true);
@@ -136,18 +136,15 @@ const BargainsPage = ({ selectedCars = [], toggleSelectCar, viewMode, setViewMod
                 {Math.round(b.discountPercent)}% {language === 'es' ? 'DESCUENTO' : 'OFF'}
               </div>
               
-              <div style={{ flexGrow: 1 }}>
+              <div style={{ flexGrow: 1 }} draggable={true} onDragStart={(e) => { e.dataTransfer.setData('application/json', JSON.stringify(b.car)); }}>
                 <CarCard 
                   car={b.car} 
                   isNew={isNew(b.car.URL)}
                   isFav={isFavorite(b.car.URL)}
                   onToggleFav={toggleFavorite}
-                  isSelected={selectedCars.some(c => c.URL === b.car.URL)}
-                  onToggleSelect={toggleSelectCar}
                 />
               </div>
               
-              {/* Extra banner at the bottom to show the actual average */}
               <div style={{ 
                 marginTop: '12px', 
                 padding: '10px 14px', 
@@ -158,14 +155,12 @@ const BargainsPage = ({ selectedCars = [], toggleSelectCar, viewMode, setViewMod
                 color: '#34d399',
                 display: 'flex',
                 justifyContent: 'space-between',
-                alignItems: 'center'
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '0.5rem'
               }}>
-                <span style={{ opacity: 0.8 }}>
-                  {language === 'es' ? 'Precio promedio histórico:' : 'Historical average price:'}
-                </span>
-                <span style={{ fontWeight: '800', fontSize: '1.05rem', color: '#10b981' }}>
-                  {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(b.historicalAvgPrice)}
-                </span>
+                <span>{language === 'es' ? 'Promedio del mercado:' : 'Market Average:'}</span>
+                <strong>${Math.round(b.avgPrice).toLocaleString()}</strong>
               </div>
             </div>
           ))}
@@ -175,7 +170,6 @@ const BargainsPage = ({ selectedCars = [], toggleSelectCar, viewMode, setViewMod
           <table className="data-table">
             <thead>
               <tr>
-                <th></th>
                 <th></th>
                 <th>{language === 'es' ? 'Descuento' : 'Discount'}</th>
                 <th>{language === 'es' ? 'Título' : 'Title'}</th>
@@ -192,20 +186,17 @@ const BargainsPage = ({ selectedCars = [], toggleSelectCar, viewMode, setViewMod
                 const car = b.car;
                 const carIsNew = isNew(car.URL);
                 const carIsFav = isFavorite(car.URL);
-                const carIsSelected = selectedCars.some(c => c.URL === car.URL);
                 return (
-                  <tr key={car.URL} className={`${carIsNew ? 'new-car-row' : ''} ${carIsFav ? 'fav-car-row' : ''} ${carIsSelected ? 'selected' : ''}`}>
-                    <td>
-                      {toggleSelectCar && (
-                        <button
-                          className={`car-select-btn-table ${carIsSelected ? 'selected' : ''}`}
-                          onClick={() => toggleSelectCar(car)}
-                          title={carIsSelected ? (language === 'es' ? 'Deseleccionar' : 'Deselect') : (language === 'es' ? 'Seleccionar' : 'Select')}
-                        >
-                          {carIsSelected ? '☑' : '☐'}
-                        </button>
-                      )}
-                    </td>
+                  <tr 
+                    key={car.URL} 
+                    className={`draggable-car-row ${carIsNew ? 'new-car-row' : ''} ${carIsFav ? 'fav-car-row' : ''}`}
+                    draggable={true}
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData('application/json', JSON.stringify(car));
+                      e.dataTransfer.setData('text/plain', JSON.stringify(car));
+                      e.dataTransfer.effectAllowed = 'copy';
+                    }}
+                  >
                     <td>
                       <button
                         className={`fav-btn-table ${carIsFav ? 'active' : ''}`}

@@ -7,7 +7,7 @@ import MileageBar from '../components/MileageBar';
 import PriceBar from '../components/PriceBar';
 import { useLanguage } from '../context/LanguageContext';
 
-const FavoritesPage = ({ viewMode, setViewMode, selectedCars = [], toggleSelectCar }) => {
+const FavoritesPage = ({ viewMode, setViewMode }) => {
   const [cars, setCars] = useState([]);
   const [loading, setLoading] = useState(true);
   const { isFavorite, toggleFavorite, favCount, getAllUrls } = useFavorites();
@@ -99,8 +99,6 @@ const FavoritesPage = ({ viewMode, setViewMode, selectedCars = [], toggleSelectC
                 isNew={isNew(car.URL)}
                 isFav={true}
                 onToggleFav={toggleFavorite}
-                isSelected={selectedCars.some(c => c.URL === car.URL)}
-                onToggleSelect={toggleSelectCar}
               />
             ))}
           </div>
@@ -109,7 +107,6 @@ const FavoritesPage = ({ viewMode, setViewMode, selectedCars = [], toggleSelectC
             <table className="data-table">
               <thead>
                 <tr>
-                  <th></th>
                   <th></th>
                   <th>{t('title')}</th>
                   <th>{t('year')}</th>
@@ -122,25 +119,22 @@ const FavoritesPage = ({ viewMode, setViewMode, selectedCars = [], toggleSelectC
               </thead>
               <tbody>
                 {displayCars.map(car => {
-                  const carIsSelected = selectedCars.some(c => c.URL === car.URL);
                   return (
-                    <tr key={car.URL} className={`${car.IsSold ? 'sold-row' : ''} ${carIsSelected ? 'selected' : ''}`}>
-                      <td>
-                        {toggleSelectCar && (
-                          <button
-                            className={`car-select-btn-table ${carIsSelected ? 'selected' : ''}`}
-                            onClick={() => toggleSelectCar(car)}
-                            title={carIsSelected ? t('deselectCar') : t('selectToCompare')}
-                          >
-                            {carIsSelected ? '☑' : '☐'}
-                          </button>
-                        )}
-                      </td>
+                    <tr 
+                      key={car.URL} 
+                      className={`draggable-car-row ${car.IsSold ? 'sold-row' : ''}`}
+                      draggable={true}
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData('application/json', JSON.stringify(car));
+                        e.dataTransfer.setData('text/plain', JSON.stringify(car));
+                        e.dataTransfer.effectAllowed = 'copy';
+                      }}
+                    >
                       <td>
                         <button
                           className="fav-btn-table active"
                           onClick={() => toggleFavorite(car.URL)}
-                          title={t('noFavoritesText')}
+                          title="Remove from favorites"
                         >
                           ★
                         </button>
