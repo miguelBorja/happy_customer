@@ -48,6 +48,7 @@ const CarsPage = ({
   useEffect(() => {
     const filtersForBrands = { ...filters };
     delete filtersForBrands.brand;
+    delete filtersForBrands.brands;
     delete filtersForBrands.limit;
     delete filtersForBrands.sortTitle;
     delete filtersForBrands.sortYear;
@@ -130,6 +131,7 @@ const CarsPage = ({
     setFilters({
       title: '',
       brand: '',
+      brands: [],
       provincia: '',
       yearMin: '',
       yearMax: '',
@@ -169,7 +171,29 @@ const CarsPage = ({
 
   const getActiveFilterTags = () => {
     const tags = [];
-    if (filters.brand) tags.push({ id: 'brand', label: `${t('brand')}: ${filters.brand}`, clear: () => setFilters(f => ({ ...f, brand: '' })) });
+    const activeBrands = Array.isArray(filters.brands)
+      ? filters.brands
+      : (filters.brand ? filters.brand.split(',').map(s => s.trim()).filter(Boolean) : []);
+
+    if (activeBrands.length > 0) {
+      activeBrands.forEach(b => {
+        tags.push({
+          id: `brand-${b}`,
+          label: `${t('brand')}: ${b}`,
+          clear: () => setFilters(f => {
+            const current = Array.isArray(f.brands)
+              ? f.brands
+              : (f.brand ? f.brand.split(',').map(s => s.trim()).filter(Boolean) : []);
+            const updated = current.filter(brandItem => brandItem !== b);
+            return {
+              ...f,
+              brands: updated,
+              brand: updated.join(','),
+            };
+          })
+        });
+      });
+    }
     if (filters.provincia) tags.push({ id: 'provincia', label: `${t('province')}: ${filters.provincia}`, clear: () => setFilters(f => ({ ...f, provincia: '' })) });
     if ((filters.yearMin && filters.yearMin !== '2010') || (filters.yearMax && filters.yearMax !== '2027')) {
       const minVal = Number(filters.yearMin) || 2010;

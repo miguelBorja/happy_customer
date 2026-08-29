@@ -29,7 +29,6 @@ func (s *Server) HandleCars(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	log.Printf("[API] HandleCars query params: %s", r.URL.RawQuery)
 	f := db.FilterParams{
-		Brand:       q.Get("brand"),
 		Estilo:      q.Get("estilo"),
 		Transmision: q.Get("transmision"),
 		Combustible: q.Get("combustible"),
@@ -43,6 +42,16 @@ func (s *Server) HandleCars(w http.ResponseWriter, r *http.Request) {
 		ScrapedFrom: q.Get("scrapedFrom"),
 		ScrapedTo:   q.Get("scrapedTo"),
 		SellerName:  q.Get("sellerName"),
+	}
+
+	if brandsParam := q.Get("brands"); brandsParam != "" {
+		f.Brands = strings.Split(brandsParam, ",")
+	} else if brandParam := q.Get("brand"); brandParam != "" {
+		if strings.Contains(brandParam, ",") {
+			f.Brands = strings.Split(brandParam, ",")
+		} else {
+			f.Brand = brandParam
+		}
 	}
 
 	if y, _ := strconv.Atoi(q.Get("yearMin")); y > 0 { f.YearMin = y }

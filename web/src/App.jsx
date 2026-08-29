@@ -51,6 +51,7 @@ function App() {
   const [filters, setFilters] = useState({
     title: '',
     brand: '',
+    brands: [],
     provincia: '',
     yearMin: '',
     yearMax: '',

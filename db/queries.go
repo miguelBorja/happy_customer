@@ -292,6 +292,7 @@ func (d *DB) UpdateComment(url, comment string) error {
 
 type FilterParams struct {
 	Brand        string
+	Brands       []string
 	YearMin      int
 	YearMax      int
 	KmMin        int
@@ -352,9 +353,45 @@ func (d *DB) GetCars(f FilterParams) ([]Car, error) {
 		args = append(args, query, query)
 	}
 	
-	if f.Brand != "" {
-		q += " AND brand = ?"
-		args = append(args, f.Brand)
+	if len(f.Brands) > 0 {
+		var validBrands []string
+		for _, b := range f.Brands {
+			b = strings.TrimSpace(b)
+			if b != "" {
+				validBrands = append(validBrands, b)
+			}
+		}
+		if len(validBrands) == 1 {
+			q += " AND brand = ?"
+			args = append(args, validBrands[0])
+		} else if len(validBrands) > 1 {
+			placeholders := make([]string, len(validBrands))
+			for i, b := range validBrands {
+				placeholders[i] = "?"
+				args = append(args, b)
+			}
+			q += fmt.Sprintf(" AND brand IN (%s)", strings.Join(placeholders, ","))
+		}
+	} else if f.Brand != "" {
+		parts := strings.Split(f.Brand, ",")
+		var validBrands []string
+		for _, b := range parts {
+			b = strings.TrimSpace(b)
+			if b != "" {
+				validBrands = append(validBrands, b)
+			}
+		}
+		if len(validBrands) == 1 {
+			q += " AND brand = ?"
+			args = append(args, validBrands[0])
+		} else if len(validBrands) > 1 {
+			placeholders := make([]string, len(validBrands))
+			for i, b := range validBrands {
+				placeholders[i] = "?"
+				args = append(args, b)
+			}
+			q += fmt.Sprintf(" AND brand IN (%s)", strings.Join(placeholders, ","))
+		}
 	}
 	if f.YearMin > 0 {
 		q += " AND year >= ?"

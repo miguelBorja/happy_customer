@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useLanguage } from '../context/LanguageContext';
 import { FilterFunnelIcon } from './icons/AppIcons';
+import ExcelMultiSelect from './ExcelMultiSelect';
 
 const commonEquipments = [
   { id: "Tapicería de cuero", labelKey: "equipLeather" },
@@ -161,6 +162,18 @@ const FiltersModal = ({
     }
   };
 
+  const selectedBrands = Array.isArray(filters.brands)
+    ? filters.brands
+    : (filters.brand ? filters.brand.split(',').map(s => s.trim()).filter(Boolean) : []);
+
+  const handleBrandChange = (newBrands) => {
+    setFilters(f => ({
+      ...f,
+      brands: newBrands,
+      brand: newBrands.join(','),
+    }));
+  };
+
   return (
     <div className="filters-modal-overlay open" onClick={onClose}>
       <div className="filters-modal" onClick={(e) => e.stopPropagation()}>
@@ -173,13 +186,15 @@ const FiltersModal = ({
         </div>
         
         <div className="filters-modal-content">
-          {/* Brand */}
+          {/* Brand - Excel MultiSelect */}
           <div className="filter-group">
             <label>{t('brand')}</label>
-            <select name="brand" className="select-field" value={filters.brand || ''} onChange={handleChange}>
-              <option value="">{t('allBrands')}</option>
-              {brands.map(b => <option key={b} value={b}>{b}</option>)}
-            </select>
+            <ExcelMultiSelect
+              options={brands}
+              selected={selectedBrands}
+              onChange={handleBrandChange}
+              placeholder={t('allBrands')}
+            />
           </div>
  
           {/* Province */}
