@@ -9,7 +9,7 @@ ENV VITE_GA_MEASUREMENT_ID=$VITE_GA_MEASUREMENT_ID
 RUN npm run build
 
 # --- Stage 2: Build the Go Backend ---
-FROM golang:1.21-alpine AS backend-builder
+FROM golang:alpine AS backend-builder
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
