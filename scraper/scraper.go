@@ -16,13 +16,14 @@ import (
 
 	"crautosdb/db"
 
+	"github.com/PuerkitoBio/goquery"
 	"github.com/tebeka/selenium"
 	"github.com/tebeka/selenium/chrome"
 )
 
 const (
-	SeleniumPort = 4444
-	WorkerCount  = 4
+	SeleniumPort    = 4444
+	HTTPWorkerCount = 15
 )
 
 var ChromeDriverPath = getChromeDriverPath()
@@ -45,6 +46,7 @@ var (
 
 	targetBrands = map[string]string{
 		"electric":      "4",
+		"chevrolet":     "6",
 		"daihatsu":      "10",
 		"Fiat":          "12",
 		"ford":          "13",
@@ -64,6 +66,7 @@ var (
 		"skoda":         "53",
 		"donfeng (ZNA)": "64",
 		"JAC":           "75",
+		"mahindra":      "81",
 		"chery":         "88",
 		"BYD":           "97",
 		"changan":       "108",
@@ -110,6 +113,19 @@ func (s *Scraper) Run() {
 	log.Println("=== Scrape Run Completed ===")
 }
 
+func createHTTPClient() *http.Client {
+	transport := &http.Transport{
+		MaxIdleConns:        100,
+		MaxIdleConnsPerHost: 25,
+		IdleConnTimeout:     90 * time.Second,
+		DisableKeepAlives:   false,
+	}
+	return &http.Client{
+		Transport: transport,
+		Timeout:   15 * time.Second,
+	}
+}
+
 func (s *Scraper) BackfillSellers() {
 	urls, err := s.DB.GetURLsWithoutSeller()
 	if err != nil {
@@ -120,85 +136,115 @@ func (s *Scraper) BackfillSellers() {
 		log.Println("All cars already have seller info. Nothing to backfill.")
 		return
 	}
-	log.Printf("Backfilling seller info for %d cars...", len(urls))
+	log.Printf("Backfilling seller info for %d cars using fast HTTP workers...", len(urls))
 
-	drivers := make([]selenium.WebDriver, 0, WorkerCount)
-	for i := 0; i < WorkerCount; i++ {
-		wd, err := s.createWebDriver()
-		if err != nil {
-			log.Printf("Error creating web driver for backfill worker %d: %v", i, err)
-			for _, d := range drivers {
-				d.Quit()
-			}
-			return
-		}
-		drivers = append(drivers, wd)
+	workerCount := 20
+	jobs := make(chan string, len(urls))
+	for _, url := range urls {
+		jobs <- url
 	}
+	close(jobs)
 
-	jobs := make(chan string, 200)
+	client := createHTTPClient()
 	var wg sync.WaitGroup
+	var updatedCount uint64
+	var totalChecked uint64
 
-	for i := 0; i < WorkerCount; i++ {
+	for i := 0; i < workerCount; i++ {
 		wg.Add(1)
-		go func(id int, wd selenium.WebDriver) {
+		go func() {
 			defer wg.Done()
-			defer wd.Quit()
-
 			for url := range jobs {
-				if err := wd.Get(url); err != nil {
-					time.Sleep(1 * time.Second)
-					wd.Get(url)
+				name, phone, address, err := s.fetchSellerHTTP(client, url)
+				if err != nil {
+					log.Printf("Error fetching seller for %s: %v", url, err)
+					continue
 				}
-
-				var name, phone, address string
-				vendorTables, err := wd.FindElements(selenium.ByCSSSelector, "table.table-responsive")
-				if err == nil {
-					for _, vt := range vendorTables {
-						txt, _ := vt.Text()
-						if strings.Contains(txt, "Vendedor") {
-							rows, _ := vt.FindElements(selenium.ByTagName, "tr")
-							for _, tr := range rows {
-								tds, _ := tr.FindElements(selenium.ByTagName, "td")
-								if len(tds) >= 2 {
-									key, _ := tds[0].Text()
-									val, _ := tds[1].Text()
-									key = cleanText(key)
-									val = cleanText(val)
-									switch {
-									case strings.Contains(key, "Nombre"):
-										name = val
-									case strings.Contains(key, "Teléfono"):
-										phone = val
-									case strings.Contains(key, "Dirección"):
-										address = val
-									}
-								}
-							}
-							break
-						}
-					}
-				}
-
 				if name != "" || phone != "" || address != "" {
 					if err := s.DB.UpdateSeller(url, name, phone, address); err != nil {
 						log.Printf("Error updating seller for %s: %v", url, err)
+					} else {
+						atomic.AddUint64(&updatedCount, 1)
 					}
 				}
+				curr := atomic.AddUint64(&totalChecked, 1)
+				if curr%100 == 0 {
+					log.Printf("Progress: %d/%d sellers checked (Updated: %d)", curr, len(urls), atomic.LoadUint64(&updatedCount))
+				}
 			}
-		}(i, drivers[i])
+		}()
 	}
 
-	counter := 0
-	for _, url := range urls {
-		jobs <- url
-		counter++
-		if counter%10 == 0 {
-			log.Printf("Queued %d/%d URLs for backfill...", counter, len(urls))
+	wg.Wait()
+	log.Printf("Seller backfill complete. Checked %d cars, updated %d sellers.", len(urls), updatedCount)
+}
+
+func (s *Scraper) fetchSellerHTTP(client *http.Client, url string) (name, phone, address string, err error) {
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", "", "", err
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", "", "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", "", "", fmt.Errorf("bad status: %d", resp.StatusCode)
+	}
+
+	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	if err != nil {
+		return "", "", "", err
+	}
+
+	// Used car: table.table-responsive containing "Vendedor"
+	doc.Find("table.table-responsive").EachWithBreak(func(_ int, vt *goquery.Selection) bool {
+		if strings.Contains(vt.Text(), "Vendedor") {
+			vt.Find("tr").Each(func(_ int, tr *goquery.Selection) {
+				tds := tr.Find("td")
+				if tds.Length() >= 2 {
+					k := cleanText(tds.Eq(0).Text())
+					v := cleanText(tds.Eq(1).Text())
+					switch {
+					case strings.Contains(k, "Nombre"):
+						name = v
+					case strings.Contains(k, "Teléfono"):
+						phone = v
+					case strings.Contains(k, "Dirección"):
+						address = v
+					}
+				}
+			})
+			return false
+		}
+		return true
+	})
+
+	// New car: #dealer
+	if name == "" && phone == "" && address == "" {
+		dealer := doc.Find("#dealer")
+		if dealer.Length() > 0 {
+			name = cleanText(dealer.Find("h4").First().Text())
+			address = cleanText(dealer.Find("h5").First().Text())
+			dealer.Find("tr").EachWithBreak(func(_ int, tr *goquery.Selection) bool {
+				tds := tr.Find("td")
+				if tds.Length() >= 2 {
+					k := cleanText(tds.Eq(0).Text())
+					v := cleanText(tds.Eq(1).Text())
+					if strings.Contains(k, "Telef") || strings.Contains(k, "Teléfono") || strings.Contains(k, "Celular") {
+						phone = v
+						return false
+					}
+				}
+				return true
+			})
 		}
 	}
-	close(jobs)
-	wg.Wait()
-	log.Printf("Backfill complete. Processed %d cars.", len(urls))
+	return name, phone, address, nil
 }
 
 func (s *Scraper) BackfillComments() {
@@ -224,15 +270,12 @@ func (s *Scraper) BackfillComments() {
 	reBgColor := regexp.MustCompile(`bgcolor="#FAF7B4"[^>]*>([^<]+)</td>`)
 
 	var wg sync.WaitGroup
-	// Limit concurrency to 30 workers
 	workerCount := 30
 	var successCount uint64
 	var noCommentCount uint64
 	var totalChecked uint64
 
-	client := &http.Client{
-		Timeout: 10 * time.Second,
-	}
+	client := createHTTPClient()
 
 	for i := 0; i < workerCount; i++ {
 		wg.Add(1)
@@ -243,7 +286,7 @@ func (s *Scraper) BackfillComments() {
 				if err != nil {
 					continue
 				}
-				req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+				req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36")
 
 				resp, err := client.Do(req)
 				if err != nil {
@@ -272,7 +315,6 @@ func (s *Scraper) BackfillComments() {
 
 				comment = html.UnescapeString(comment)
 
-				// Save/Update the comment in the database
 				err = s.DB.UpdateComment(url, comment)
 				if err != nil {
 					log.Printf("Error updating comment for %s: %v", url, err)
@@ -323,38 +365,25 @@ func (s *Scraper) ProcessBrand(brandName, brandID string) {
 		return
 	}
 
-	drivers := make([]selenium.WebDriver, 0, WorkerCount)
-	for i := 0; i < WorkerCount; i++ {
-		wd, err := s.createWebDriver()
-		if err != nil {
-			log.Printf("Error creating web driver for worker %d: %v", i, err)
-			for _, d := range drivers {
-				d.Quit()
-			}
-			return
-		}
-		drivers = append(drivers, wd)
-	}
-
 	prodWd, err := s.createWebDriver()
 	if err != nil {
 		log.Printf("Error creating web driver for producer: %v", err)
-		for _, d := range drivers {
-			d.Quit()
-		}
 		return
 	}
 
-	jobs := make(chan string, 200)
-	results := make(chan db.Car, 200)
+	jobs := make(chan string, 300)
+	results := make(chan db.Car, 300)
 	var wg sync.WaitGroup
 
-	for i := 0; i < WorkerCount; i++ {
+	httpClient := createHTTPClient()
+
+	// Spawn fast HTTP workers (Zero Chrome memory footprint)
+	for i := 0; i < HTTPWorkerCount; i++ {
 		wg.Add(1)
-		go func(id int, wd selenium.WebDriver) {
+		go func(id int) {
 			defer wg.Done()
-			s.worker(id, wd, jobs, results)
-		}(i, drivers[i])
+			s.worker(id, httpClient, jobs, results)
+		}(i)
 	}
 
 	producerDone := make(chan map[string]bool)
@@ -404,7 +433,6 @@ func (s *Scraper) ProcessBrand(brandName, brandID string) {
 }
 
 func (s *Scraper) producer(wd selenium.WebDriver, brandName, brandID string, jobs chan<- string, active map[string]time.Time) map[string]bool {
-
 	if err := wd.Get("https://crautos.com/autosusados/index.cfm"); err != nil {
 		log.Printf("Failed to load home page: %v\n", err)
 		return nil
@@ -454,10 +482,8 @@ func (s *Scraper) producer(wd selenium.WebDriver, brandName, brandID string, job
 					lastSeen, exists := active[href]
 					shouldScrape := false
 					if !exists {
-						// New car not in DB -> scrape
 						shouldScrape = true
 					} else if s.Force {
-						// Car is in DB and force refresh is enabled
 						if s.SkipRefreshedHours > 0 && isRecentlyRefreshed(lastSeen, s.SkipRefreshedHours) {
 							skippedCount++
 						} else {
@@ -482,11 +508,11 @@ func (s *Scraper) producer(wd selenium.WebDriver, brandName, brandID string, job
 		pageCount++
 		nextPageStr := strconv.Itoa(pageCount)
 		err = wd.WaitWithTimeoutAndInterval(func(d selenium.WebDriver) (bool, error) {
-			active, err := d.FindElement(selenium.ByCSSSelector, ".page-item.active .page-link")
+			activePage, err := d.FindElement(selenium.ByCSSSelector, ".page-item.active .page-link")
 			if err != nil {
 				return false, nil
 			}
-			txt, _ := active.Text()
+			txt, _ := activePage.Text()
 			return strings.TrimSpace(txt) == nextPageStr, nil
 		}, 15*time.Second, 500*time.Millisecond)
 		if err != nil {
@@ -503,168 +529,15 @@ func (s *Scraper) producer(wd selenium.WebDriver, brandName, brandID string, job
 	return seenUrls
 }
 
-func (s *Scraper) worker(id int, wd selenium.WebDriver, jobs <-chan string, results chan<- db.Car) {
-	defer wd.Quit()
-
+func (s *Scraper) worker(id int, client *http.Client, jobs <-chan string, results chan<- db.Car) {
 	for url := range jobs {
-		if err := wd.Get(url); err != nil {
-			time.Sleep(1 * time.Second)
-			if err := wd.Get(url); err != nil {
-				log.Printf("Worker %d failed to load URL %s: %v", id, url, err)
+		car, err := s.scrapeCarHTTP(client, url)
+		if err != nil {
+			time.Sleep(500 * time.Millisecond)
+			car, err = s.scrapeCarHTTP(client, url)
+			if err != nil {
+				log.Printf("Worker %d failed to fetch URL %s: %v", id, url, err)
 				continue
-			}
-		}
-
-		car := db.Car{
-			URL:        url,
-			ScrapedAt:  time.Now(),
-			LastSeenAt: time.Now(),
-			Equipments: make(map[string]bool),
-			Comment:    "-",
-		}
-
-		if strings.Contains(url, "/autosnuevos/") {
-			_ = wd.WaitWithTimeoutAndInterval(func(d selenium.WebDriver) (bool, error) {
-				_, err := d.FindElement(selenium.ByCSSSelector, ".text-center.text-white.pheader h2")
-				return err == nil, nil
-			}, 5*time.Second, 500*time.Millisecond)
-
-			s.scrapeNewCar(wd, &car)
-		} else {
-			_ = wd.WaitWithTimeoutAndInterval(func(d selenium.WebDriver) (bool, error) {
-				_, err := d.FindElement(selenium.ByCSSSelector, ".text-center.text-white.carheader")
-				return err == nil, nil
-			}, 5*time.Second, 500*time.Millisecond)
-
-			container, err := wd.FindElement(selenium.ByCSSSelector, ".text-center.text-white.carheader")
-			if err == nil {
-				if h1s, err := container.FindElements(selenium.ByTagName, "h1"); err == nil && len(h1s) > 0 {
-					fullTitle, _ := h1s[0].Text()
-					car.Title, car.Brand, car.Model, car.Year = parseTitleBrandModelYear(fullTitle)
-				}
-				if h3, err := container.FindElement(selenium.ByTagName, "h3"); err == nil {
-					txt, _ := h3.Text()
-					car.PriceText = cleanText(txt)
-					car.Price = parsePrice(car.PriceText)
-				}
-			}
-
-			// Attributes
-			var table selenium.WebElement
-			var tableErr error
-			table, tableErr = wd.FindElement(selenium.ByCSSSelector, "table.mytext2")
-			if tableErr != nil {
-				tables, err := wd.FindElements(selenium.ByTagName, "table")
-				if err == nil {
-					for _, t := range tables {
-						txt, _ := t.Text()
-						if strings.Contains(txt, "Cilindrada") || strings.Contains(txt, "Combustible") {
-							table = t
-							tableErr = nil
-							break
-						}
-					}
-				}
-			}
-
-			if tableErr == nil {
-				rows, _ := table.FindElements(selenium.ByTagName, "tr")
-				for _, tr := range rows {
-					tds, _ := tr.FindElements(selenium.ByTagName, "td")
-					if len(tds) >= 2 {
-						key, _ := tds[0].Text()
-						val, _ := tds[1].Text()
-						key = cleanText(key)
-						val = cleanText(val)
-
-						switch key {
-						case "# de pasajeros":
-							car.Pasajeros = val
-						case "# de puertas":
-							car.Puertas = val
-						case "Cilindrada":
-							car.Cilindrada = val
-						case "Color exterior":
-							car.ColorExterior = val
-						case "Color interior":
-							car.ColorInterior = val
-						case "Combustible":
-							car.Combustible = val
-						case "Estado":
-							car.Estado = val
-						case "Estilo":
-							car.Estilo = val
-						case "Fecha de ingreso":
-							car.FechaIngreso = val
-						case "Kilometraje":
-							car.Kilometraje = parseKilometraje(val)
-						case "Placa":
-							car.Placa = val
-						case "Precio negociable":
-							car.PrecioNegociable = val
-						case "Provincia":
-							car.Provincia = val
-						case "Se recibe vehículo":
-							car.SeRecibe = val
-						case "Transmisión":
-							car.Transmision = val
-						case "Ya pagó impuestos":
-							car.PagoImpuestos = val
-						}
-					} else if len(tds) == 1 {
-						txt, _ := tds[0].Text()
-						txt = cleanText(txt)
-						if txt != "" && !strings.Contains(txt, "ha sido visto") {
-							car.Comment = txt
-						}
-					}
-				}
-			}
-
-			// Equipments
-			equipTables, err := wd.FindElements(selenium.ByCSSSelector, "table.table-bordered")
-			if err == nil {
-				for _, tbl := range equipTables {
-					rows, _ := tbl.FindElements(selenium.ByTagName, "tr")
-					for _, tr := range rows {
-						tds, _ := tr.FindElements(selenium.ByTagName, "td")
-						if len(tds) >= 2 {
-							key, _ := tds[0].Text()
-							if icon, err := tds[1].FindElement(selenium.ByCSSSelector, "i.icon-check"); err == nil && icon != nil {
-								car.Equipments[cleanText(key)] = true
-							}
-						}
-					}
-				}
-			}
-
-			// Vendedor (seller) info
-			vendorTables, err := wd.FindElements(selenium.ByCSSSelector, "table.table-responsive")
-			if err == nil {
-				for _, vt := range vendorTables {
-					txt, _ := vt.Text()
-					if strings.Contains(txt, "Vendedor") {
-						rows, _ := vt.FindElements(selenium.ByTagName, "tr")
-						for _, tr := range rows {
-							tds, _ := tr.FindElements(selenium.ByTagName, "td")
-							if len(tds) >= 2 {
-								key, _ := tds[0].Text()
-								val, _ := tds[1].Text()
-								key = cleanText(key)
-								val = cleanText(val)
-								switch {
-								case strings.Contains(key, "Nombre"):
-									car.SellerName = val
-								case strings.Contains(key, "Teléfono"):
-									car.SellerPhone = val
-								case strings.Contains(key, "Dirección"):
-									car.SellerAddress = val
-								}
-							}
-						}
-						break
-					}
-				}
 			}
 		}
 
@@ -673,63 +546,228 @@ func (s *Scraper) worker(id int, wd selenium.WebDriver, jobs <-chan string, resu
 			continue
 		}
 
-		results <- car
+		results <- *car
 	}
 }
 
-func (s *Scraper) scrapeNewCar(wd selenium.WebDriver, car *db.Car) {
+func (s *Scraper) scrapeCarHTTP(client *http.Client, url string) (*db.Car, error) {
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected HTTP status %d", resp.StatusCode)
+	}
+
+	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse HTML: %w", err)
+	}
+
+	car := &db.Car{
+		URL:        url,
+		ScrapedAt:  time.Now(),
+		LastSeenAt: time.Now(),
+		Equipments: make(map[string]bool),
+		Comment:    "-",
+	}
+
+	if strings.Contains(url, "/autosnuevos/") {
+		s.scrapeNewCarHTTP(doc, car)
+	} else {
+		s.scrapeUsedCarHTTP(doc, car)
+	}
+
+	return car, nil
+}
+
+func (s *Scraper) scrapeUsedCarHTTP(doc *goquery.Document, car *db.Car) {
+	// 1. Title & Price from .carheader
+	container := doc.Find(".text-center.text-white.carheader")
+	if container.Length() > 0 {
+		h1s := container.Find("h1")
+		if h1s.Length() > 0 {
+			car.Title, car.Brand, car.Model, car.Year = parseTitleBrandModelYear(h1s.First().Text())
+		}
+		h3s := container.Find("h3")
+		if h3s.Length() > 0 {
+			car.PriceText = cleanText(h3s.First().Text())
+			car.Price = parsePrice(car.PriceText)
+		} else if h1s.Length() > 1 {
+			car.PriceText = cleanText(h1s.Eq(1).Text())
+			car.Price = parsePrice(car.PriceText)
+		}
+	}
+
+	// 2. Attributes from table.mytext2
+	table := doc.Find("table.mytext2")
+	if table.Length() == 0 {
+		doc.Find("table").EachWithBreak(func(_ int, t *goquery.Selection) bool {
+			txt := t.Text()
+			if strings.Contains(txt, "Cilindrada") || strings.Contains(txt, "Combustible") {
+				table = t
+				return false
+			}
+			return true
+		})
+	}
+
+	if table.Length() > 0 {
+		table.Find("tr").Each(func(_ int, tr *goquery.Selection) {
+			tds := tr.Find("td")
+			if tds.Length() >= 2 {
+				key := cleanText(tds.Eq(0).Text())
+				val := cleanText(tds.Eq(1).Text())
+
+				switch key {
+				case "# de pasajeros":
+					car.Pasajeros = val
+				case "# de puertas":
+					car.Puertas = val
+				case "Cilindrada":
+					car.Cilindrada = val
+				case "Color exterior":
+					car.ColorExterior = val
+				case "Color interior":
+					car.ColorInterior = val
+				case "Combustible":
+					car.Combustible = val
+				case "Estado":
+					car.Estado = val
+				case "Estilo":
+					car.Estilo = val
+				case "Fecha de ingreso":
+					car.FechaIngreso = val
+				case "Kilometraje":
+					car.Kilometraje = parseKilometraje(val)
+				case "Placa":
+					car.Placa = val
+				case "Precio negociable":
+					car.PrecioNegociable = val
+				case "Provincia":
+					car.Provincia = val
+				case "Se recibe vehículo":
+					car.SeRecibe = val
+				case "Transmisión":
+					car.Transmision = val
+				case "Ya pagó impuestos":
+					car.PagoImpuestos = val
+				}
+			} else if tds.Length() == 1 {
+				txt := cleanText(tds.Eq(0).Text())
+				if txt != "" && !strings.Contains(txt, "ha sido visto") && car.Comment == "-" {
+					car.Comment = txt
+				}
+			}
+		})
+	}
+
+	// 3. Equipments from table.table-bordered
+	doc.Find("table.table-bordered").Each(func(_ int, tbl *goquery.Selection) {
+		tbl.Find("tr").Each(func(_ int, tr *goquery.Selection) {
+			tds := tr.Find("td")
+			if tds.Length() >= 2 {
+				key := cleanText(tds.Eq(0).Text())
+				h, _ := tds.Eq(1).Html()
+				if tds.Eq(1).Find("i.icon-check").Length() > 0 || strings.Contains(h, "icon-check") {
+					car.Equipments[key] = true
+				}
+			}
+		})
+	})
+
+	// 4. Seller info from table.table-responsive
+	doc.Find("table.table-responsive").EachWithBreak(func(_ int, vt *goquery.Selection) bool {
+		txt := vt.Text()
+		if strings.Contains(txt, "Vendedor") {
+			vt.Find("tr").Each(func(_ int, tr *goquery.Selection) {
+				tds := tr.Find("td")
+				if tds.Length() >= 2 {
+					key := cleanText(tds.Eq(0).Text())
+					val := cleanText(tds.Eq(1).Text())
+					switch {
+					case strings.Contains(key, "Nombre"):
+						car.SellerName = val
+					case strings.Contains(key, "Teléfono"):
+						car.SellerPhone = val
+					case strings.Contains(key, "Dirección"):
+						car.SellerAddress = val
+					}
+				}
+			})
+			return false
+		}
+		return true
+	})
+
+	// 5. Comments fallback (highlighted cells)
+	if car.Comment == "-" || car.Comment == "" {
+		doc.Find("td[bgcolor='#FAF7B4'], td[style*='#177001']").EachWithBreak(func(_ int, s *goquery.Selection) bool {
+			c := cleanText(s.Text())
+			if c != "" && !strings.Contains(c, "ha sido visto") {
+				car.Comment = c
+				return false
+			}
+			return true
+		})
+	}
+}
+
+func (s *Scraper) scrapeNewCarHTTP(doc *goquery.Document, car *db.Car) {
 	car.Estado = "Nuevo"
 	car.Kilometraje = 0
 
 	// 1. Get Brand and basic Model from header (.pheader h2)
-	header, err := wd.FindElement(selenium.ByCSSSelector, ".text-center.text-white.pheader h2")
+	header := doc.Find(".text-center.text-white.pheader h2")
 	var brandHeader string
-	if err == nil {
-		brandHeader, _ = header.Text()
-		brandHeader = cleanText(brandHeader)
+	if header.Length() > 0 {
+		brandHeader = cleanText(header.First().Text())
 	}
 
 	// 2. Parse Technical Specs inside #fichatecnica
-	techTable, err := wd.FindElement(selenium.ByCSSSelector, "#fichatecnica table")
+	techTable := doc.Find("#fichatecnica table")
 	var version, style, fuel, transmission, doors, passengers string
 	var year, price int
 	var priceText string
 
-	if err == nil {
-		rows, err := techTable.FindElements(selenium.ByTagName, "tr")
-		if err == nil {
-			for _, tr := range rows {
-				tds, err := tr.FindElements(selenium.ByTagName, "td")
-				if err == nil && len(tds) >= 2 {
-					key, _ := tds[0].Text()
-					val, _ := tds[1].Text()
-					key = cleanText(key)
-					val = cleanText(val)
+	if techTable.Length() > 0 {
+		techTable.Find("tr").Each(func(_ int, tr *goquery.Selection) {
+			tds := tr.Find("td")
+			if tds.Length() >= 2 {
+				key := cleanText(tds.Eq(0).Text())
+				val := cleanText(tds.Eq(1).Text())
 
-					switch key {
-					case "Versión", "Version":
-						version = val
-					case "Precio":
-						priceText = val
-						price = parsePrice(val)
-					case "Año", "Año:":
-						year, _ = strconv.Atoi(val)
-					case "Estilo":
-						style = val
-					case "Combustible":
-						fuel = val
-					case "Transmisión", "Transmisión:":
-						transmission = val
-					case "# de puertas":
-						doors = val
-					case "# de pasajeros":
-						passengers = val
-					case "Provincia":
-						car.Provincia = val
-					}
+				switch key {
+				case "Versión", "Version":
+					version = val
+				case "Precio":
+					priceText = val
+					price = parsePrice(val)
+				case "Año", "Año:":
+					year, _ = strconv.Atoi(val)
+				case "Estilo":
+					style = val
+				case "Combustible":
+					fuel = val
+				case "Transmisión", "Transmisión:":
+					transmission = val
+				case "# de puertas":
+					doors = val
+				case "# de pasajeros":
+					passengers = val
+				case "Provincia":
+					car.Provincia = val
 				}
 			}
-		}
+		})
 	}
 
 	// Parse Brand & Model name
@@ -768,36 +806,26 @@ func (s *Scraper) scrapeNewCar(wd selenium.WebDriver, car *db.Car) {
 	car.Pasajeros = passengers
 
 	if car.Provincia == "" {
-		car.Provincia = "San José" // default province for agencies if not specified
+		car.Provincia = "San José"
 	}
 
 	// 3. Dealer (Seller) Info inside #dealer
-	dealerContainer, err := wd.FindElement(selenium.ByCSSSelector, "#dealer")
-	if err == nil {
-		if h4, err := dealerContainer.FindElement(selenium.ByTagName, "h4"); err == nil {
-			car.SellerName, _ = h4.Text()
-			car.SellerName = cleanText(car.SellerName)
-		}
-		if h5, err := dealerContainer.FindElement(selenium.ByTagName, "h5"); err == nil {
-			car.SellerAddress, _ = h5.Text()
-			car.SellerAddress = cleanText(car.SellerAddress)
-		}
-		// Search for telephone number in table rows
-		if rows, err := dealerContainer.FindElements(selenium.ByTagName, "tr"); err == nil {
-			for _, tr := range rows {
-				tds, err := tr.FindElements(selenium.ByTagName, "td")
-				if err == nil && len(tds) >= 2 {
-					k, _ := tds[0].Text()
-					v, _ := tds[1].Text()
-					k = cleanText(k)
-					v = cleanText(v)
-					if strings.Contains(k, "Telef") || strings.Contains(k, "Teléfono") || strings.Contains(k, "Celular") {
-						car.SellerPhone = v
-						break
-					}
+	dealer := doc.Find("#dealer")
+	if dealer.Length() > 0 {
+		car.SellerName = cleanText(dealer.Find("h4").First().Text())
+		car.SellerAddress = cleanText(dealer.Find("h5").First().Text())
+		dealer.Find("tr").EachWithBreak(func(_ int, tr *goquery.Selection) bool {
+			tds := tr.Find("td")
+			if tds.Length() >= 2 {
+				k := cleanText(tds.Eq(0).Text())
+				v := cleanText(tds.Eq(1).Text())
+				if strings.Contains(k, "Telef") || strings.Contains(k, "Teléfono") || strings.Contains(k, "Celular") {
+					car.SellerPhone = v
+					return false
 				}
 			}
-		}
+			return true
+		})
 	}
 }
 
@@ -807,9 +835,19 @@ func (s *Scraper) createWebDriver() (selenium.WebDriver, error) {
 	}
 	chromeCaps := chrome.Capabilities{
 		Args: []string{
-			"--headless=new", "--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu",
-			"--window-size=1920,1080", "--log-level=3", "--disable-extensions", "--disable-images",
-			"--disable-logging", "--silent",
+			"--headless=new",
+			"--no-sandbox",
+			"--disable-dev-shm-usage",
+			"--disable-gpu",
+			"--window-size=1920,1080",
+			"--log-level=3",
+			"--disable-extensions",
+			"--blink-settings=imagesEnabled=false",
+			"--disable-logging",
+			"--silent",
+			"--disk-cache-size=1",
+			"--media-cache-size=1",
+			"--disable-application-cache",
 			"--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
 		},
 	}
