@@ -6,8 +6,8 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"regexp"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -17,26 +17,11 @@ import (
 	"crautosdb/db"
 
 	"github.com/PuerkitoBio/goquery"
-	"github.com/tebeka/selenium"
-	"github.com/tebeka/selenium/chrome"
 )
 
 const (
-	SeleniumPort    = 4444
 	HTTPWorkerCount = 15
 )
-
-var ChromeDriverPath = getChromeDriverPath()
-
-func getChromeDriverPath() string {
-	if runtime.GOOS == "windows" {
-		return "./chromedriver-win64/chromedriver.exe"
-	}
-	if runtime.GOOS == "darwin" {
-		return "./chromedriver-mac-arm64/chromedriver"
-	}
-	return "chromedriver"
-}
 
 var (
 	millasRegexp     = regexp.MustCompile(`,|millas| `)
@@ -80,29 +65,17 @@ var (
 )
 
 type Scraper struct {
-	Service            *selenium.Service
-	Port               int
 	DB                 *db.DB
 	Force              bool
 	SkipRefreshedHours int
-	mu                 sync.Mutex
 }
 
-func NewScraper(driverPath string, port int, database *db.DB, force bool, skipRefreshedHours int) (*Scraper, error) {
-	opts := []selenium.ServiceOption{
-		selenium.Output(io.Discard),
-	}
-	service, err := selenium.NewChromeDriverService(driverPath, port, opts...)
-	if err != nil {
-		return nil, fmt.Errorf("chromedriver error: %w", err)
-	}
+func NewScraper(database *db.DB, force bool, skipRefreshedHours int) *Scraper {
 	return &Scraper{
-		Service:            service,
-		Port:               port,
 		DB:                 database,
 		Force:              force,
 		SkipRefreshedHours: skipRefreshedHours,
-	}, nil
+	}
 }
 
 func (s *Scraper) Run() {
@@ -365,12 +338,6 @@ func (s *Scraper) ProcessBrand(brandName, brandID string) {
 		return
 	}
 
-	prodWd, err := s.createWebDriver()
-	if err != nil {
-		log.Printf("Error creating web driver for producer: %v", err)
-		return
-	}
-
 	jobs := make(chan string, 300)
 	results := make(chan db.Car, 300)
 	var wg sync.WaitGroup
@@ -388,8 +355,7 @@ func (s *Scraper) ProcessBrand(brandName, brandID string) {
 
 	producerDone := make(chan map[string]bool)
 	go func() {
-		defer prodWd.Quit()
-		seen := s.producer(prodWd, brandName, brandID, jobs, activeCars)
+		seen := s.producer(httpClient, brandName, brandID, jobs, activeCars)
 		close(jobs)
 		producerDone <- seen
 	}()
@@ -432,56 +398,92 @@ func (s *Scraper) ProcessBrand(brandName, brandID string) {
 	log.Printf("Finished brand %s. Saved/updated %d cars.\n", brandName, savedCount)
 }
 
-func (s *Scraper) producer(wd selenium.WebDriver, brandName, brandID string, jobs chan<- string, active map[string]time.Time) map[string]bool {
-	if err := wd.Get("https://crautos.com/autosusados/index.cfm"); err != nil {
-		log.Printf("Failed to load home page: %v\n", err)
-		return nil
+func (s *Scraper) producer(client *http.Client, brandName, brandID string, jobs chan<- string, active map[string]time.Time) map[string]bool {
+	form := url.Values{
+		"brand":     {"00"},
+		"modelstr":  {""},
+		"style":     {"00"},
+		"fuel":      {"0"},
+		"trans":     {"0"},
+		"financed":  {"00"},
+		"recibe":    {"0"},
+		"province":  {"0"},
+		"doors":     {"0"},
+		"yearfrom":  {"2010"},
+		"yearto":    {"2027"},
+		"pricefrom": {"100000"},
+		"priceto":   {"800000000"},
+		"orderby":   {"0"},
+		"newused":   {"0"},
+		"lformat":   {"0"},
+		"l":         {"1"},
 	}
-
-	searchBoxs, err := wd.FindElements(selenium.ByCSSSelector, ".searchform")
-	if err != nil || len(searchBoxs) == 0 {
-		log.Printf("[%s] Failed to find search form (count=%d, err=%v)", brandName, len(searchBoxs), err)
-		return nil
-	}
-	searchForm := searchBoxs[len(searchBoxs)-1]
 
 	if brandName == "electric" {
-		selectDropdown(searchForm, "fuel", brandID)
+		form.Set("fuel", brandID) // "4"
+		form.Set("brand", "00")
 	} else {
-		selectDropdown(searchForm, "brand", brandID)
-	}
-	selectDropdown(searchForm, "yearfrom", "2010")
-
-	btn, err := searchForm.FindElement(selenium.ByCSSSelector, "button[type='submit']")
-	if err == nil {
-		wd.ExecuteScript("arguments[0].click();", []interface{}{btn})
+		form.Set("brand", brandID)
 	}
 
-	err = wd.WaitWithTimeoutAndInterval(func(d selenium.WebDriver) (bool, error) {
-		elems, err := d.FindElements(selenium.ByCSSSelector, "td.brandtitle")
-		return err == nil && len(elems) > 0, nil
-	}, 20*time.Second, 1*time.Second)
-
-	if err != nil {
-		log.Printf("[%s] Timeout waiting for search results (td.brandtitle): %v", brandName, err)
-		return nil
-	}
-
-	pageCount := 1
 	seenUrls := make(map[string]bool)
 	queuedCount := 0
 	skippedCount := 0
 
-	for {
-		elements, err := wd.FindElements(selenium.ByCSSSelector, "td.brandtitle a")
-		if err == nil {
-			for _, el := range elements {
-				href, _ := el.GetAttribute("href")
-				if href != "" && (strings.HasPrefix(href, "http") || strings.Contains(href, "cardetail.cfm")) {
+	for page := 1; ; page++ {
+		targetURL := fmt.Sprintf("https://crautos.com/autosusados/searchresults.cfm?p=%d", page)
+		req, err := http.NewRequest("POST", targetURL, strings.NewReader(form.Encode()))
+		if err != nil {
+			log.Printf("[%s] Error building request for page %d: %v", brandName, page, err)
+			break
+		}
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36")
+		req.Header.Set("Referer", "https://crautos.com/autosusados/index.cfm")
+
+		resp, err := client.Do(req)
+		if err != nil {
+			time.Sleep(500 * time.Millisecond)
+			resp, err = client.Do(req)
+			if err != nil {
+				log.Printf("[%s] Error fetching search page %d: %v", brandName, page, err)
+				break
+			}
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			resp.Body.Close()
+			log.Printf("[%s] Unexpected status %d on search page %d", brandName, resp.StatusCode, page)
+			break
+		}
+
+		doc, err := goquery.NewDocumentFromReader(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			log.Printf("[%s] Failed to parse HTML on search page %d: %v", brandName, page, err)
+			break
+		}
+
+		pageCarCount := 0
+		doc.Find("td.brandtitle a").Each(func(i int, el *goquery.Selection) {
+			href, exists := el.Attr("href")
+			href = strings.TrimSpace(href)
+			if exists && href != "" && strings.Contains(href, "cardetail.cfm") {
+				if !strings.HasPrefix(href, "http") {
+					if strings.HasPrefix(href, "/") {
+						href = "https://crautos.com" + href
+					} else {
+						href = "https://crautos.com/autosusados/" + href
+					}
+				}
+
+				if !seenUrls[href] {
 					seenUrls[href] = true
-					lastSeen, exists := active[href]
+					pageCarCount++
+
+					lastSeen, existsInDB := active[href]
 					shouldScrape := false
-					if !exists {
+					if !existsInDB {
 						shouldScrape = true
 					} else if s.Force {
 						if s.SkipRefreshedHours > 0 && isRecentlyRefreshed(lastSeen, s.SkipRefreshedHours) {
@@ -497,27 +499,26 @@ func (s *Scraper) producer(wd selenium.WebDriver, brandName, brandID string, job
 					}
 				}
 			}
-		}
+		})
 
-		pagination, err := wd.FindElement(selenium.ByCSSSelector, ".page-item.page-next .page-link")
-		if err != nil {
+		if pageCarCount == 0 {
 			break
 		}
-		wd.ExecuteScript("arguments[0].click();", []interface{}{pagination})
 
-		pageCount++
-		nextPageStr := strconv.Itoa(pageCount)
-		err = wd.WaitWithTimeoutAndInterval(func(d selenium.WebDriver) (bool, error) {
-			activePage, err := d.FindElement(selenium.ByCSSSelector, ".page-item.active .page-link")
-			if err != nil {
-				return false, nil
+		// Check if there is a next page element (.page-item.page-next)
+		hasNext := false
+		doc.Find(".page-item.page-next .page-link, .page-item .page-link").Each(func(i int, s *goquery.Selection) {
+			txt := strings.TrimSpace(s.Text())
+			if txt == ">" || txt == "»" {
+				hasNext = true
 			}
-			txt, _ := activePage.Text()
-			return strings.TrimSpace(txt) == nextPageStr, nil
-		}, 15*time.Second, 500*time.Millisecond)
-		if err != nil {
+		})
+
+		if !hasNext {
 			break
 		}
+
+		time.Sleep(100 * time.Millisecond)
 	}
 
 	if skippedCount > 0 {
@@ -827,64 +828,6 @@ func (s *Scraper) scrapeNewCarHTTP(doc *goquery.Document, car *db.Car) {
 			return true
 		})
 	}
-}
-
-func (s *Scraper) createWebDriver() (selenium.WebDriver, error) {
-	caps := selenium.Capabilities{
-		"browserName": "chrome",
-	}
-	chromeCaps := chrome.Capabilities{
-		Args: []string{
-			"--headless=new",
-			"--no-sandbox",
-			"--disable-dev-shm-usage",
-			"--disable-gpu",
-			"--window-size=1920,1080",
-			"--log-level=3",
-			"--disable-extensions",
-			"--blink-settings=imagesEnabled=false",
-			"--disable-logging",
-			"--silent",
-			"--disk-cache-size=1",
-			"--media-cache-size=1",
-			"--disable-application-cache",
-			"--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
-		},
-	}
-	caps.AddChrome(chromeCaps)
-
-	s.mu.Lock()
-	wd, err := selenium.NewRemote(caps, fmt.Sprintf("http://localhost:%d/wd/hub", s.Port))
-	s.mu.Unlock()
-
-	if err != nil {
-		log.Printf("Failed to create WebDriver session: %v. Retrying in 2 seconds...", err)
-		time.Sleep(2 * time.Second)
-
-		s.mu.Lock()
-		wd, err = selenium.NewRemote(caps, fmt.Sprintf("http://localhost:%d/wd/hub", s.Port))
-		s.mu.Unlock()
-
-		if err != nil {
-			return nil, fmt.Errorf("failed to connect to selenium after retry: %w", err)
-		}
-	}
-	if wd != nil {
-		wd.SetPageLoadTimeout(30 * time.Second)
-	}
-	return wd, nil
-}
-
-func selectDropdown(parent selenium.WebElement, name, value string) error {
-	elem, err := parent.FindElement(selenium.ByName, name)
-	if err != nil {
-		return err
-	}
-	opt, err := elem.FindElement(selenium.ByCSSSelector, fmt.Sprintf("option[value='%s']", value))
-	if err != nil {
-		return err
-	}
-	return opt.Click()
 }
 
 func cleanText(text string) string {

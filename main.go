@@ -114,11 +114,7 @@ func main() {
 
 	if *scrapeFlag || *backfillFlag || *backfillCommentsFlag {
 		runScraper := func() {
-			s, err := scraper.NewScraper(scraper.ChromeDriverPath, scraper.SeleniumPort, database, *forceScrapeFlag, *skipRefreshedHoursFlag)
-			if err != nil {
-				log.Fatalf("Failed to create scraper: %v", err)
-			}
-			defer s.Service.Stop()
+			s := scraper.NewScraper(database, *forceScrapeFlag, *skipRefreshedHoursFlag)
 
 			if *backfillFlag {
 				log.Println("Starting seller backfill...")
