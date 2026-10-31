@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { createPortal } from 'react-dom';
 import { useLanguage } from '../context/LanguageContext';
 import { trackEvent } from '../utils/analytics';
+import { formatListingAge, formatListingDate } from '../utils/listingDate';
 import {
   AutoTransmissionIcon,
   ElectricPlugIcon,
@@ -9,6 +9,10 @@ import {
   StarIcon,
   NewBadgeIcon
 } from './icons/AppIcons';
+import { CarThumb } from './CarPhoto';
+import CarDetailsModal from './CarDetailsModal';
+import MarketBadge from './MarketBadge';
+import { getMarketDeal } from '../utils/marketDeal';
 
 const MAX_PRICE = 100000;
 const MAX_MILEAGE = 150000;
@@ -18,82 +22,6 @@ const formatPrice = (price, text) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(price);
   }
   return text;
-};
-
-// Data Categorization Utility
-const categorizeFeatures = (featuresArray, translateFn) => {
-  const categories = {
-    Seguridad: [],
-    Confort: [],
-    Tecnología: [],
-    Exterior: [],
-    Otros: []
-  };
-
-  if (!featuresArray || featuresArray.length === 0) return categories;
-
-  featuresArray.forEach(featureKey => {
-    // Translate feature key using translation helper
-    const displayName = translateFn(featureKey) || featureKey;
-    
-    // We match both key and display name to cover all cases
-    const lowerKey = featureKey.toLowerCase();
-    const lowerName = displayName.toLowerCase();
-
-    if (
-      lowerKey.includes('frenos abs') || lowerName.includes('frenos abs') ||
-      lowerKey.includes('bolsa de aire') || lowerName.includes('bolsa de aire') ||
-      lowerKey.includes('alarma') || lowerName.includes('alarma') ||
-      lowerKey.includes('seguridad') || lowerName.includes('seguridad') ||
-      lowerKey.includes('abs') || lowerName.includes('abs') ||
-      lowerKey.includes('airbag') || lowerName.includes('airbag') ||
-      lowerKey.includes('estabilidad') || lowerName.includes('estabilidad')
-    ) {
-      categories.Seguridad.push(displayName);
-    } else if (
-      lowerKey.includes('aire acondicionado') || lowerName.includes('aire acondicionado') ||
-      lowerKey.includes('asientos') || lowerName.includes('asientos') ||
-      lowerKey.includes('asiento') || lowerName.includes('asiento') ||
-      lowerKey.includes('confort') || lowerName.includes('confort') ||
-      lowerKey.includes('cuero') || lowerName.includes('cuero') ||
-      lowerKey.includes('leather') || lowerName.includes('leather') ||
-      lowerKey.includes('climatizado') || lowerName.includes('climatizado') ||
-      lowerKey.includes('cierre central') || lowerName.includes('cierre central') ||
-      lowerKey.includes('vidrios eléctricos') || lowerName.includes('vidrios eléctricos') ||
-      lowerKey.includes('crucero') || lowerName.includes('crucero')
-    ) {
-      categories.Confort.push(displayName);
-    } else if (
-      lowerKey.includes('apple carplay') || lowerName.includes('apple carplay') ||
-      lowerKey.includes('bluetooth') || lowerName.includes('bluetooth') ||
-      lowerKey.includes('pantalla') || lowerName.includes('pantalla') ||
-      lowerKey.includes('tecnología') || lowerName.includes('tecnología') ||
-      lowerKey.includes('android auto') || lowerName.includes('android auto') ||
-      lowerKey.includes('cámara') || lowerName.includes('cámara') ||
-      lowerKey.includes('camera') || lowerName.includes('camera') ||
-      lowerKey.includes('computadora') || lowerName.includes('computadora') ||
-      lowerKey.includes('radio') || lowerName.includes('radio') ||
-      lowerKey.includes('sensor') || lowerName.includes('sensor')
-    ) {
-      categories.Tecnología.push(displayName);
-    } else if (
-      lowerKey.includes('aros de lujo') || lowerName.includes('aros de lujo') ||
-      lowerKey.includes('halógenos') || lowerName.includes('halógenos') ||
-      lowerKey.includes('exterior') || lowerName.includes('exterior') ||
-      lowerKey.includes('rims') || lowerName.includes('rims') ||
-      lowerKey.includes('sunroof') || lowerName.includes('sunroof') ||
-      lowerKey.includes('retrovisores') || lowerName.includes('retrovisores') ||
-      lowerKey.includes('xenón') || lowerName.includes('xenón') ||
-      lowerKey.includes('tintados') || lowerName.includes('tintados') ||
-      lowerKey.includes('bixenón') || lowerName.includes('bixenón')
-    ) {
-      categories.Exterior.push(displayName);
-    } else {
-      categories.Otros.push(displayName);
-    }
-  });
-
-  return categories;
 };
 
 // Generic Fuel (Fuel Pump) Icon SVG
@@ -116,75 +44,6 @@ const FuelPumpIcon = () => (
   </svg>
 );
 
-const CarDetailsModal = ({ isOpen, onClose, car, t, language }) => {
-  if (!isOpen) return null;
-
-  const featuresArray = car.Equipments ? Object.keys(car.Equipments) : [];
-  const categorized = categorizeFeatures(featuresArray, t);
-
-  // Check if there are any categorized features to display
-  const hasFeatures = Object.values(categorized).some(list => list.length > 0);
-
-  return createPortal(
-    <div 
-      className={`details-modal-overlay ${isOpen ? 'open' : ''}`} 
-      onClick={onClose}
-    >
-      <div 
-        className="details-modal" 
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="details-modal-header">
-          <h3>{car.Title}</h3>
-          <button className="details-modal-close" onClick={onClose}>×</button>
-        </div>
-        
-        <div className="details-modal-content">
-          {car.Comment && (
-            <div className="details-modal-comment">
-              "{car.Comment}"
-            </div>
-          )}
-          
-          {hasFeatures && (
-            <div className="details-modal-categories">
-              {Object.entries(categorized).map(([category, items]) => {
-                if (items.length === 0) return null;
-                return (
-                  <div key={category} className="details-modal-category-section">
-                    <h4 className="details-modal-category-title">{category}</h4>
-                    <div className="details-modal-features-list">
-                      {items.map((item, idx) => (
-                        <div key={idx} className="details-modal-feature-item">
-                          {item}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        <div className="details-modal-footer">
-          <a 
-            href={car.URL} 
-            target="_blank" 
-            rel="noreferrer" 
-            className="btn-link" 
-            style={{ width: '100%', textDecoration: 'none', margin: 0 }}
-            onClick={() => trackEvent('view_external_car', 'outbound', car.Title || car.URL)}
-          >
-            {t('view')}{language === 'es' ? ' en Crautos' : ' on Crautos'}
-          </a>
-        </div>
-      </div>
-    </div>,
-    document.body
-  );
-};
-
 const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage }) => {
   const { t, language } = useLanguage();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -196,6 +55,8 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage }) => {
   const carMileage = car.Kilometraje || 0;
   const pricePercent = Math.min((carPrice / limitPrice) * 100, 100);
   const mileagePercent = Math.min((carMileage / limitMileage) * 100, 100);
+
+  const deal = getMarketDeal(car);
 
   // Helper to interpolate colors: Green (120 hue) -> Yellow -> Orange -> Red (0 hue)
   const getDynamicColors = (percent) => {
@@ -211,7 +72,10 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage }) => {
   const priceColors = getDynamicColors(pricePercent);
   const mileageColors = getDynamicColors(mileagePercent);
 
-  const hasMoreDetails = car.Comment || (car.Equipments && Object.keys(car.Equipments).length > 3);
+  const listingAge = formatListingAge(car, language);
+  const listingDate = formatListingDate(car, language);
+
+  const hasMoreDetails = (car.Comment && car.Comment.trim() !== '-') || (car.Equipments && Object.keys(car.Equipments).length > 3);
 
   return (
     <div 
@@ -223,8 +87,17 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage }) => {
         e.dataTransfer.effectAllowed = 'copy';
       }}
     >
+      <div 
+        className="car-card-photo" 
+        style={{ cursor: 'pointer', margin: '0 0 0.5rem 0' }}
+        onClick={(e) => { e.stopPropagation(); setIsModalOpen(true); }}
+      >
+        <CarThumb car={car} variant="card" badge={isNew ? <NewBadgeIcon size={18} /> : null} />
+      </div>
+
       <button
         className={`fav-btn-card ${isFav ? 'active' : ''}`}
+        style={{ zIndex: 5 }}
         onClick={(e) => { e.stopPropagation(); onToggleFav && onToggleFav(car.URL); }}
         title={isFav ? 'Remove from favorites' : 'Add to favorites'}
       >
@@ -234,7 +107,6 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage }) => {
       <div className="car-card-body">
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'space-between' }}>
           <h3 className="car-title" style={{ margin: 0, flex: 1 }}>{car.Title}</h3>
-          {isNew && <NewBadgeIcon size={18} />}
         </div>
         
         {/* Visual hierarchy: Price and Mileage are progress-filled pills; Year and Province are smaller/muted */}
@@ -247,32 +119,34 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage }) => {
                 overflow: 'hidden',
                 padding: '0.35rem 0.75rem',
                 borderRadius: '8px',
-                border: `1px solid ${priceColors.border}`,
-                background: priceColors.bg,
+                border: `1px solid ${deal ? deal.border : priceColors.border}`,
+                background: deal ? deal.bg : priceColors.bg,
                 display: 'inline-flex',
                 alignItems: 'center',
                 flexShrink: 0
               }}
             >
               {/* Background Progress Fill */}
-              <div 
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  height: '100%',
-                  width: `${pricePercent}%`,
-                  background: priceColors.fill,
-                  zIndex: 1,
-                  transition: 'width 0.6s ease'
-                }}
-              />
+              {!deal && (
+                <div 
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    height: '100%',
+                    width: `${pricePercent}%`,
+                    background: priceColors.fill,
+                    zIndex: 1,
+                    transition: 'width 0.6s ease'
+                  }}
+                />
+              )}
               {/* Text */}
               <span 
                 style={{
                   fontSize: '1.05rem',
                   fontWeight: '800',
-                  color: priceColors.text,
+                  color: deal ? deal.color : priceColors.text,
                   zIndex: 2,
                   position: 'relative'
                 }}
@@ -325,6 +199,8 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage }) => {
             )}
           </div>
 
+          <MarketBadge car={car} style={{ alignSelf: 'flex-start', maxWidth: '100%', whiteSpace: 'normal' }} />
+
           <div className="car-secondary-specs" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center', fontSize: '0.8rem', color: 'var(--text-muted)', paddingLeft: '0.1rem' }}>
             <span className="spec-year">{car.Year}</span>
             {car.Provincia && (
@@ -333,6 +209,14 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage }) => {
                 <span className="spec-province" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
                   <LocationPinIcon size={13} color="#94a3b8" />
                   <span>{car.Provincia}</span>
+                </span>
+              </>
+            )}
+            {listingAge && (
+              <>
+                <span style={{ color: 'rgba(255, 255, 255, 0.15)' }}>•</span>
+                <span className="spec-age" title={listingDate || undefined}>
+                  {listingAge}
                 </span>
               </>
             )}
@@ -362,30 +246,31 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage }) => {
         </div>
 
         {/* Description/Comment: Strict 2-line clamp, secondary text color, triggers modal overlay on click */}
-        <div 
-          style={{
-            marginTop: '0.75rem',
-            padding: '0.45rem 0.6rem',
-            background: 'rgba(255, 255, 255, 0.03)', 
-            borderLeft: `3px solid ${car.Comment ? 'var(--accent)' : 'var(--border)'}`, 
-            borderRadius: '4px',
-            fontSize: '0.85rem',
-            fontStyle: 'italic',
-            color: 'var(--text-muted)',
-            lineHeight: '1.4',
-            display: '-webkit-box',
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: 'vertical',
-            overflow: 'hidden',
-            cursor: 'pointer',
-            userSelect: 'none',
-            minHeight: '72px'
-          }}
-          onClick={(e) => { e.stopPropagation(); setIsModalOpen(true); }}
-          title={car.Comment ? (language === 'es' ? 'Clic para ver más detalles' : 'Click to view details') : undefined}
-        >
-          {car.Comment ? `"${car.Comment}"` : (language === 'es' ? 'Sin comentarios del vendedor' : 'No seller comments')}
-        </div>
+        {car.Comment && car.Comment.trim() !== '-' && (
+          <div 
+            style={{
+              marginTop: '0.75rem',
+              padding: '0.45rem 0.6rem',
+              background: 'rgba(255, 255, 255, 0.03)', 
+              borderLeft: '3px solid var(--accent)', 
+              borderRadius: '4px',
+              fontSize: '0.85rem',
+              fontStyle: 'italic',
+              color: 'var(--text-muted)',
+              lineHeight: '1.4',
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+              cursor: 'pointer',
+              userSelect: 'none'
+            }}
+            onClick={(e) => { e.stopPropagation(); setIsModalOpen(true); }}
+            title={language === 'es' ? 'Clic para ver más detalles' : 'Click to view details'}
+          >
+            {`"${car.Comment}"`}
+          </div>
+        )}
 
         {/* Feature Tags: Display maximum of 3 feature pills, plus a "+[X] más" pill that triggers the modal */}
         {car.Equipments && Object.keys(car.Equipments).length > 0 && (
@@ -437,8 +322,6 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage }) => {
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
         car={car} 
-        t={t}
-        language={language}
       />
     </div>
   );

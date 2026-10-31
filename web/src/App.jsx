@@ -60,6 +60,7 @@ function App() {
     priceMode: '',
     kmMax: '',
     kmMode: '',
+    estilo: '',
     transmision: '',
     combustible: '',
     sellerName: '',
@@ -70,10 +71,11 @@ function App() {
     scrapedTo: '',
     scrapedPeriod: '',
     limit: '100',
-    sortTitle: 'asc',
-    sortYear: 'desc',
-    sortPrice: 'asc',
-    sortKm: 'asc',
+    // Empty sort fields => backend default ORDER BY scraped_at DESC ("most recent")
+    sortTitle: '',
+    sortYear: '',
+    sortPrice: '',
+    sortKm: '',
   });
   const [localTitle, setLocalTitle] = useState('');
   const [showFavsOnly, setShowFavsOnly] = useState(false);
@@ -175,8 +177,8 @@ function App() {
           {t('logo')}
         </div>
         
-        <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'center' }}>
-          <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+        <div className="navbar-right">
+          <div className="navbar-stats">
             <span style={{ color: 'var(--success)' }}>{stats.active}</span>
             <span className="nav-stats-label"> {t('active')}</span>
             <span style={{ margin: '0 0.4rem' }}>•</span>
@@ -185,26 +187,12 @@ function App() {
           </div>
           
           <button 
+            className="nav-lang-btn"
             onClick={toggleLanguage}
-            style={{
-              background: 'rgba(255, 255, 255, 0.08)',
-              border: '1px solid var(--border)',
-              color: 'var(--text-main)',
-              borderRadius: '6px',
-              padding: '0.35rem 0.75rem',
-              fontSize: '0.8rem',
-              fontWeight: '600',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.45rem',
-              transition: 'var(--transition)'
-            }}
-            onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.15)'}
-            onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)'}
+            title={language === 'es' ? 'Switch to English' : 'Cambiar a Español'}
           >
             <FlagIcon size={15} color="#cbd5e1" />
-            <span>{language === 'es' ? 'English' : 'Español'}</span>
+            <span className="nav-lang-text">{language === 'es' ? 'English' : 'Español'}</span>
           </button>
 
           {/* AI Copilot Toolbar Button - Styled after custom kit (1) */}
@@ -226,8 +214,10 @@ function App() {
             <button 
               className={activeTab === 'browse' ? 'active' : ''} 
               onClick={() => setActiveTab('browse')}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
             >
-              {t('browseCars')}
+              <SearchIcon size={16} color="currentColor" />
+              <span className="nav-link-text">{t('browseCars')}</span>
             </button>
             <button 
               className={activeTab === 'favorites' ? 'active' : ''} 
@@ -235,7 +225,7 @@ function App() {
               style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
             >
               <StarIcon size={16} color="#fbbf24" />
-              <span>{t('favorites')}</span>
+              <span className="nav-link-text nav-link-text-secondary">{t('favorites')}</span>
               {favCount > 0 && <span className="nav-fav-count">{favCount}</span>}
             </button>
             <button 
@@ -244,7 +234,7 @@ function App() {
               style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
             >
               <TagIcon size={16} color="#fbbf24" />
-              <span>{language === 'es' ? 'Gangas' : 'Bargains'}</span>
+              <span className="nav-link-text nav-link-text-secondary">{language === 'es' ? 'Gangas' : 'Bargains'}</span>
             </button>
             <button 
               className={activeTab === 'stats' ? 'active' : ''} 
@@ -252,7 +242,7 @@ function App() {
               style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
             >
               <StatsChartIcon size={16} color="#fbbf24" />
-              <span>{t('stats')}</span>
+              <span className="nav-link-text nav-link-text-secondary">{t('stats')}</span>
             </button>
             <button 
               className={activeTab === 'about' ? 'active' : ''} 
@@ -260,7 +250,7 @@ function App() {
               style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
             >
               <InfoCircleIcon size={16} color="#cbd5e1" />
-              <span>{t('about')}</span>
+              <span className="nav-link-text nav-link-text-secondary">{t('about')}</span>
             </button>
           </div>
         </div>

@@ -123,8 +123,8 @@ export const translations = {
     myFavoritesTitle: "Mis Favoritos",
     carsSaved: "{count} auto guardado",
     carsSavedPlural: "{count} autos guardados",
-    viewCards: "▦ Tarjetas",
-    viewTable: "☰ Tabla",
+    viewCards: "Tarjetas",
+    viewTable: "Tabla",
     noFavoritesTitle: "Aún no tienes favoritos",
     noFavoritesText: "Haz clic en el icono de estrella en cualquier auto para agregarlo a tus favoritos.",
 
@@ -373,8 +373,8 @@ export const translations = {
     myFavoritesTitle: "My Favorites",
     carsSaved: "{count} car saved",
     carsSavedPlural: "{count} cars saved",
-    viewCards: "▦ Cards",
-    viewTable: "☰ Table",
+    viewCards: "Cards",
+    viewTable: "Table",
     noFavoritesTitle: "No favorites yet",
     noFavoritesText: "Click the star icon on any car to add it to your favorites.",
 

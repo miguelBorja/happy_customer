@@ -2,10 +2,18 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { fetchCarsByUrls } from '../api/client';
 import { useFavorites } from '../hooks/useFavorites';
 import { useSeenCars } from '../hooks/useSeenCars';
+import { trackEvent } from '../utils/analytics';
+import { formatListingAge, formatListingDate } from '../utils/listingDate';
+import { getWhatsAppPhone, buildWhatsAppLink } from '../utils/phone';
 import CarCard from '../components/CarCard';
 import MileageBar from '../components/MileageBar';
 import PriceBar from '../components/PriceBar';
+import MarketBadge from '../components/MarketBadge';
+import { getMarketDeal } from '../utils/marketDeal';
 import { useLanguage } from '../context/LanguageContext';
+import { useTableDensity } from '../hooks/useTableDensity';
+import { CarThumb } from '../components/CarPhoto';
+import CarDetailsModal from '../components/CarDetailsModal';
 import { StarIcon, CardsGridIcon, TableListIcon } from '../components/icons/AppIcons';
 
 const FavoritesPage = ({ viewMode, setViewMode }) => {
@@ -13,7 +21,9 @@ const FavoritesPage = ({ viewMode, setViewMode }) => {
   const [loading, setLoading] = useState(true);
   const { isFavorite, toggleFavorite, favCount, getAllUrls } = useFavorites();
   const { isNew } = useSeenCars();
-  const { t } = useLanguage();
+  const [selectedCar, setSelectedCar] = useState(null);
+  const { density, setDensity, showPhotos } = useTableDensity();
+  const { t, language } = useLanguage();
 
   const loadFavorites = useCallback(async () => {
     const urls = getAllUrls();
@@ -60,7 +70,23 @@ const FavoritesPage = ({ viewMode, setViewMode }) => {
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          {viewMode === 'table' && (
+            <div className="table-density-toggle">
+              <button
+                className={`btn-view-toggle ${density === 'photos' ? 'active' : ''}`}
+                onClick={() => setDensity('photos')}
+              >
+                {language === 'es' ? 'Con fotos' : 'Photos'}
+              </button>
+              <button
+                className={`btn-view-toggle ${density === 'compact' ? 'active' : ''}`}
+                onClick={() => setDensity('compact')}
+              >
+                {language === 'es' ? 'Compacta' : 'Compact'}
+              </button>
+            </div>
+          )}
           <button
             className={`btn-view-mode ${viewMode === 'cards' ? 'active' : ''}`}
             onClick={() => setViewMode('cards')}
@@ -101,7 +127,7 @@ const FavoritesPage = ({ viewMode, setViewMode }) => {
               <CarCard
                 key={car.URL}
                 car={car}
-                isNew={isNew(car.URL)}
+                isNew={isNew(car)}
                 isFav={true}
                 onToggleFav={toggleFavorite}
               />
@@ -113,21 +139,28 @@ const FavoritesPage = ({ viewMode, setViewMode }) => {
               <thead>
                 <tr>
                   <th></th>
+                  {showPhotos && <th></th>}
                   <th>{t('title')}</th>
                   <th>{t('year')}</th>
                   <th>{t('priceHeader')}</th>
                   <th>{t('mileageHeader')}</th>
                   <th>{t('province')}</th>
+                  <th>{language === 'es' ? 'Publicado' : 'Listed'}</th>
                   <th>{t('status')}</th>
                   <th className="text-right">{t('action')}</th>
                 </tr>
               </thead>
               <tbody>
                 {displayCars.map(car => {
+                  const waPhone = getWhatsAppPhone(car.SellerPhone);
                   return (
                     <tr 
                       key={car.URL} 
-                      className={`draggable-car-row ${car.IsSold ? 'sold-row' : ''}`}
+                      className={`draggable-car-row clickable-row ${car.IsSold ? 'sold-row' : ''}`}
+                      onClick={(e) => {
+                        if (e.target.closest('a, button, .tooltip-container')) return;
+                        setSelectedCar(car);
+                      }}
                       draggable={true}
                       onDragStart={(e) => {
                         e.dataTransfer.setData('application/json', JSON.stringify(car));
@@ -144,6 +177,11 @@ const FavoritesPage = ({ viewMode, setViewMode }) => {
                           ★
                         </button>
                       </td>
+                      {showPhotos && (
+                        <td className="photo-cell">
+                          <CarThumb car={car} variant="table" hoverPreview />
+                        </td>
+                      )}
                     <td style={{ fontWeight: '500' }}>
                       <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', flexWrap: 'wrap' }}>
                         {car.Title}
@@ -157,22 +195,46 @@ const FavoritesPage = ({ viewMode, setViewMode }) => {
                     </td>
                     <td>{car.Year}</td>
                     <td>
-                      <PriceBar price={car.Price} priceText={car.PriceText} />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'nowrap' }}>
+                        <PriceBar price={car.Price} priceText={car.PriceText} deal={getMarketDeal(car)} />
+                        <MarketBadge car={car} variant="compact" />
+                      </div>
                     </td>
                     <td>
                       <MileageBar km={car.Kilometraje} />
                     </td>
                     <td>{car.Provincia}</td>
                     <td>
+                      <span title={formatListingDate(car, language)} style={{ color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                        {formatListingAge(car, language)}
+                      </span>
+                    </td>
+                    <td>
                       {car.IsSold
                         ? <span style={{ color: 'var(--danger)', fontWeight: '600' }}>{t('soldStatus')}</span>
                         : <span style={{ color: 'var(--success)' }}>{t('activeStatus')}</span>
                       }
                     </td>
-                    <td className="text-right">
-                      <a href={car.URL} target="_blank" rel="noreferrer" className="btn-table-action">
-                        {t('view')}
-                      </a>
+                    <td className="text-right" style={{ whiteSpace: 'nowrap' }}>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                        {waPhone && (
+                          <a
+                            href={buildWhatsAppLink(waPhone, car, language)}
+                            target="_blank"
+                            rel="noreferrer"
+                            title={`WhatsApp ${waPhone.display}`}
+                            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#25D366' }}
+                            onClick={() => trackEvent('contact_whatsapp', 'outbound', car.Title || car.URL)}
+                          >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+                            </svg>
+                          </a>
+                        )}
+                        <a href={car.URL} target="_blank" rel="noreferrer" className="btn-table-action">
+                          {t('view')}
+                        </a>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -181,6 +243,14 @@ const FavoritesPage = ({ viewMode, setViewMode }) => {
             </table>
           </div>
         </>
+      )}
+
+      {selectedCar && (
+        <CarDetailsModal
+          isOpen
+          onClose={() => setSelectedCar(null)}
+          car={selectedCar}
+        />
       )}
     </div>
   );

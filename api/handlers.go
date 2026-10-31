@@ -97,7 +97,7 @@ func (s *Server) HandleCars(w http.ResponseWriter, r *http.Request) {
 		cars = []db.Car{} // Return empty array instead of null
 	}
 	
-	json.NewEncoder(w).Encode(cars)
+	json.NewEncoder(w).Encode(s.withMarket(cars))
 }
 
 func (s *Server) HandleBrands(w http.ResponseWriter, r *http.Request) {
@@ -312,7 +312,7 @@ func (s *Server) HandleCarsByURLs(w http.ResponseWriter, r *http.Request) {
 		cars = []db.Car{}
 	}
 
-	json.NewEncoder(w).Encode(cars)
+	json.NewEncoder(w).Encode(s.withMarket(cars))
 }
 
 type OpenRouterToolCall struct {

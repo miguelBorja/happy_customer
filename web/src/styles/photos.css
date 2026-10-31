@@ -1,0 +1,401 @@
+/* ==========================================================================
+   Car Photo & Gallery Component Styles
+   ========================================================================== */
+
+/* Shimmer Skeleton Keyframes */
+@keyframes photoShimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes previewFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Car Thumbnail (.car-thumb)
+   -------------------------------------------------------------------------- */
+.car-thumb {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background-color: rgba(30, 41, 59, 0.6);
+  border: 1px solid var(--border);
+  box-sizing: border-box;
+  user-select: none;
+}
+
+.car-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: opacity 0.2s ease-in-out;
+}
+
+/* Variants */
+.car-thumb--table {
+  width: 64px;
+  height: 48px;
+  min-width: 64px;
+  min-height: 48px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.car-thumb--mobile {
+  width: 88px;
+  height: 66px;
+  min-width: 88px;
+  min-height: 66px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.car-thumb--card {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 10px;
+}
+
+/* Badge (top-left absolute overlay) */
+.car-thumb-badge {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* Skeleton Loading Shimmer */
+.car-thumb-skeleton {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(51, 65, 85, 0.4) 25%,
+    rgba(71, 85, 105, 0.65) 37%,
+    rgba(51, 65, 85, 0.4) 63%
+  );
+  background-size: 200% 100%;
+  animation: photoShimmer 1.5s infinite linear;
+  z-index: 1;
+}
+
+/* --------------------------------------------------------------------------
+   Car Photo Fallback & Silhouette
+   -------------------------------------------------------------------------- */
+.car-photo-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.95));
+  color: var(--text-muted);
+}
+
+.car-photo-fallback svg {
+  width: 68%;
+  height: 68%;
+  max-width: 90px;
+  max-height: 50px;
+  opacity: 0.4;
+  color: var(--text-muted);
+}
+
+/* --------------------------------------------------------------------------
+   Hover Preview Popover
+   -------------------------------------------------------------------------- */
+.car-thumb-preview {
+  position: fixed;
+  z-index: 3000;
+  width: 320px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: 0 20px 40px -4px rgba(0, 0, 0, 0.75), 0 0 0 1px var(--border);
+  background-color: var(--bg-card);
+  pointer-events: none;
+  animation: previewFadeIn 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.car-thumb-preview img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  display: block;
+}
+
+/* --------------------------------------------------------------------------
+   Car Gallery (.car-gallery*)
+   -------------------------------------------------------------------------- */
+.car-gallery {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.car-gallery-main {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background-color: rgba(15, 23, 42, 0.7);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.car-gallery-main img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: opacity 0.2s ease-in-out;
+}
+
+.car-gallery-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 10;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(6px);
+  color: var(--text-main);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 50%;
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--transition);
+  padding: 0;
+}
+
+.car-gallery-arrow:hover {
+  background: rgba(30, 41, 59, 0.95);
+  border-color: var(--accent);
+  color: #fff;
+  transform: translateY(-50%) scale(1.06);
+}
+
+.car-gallery-arrow--prev {
+  left: 0.75rem;
+}
+
+.car-gallery-arrow--next {
+  right: 0.75rem;
+}
+
+.car-gallery-counter {
+  position: absolute;
+  bottom: 0.75rem;
+  right: 0.75rem;
+  z-index: 10;
+  background: rgba(15, 23, 42, 0.8);
+  backdrop-filter: blur(6px);
+  color: var(--text-main);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.25rem 0.65rem;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  letter-spacing: 0.03em;
+}
+
+.car-gallery-strip {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+  scrollbar-width: thin;
+}
+
+.car-gallery-strip::-webkit-scrollbar {
+  height: 5px;
+}
+
+.car-gallery-strip::-webkit-scrollbar-thumb {
+  background: var(--bg-hover);
+  border-radius: 3px;
+}
+
+.car-gallery-strip-item {
+  width: 64px;
+  height: 48px;
+  min-width: 64px;
+  aspect-ratio: 4 / 3;
+  border-radius: 6px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 2px solid transparent;
+  opacity: 0.55;
+  transition: var(--transition);
+  padding: 0;
+  background: none;
+  flex-shrink: 0;
+}
+
+.car-gallery-strip-item:hover {
+  opacity: 0.9;
+}
+
+.car-gallery-strip-item.active {
+  border-color: var(--accent);
+  opacity: 1;
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.45);
+}
+
+.car-gallery-strip-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* --------------------------------------------------------------------------
+   Details Modal Price & Specs Grid
+   -------------------------------------------------------------------------- */
+.details-modal-price {
+  font-size: 1.45rem;
+  font-weight: 700;
+  color: #38bdf8;
+  letter-spacing: -0.02em;
+}
+
+.details-specs-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.6rem 1.25rem;
+  padding: 1rem 1.25rem;
+  background: rgba(15, 23, 42, 0.45);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+@media (max-width: 520px) {
+  .details-specs-grid {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+}
+
+.details-spec-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+  font-size: 0.875rem;
+  padding: 0.25rem 0;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.07);
+}
+
+.details-spec-label {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.details-spec-value {
+  color: var(--text-main);
+  font-weight: 600;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --------------------------------------------------------------------------
+   Table & Mobile Helper Classes
+   -------------------------------------------------------------------------- */
+.data-table td.photo-cell {
+  width: 76px;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+.data-table tr.clickable-row {
+  cursor: pointer;
+}
+
+.table-density-toggle {
+  display: inline-flex;
+  background-color: rgba(15, 23, 42, 0.4);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.2rem;
+  gap: 0.2rem;
+}
+
+.table-density-toggle button,
+.table-density-toggle .btn-density {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: none;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.3rem 0.65rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.table-density-toggle button:hover,
+.table-density-toggle .btn-density:hover {
+  color: var(--text-main);
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+.table-density-toggle button.active,
+.table-density-toggle .btn-density.active {
+  color: var(--text-main);
+  background-color: var(--bg-hover);
+  border-color: var(--accent);
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.15);
+}
+
+.top-car-mobile-card.with-photo {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.top-car-mobile-card.with-photo .top-car-mobile-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* Card photo sits flush at the top; the body no longer needs the 4.25rem reserve
+   for the absolute-positioned favorite star, since the star now overlays the photo. */
+.car-card-photo .car-thumb--card {
+  border-radius: 0;
+}
+
+.car-card-photo ~ .car-card-body {
+  padding-top: 1rem;
+}

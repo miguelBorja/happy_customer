@@ -38,6 +38,7 @@ var (
 		"honda":         "15",
 		"hyundai":       "16",
 		"kia":           "19",
+		"land rover":    "21",
 		"mazda":         "23",
 		"mitsubishi":    "25",
 		"nissan":        "26",
@@ -363,17 +364,48 @@ func (s *Scraper) ProcessBrand(brandName, brandID string) {
 	doneCollecting := make(chan int)
 	go func() {
 		counter := 0
-		for car := range results {
-			if err := s.DB.UpsertCar(car); err != nil {
-				log.Printf("Error saving car %s: %v", car.URL, err)
-			} else {
-				counter++
+		const batchSize = 25
+		buffer := make([]db.Car, 0, batchSize)
+		ticker := time.NewTicker(2 * time.Second)
+		defer ticker.Stop()
+
+		flush := func() {
+			if len(buffer) == 0 {
+				return
 			}
-			if counter%10 == 0 {
-				log.Printf("Saved %d new/updated cars...", counter)
+			n := len(buffer)
+			if err := s.DB.UpsertCarBatch(buffer); err != nil {
+				log.Printf("Batch upsert of %d cars failed (%v), retrying individually...", n, err)
+				for _, c := range buffer {
+					if err := s.DB.UpsertCar(c); err != nil {
+						log.Printf("Error saving car %s: %v", c.URL, err)
+					} else {
+						counter++
+					}
+				}
+			} else {
+				counter += n
+			}
+			log.Printf("Saved %d new/updated cars...", counter)
+			buffer = buffer[:0]
+		}
+
+		for {
+			select {
+			case car, ok := <-results:
+				if !ok {
+					flush()
+					doneCollecting <- counter
+					return
+				}
+				buffer = append(buffer, car)
+				if len(buffer) >= batchSize {
+					flush()
+				}
+			case <-ticker.C:
+				flush()
 			}
 		}
-		doneCollecting <- counter
 	}()
 
 	wg.Wait()
@@ -409,7 +441,7 @@ func (s *Scraper) producer(client *http.Client, brandName, brandID string, jobs 
 		"recibe":    {"0"},
 		"province":  {"0"},
 		"doors":     {"0"},
-		"yearfrom":  {"2010"},
+		"yearfrom":  {"2000"},
 		"yearto":    {"2027"},
 		"pricefrom": {"100000"},
 		"priceto":   {"800000000"},

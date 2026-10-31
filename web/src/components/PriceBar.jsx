@@ -1,4 +1,4 @@
-import React from 'react';
+import { formatUSD } from '../utils/marketDeal';
 
 const DEFAULT_MAX_PRICE = 100000;
 
@@ -19,7 +19,7 @@ const getDynamicColors = (percent) => {
   };
 };
 
-const PriceBar = ({ price, maxPrice, priceText }) => {
+const PriceBar = ({ price, maxPrice, priceText, deal }) => {
   const displayVal = price > 0 ? formatPrice(price) : priceText;
   if (!displayVal) return null;
 
@@ -27,38 +27,48 @@ const PriceBar = ({ price, maxPrice, priceText }) => {
   const pct = price > 0 ? Math.min((price / limit) * 100, 100) : 0;
   const colors = getDynamicColors(pct);
 
+  const title = deal
+    ? `Mediana: ${formatUSD(deal.median)} (${deal.count} autos)`
+    : `$${price?.toLocaleString() || 0} / $${limit.toLocaleString()}`;
+
+  const border = deal ? deal.border : colors.border;
+  const background = deal ? deal.bg : colors.bg;
+  const textColor = deal ? deal.color : colors.text;
+
   return (
     <div 
-      title={`$${price?.toLocaleString() || 0} / $${limit.toLocaleString()}`}
+      title={title}
       style={{
         position: 'relative',
         overflow: 'hidden',
         padding: '0.35rem 0.75rem',
         borderRadius: '8px',
-        border: `1px solid ${colors.border}`,
-        background: colors.bg,
+        border: `1px solid ${border}`,
+        background,
         display: 'inline-flex',
         alignItems: 'center',
         flexShrink: 0
       }}
     >
-      <div 
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          height: '100%',
-          width: `${pct}%`,
-          background: colors.fill,
-          zIndex: 1,
-          transition: 'width 0.6s ease'
-        }}
-      />
+      {!deal && (
+        <div 
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            height: '100%',
+            width: `${pct}%`,
+            background: colors.fill,
+            zIndex: 1,
+            transition: 'width 0.6s ease'
+          }}
+        />
+      )}
       <span 
         style={{
           fontSize: '0.9rem',
           fontWeight: '800',
-          color: colors.text,
+          color: textColor,
           zIndex: 2,
           position: 'relative'
         }}

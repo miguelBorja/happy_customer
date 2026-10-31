@@ -43,39 +43,24 @@ type Car struct {
 	SoldAt              *time.Time
 }
 
-func (d *DB) UpsertCar(car Car) error {
-	q := `
-	INSERT INTO cars (
-		url, title, brand, model, year, price, price_text, pasajeros, puertas, cilindrada,
-		color_exterior, color_interior, combustible, estado, estilo, fecha_ingreso,
-		kilometraje, placa, precio_negociable, provincia, se_recibe, transmision, pago_impuestos,
-		equip_aire_ac, equip_aire_climatizado, equip_alarma, equip_android_auto, equip_apple_carplay,
-		equip_aros_lujo, equip_asiento_memoria, equip_asientos_electricos, equip_bluetooth,
-		equip_bolsa_aire, equip_caja_dual, equip_cierre_central, equip_computadora, equip_control_crucero,
-		equip_control_descenso, equip_radio_volante, equip_estabilidad, equip_camara_360,
-		equip_camara_retroceso, equip_desempanador, equip_direccion, equip_espejos_electricos,
-		equip_frenos_abs, equip_halogenos, equip_llave_inteligente, equip_xenon, equip_radio_usb,
-		equip_retrovisores, equip_revision_tecnica, equip_sensor_lluvia, equip_sensores_retroceso,
-		equip_sensores_frontales, equip_sunroof, equip_tapiceria_cuero, equip_turbo,
-		equip_vidrios_electricos, equip_vidrios_tintados, equip_volante_ajustable, equip_volante_multifuncional,
-		seller_name, seller_phone, seller_address, comment,
-		scraped_at, last_seen_at
-	) VALUES (
-		?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-		?, ?, ?, ?, ?, ?,
-		?, ?, ?, ?, ?, ?, ?,
-		?, ?, ?, ?, ?,
-		?, ?, ?, ?,
-		?, ?, ?, ?, ?,
-		?, ?, ?, ?,
-		?, ?, ?, ?,
-		?, ?, ?, ?, ?,
-		?, ?, ?, ?,
-		?, ?, ?, ?,
-		?, ?, ?, ?,
-		?, ?, ?, ?,
-		?, ?
-	)
+const carColumns = `
+	url, title, brand, model, year, price, price_text, pasajeros, puertas, cilindrada,
+	color_exterior, color_interior, combustible, estado, estilo, fecha_ingreso,
+	kilometraje, placa, precio_negociable, provincia, se_recibe, transmision, pago_impuestos,
+	equip_aire_ac, equip_aire_climatizado, equip_alarma, equip_android_auto, equip_apple_carplay,
+	equip_aros_lujo, equip_asiento_memoria, equip_asientos_electricos, equip_bluetooth,
+	equip_bolsa_aire, equip_caja_dual, equip_cierre_central, equip_computadora, equip_control_crucero,
+	equip_control_descenso, equip_radio_volante, equip_estabilidad, equip_camara_360,
+	equip_camara_retroceso, equip_desempanador, equip_direccion, equip_espejos_electricos,
+	equip_frenos_abs, equip_halogenos, equip_llave_inteligente, equip_xenon, equip_radio_usb,
+	equip_retrovisores, equip_revision_tecnica, equip_sensor_lluvia, equip_sensores_retroceso,
+	equip_sensores_frontales, equip_sunroof, equip_tapiceria_cuero, equip_turbo,
+	equip_vidrios_electricos, equip_vidrios_tintados, equip_volante_ajustable, equip_volante_multifuncional,
+	seller_name, seller_phone, seller_address, comment,
+	scraped_at, last_seen_at
+`
+
+const carOnConflictUpdate = `
 	ON CONFLICT(url) DO UPDATE SET
 		title=excluded.title,
 		brand=excluded.brand,
@@ -106,21 +91,22 @@ func (d *DB) UpsertCar(car Car) error {
 		is_sold=0,
 		last_seen_at=excluded.last_seen_at,
 		sold_at=NULL;
-	`
-	
+`
+
+func carToArgs(car *Car) []interface{} {
 	car.Title = cleanString(car.Title)
 	car.Brand = cleanString(car.Brand)
 	car.Model = cleanString(car.Model)
 	car.Comment = CleanComment(car.Comment)
 
 	e := func(key string) int {
-		if car.Equipments[key] {
+		if car.Equipments != nil && car.Equipments[key] {
 			return 1
 		}
 		return 0
 	}
 
-	_, err := d.Exec(d.queryFormat(q),
+	return []interface{}{
 		car.URL, car.Title, car.Brand, car.Model, car.Year, car.Price, car.PriceText, car.Pasajeros, car.Puertas, car.Cilindrada,
 		car.ColorExterior, car.ColorInterior, car.Combustible, car.Estado, car.Estilo, car.FechaIngreso,
 		car.Kilometraje, car.Placa, car.PrecioNegociable, car.Provincia, car.SeRecibe, car.Transmision, car.PagoImpuestos,
@@ -135,9 +121,74 @@ func (d *DB) UpsertCar(car Car) error {
 		e("Vidrios eléctricos"), e("Vidrios tintados"), e("Volante ajustable"), e("Volante multifuncional"),
 		car.SellerName, car.SellerPhone, car.SellerAddress, car.Comment,
 		car.ScrapedAt, car.LastSeenAt,
+	}
+}
+
+func (d *DB) UpsertCar(car Car) error {
+	q := fmt.Sprintf("INSERT INTO cars (%s) VALUES (%s) %s",
+		carColumns,
+		strings.Repeat("?, ", 67)+"?",
+		carOnConflictUpdate,
 	)
+	args := carToArgs(&car)
+	_, err := d.Exec(d.queryFormat(q), args...)
 	return err
 }
+
+const batchChunkSize = 25
+
+// UpsertCarBatch inserts or updates a slice of cars in chunks of 25 using multi-row SQL statements,
+// drastically reducing network round-trips for remote databases (like Turso/Postgres).
+func (d *DB) UpsertCarBatch(cars []Car) error {
+	if len(cars) == 0 {
+		return nil
+	}
+	if len(cars) == 1 {
+		return d.UpsertCar(cars[0])
+	}
+
+	for i := 0; i < len(cars); i += batchChunkSize {
+		end := i + batchChunkSize
+		if end > len(cars) {
+			end = len(cars)
+		}
+		if err := d.upsertCarChunk(cars[i:end]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (d *DB) upsertCarChunk(cars []Car) error {
+	if len(cars) == 0 {
+		return nil
+	}
+	if len(cars) == 1 {
+		return d.UpsertCar(cars[0])
+	}
+
+	const colsPerRow = 68
+	valueRow := "(" + strings.Repeat("?, ", colsPerRow-1) + "?)"
+	rowPlaceholders := make([]string, len(cars))
+	for i := range cars {
+		rowPlaceholders[i] = valueRow
+	}
+
+	q := fmt.Sprintf("INSERT INTO cars (%s) VALUES %s %s",
+		carColumns,
+		strings.Join(rowPlaceholders, ", "),
+		carOnConflictUpdate,
+	)
+
+	args := make([]interface{}, 0, len(cars)*colsPerRow)
+	for i := range cars {
+		args = append(args, carToArgs(&cars[i])...)
+	}
+
+	_, err := d.Exec(d.queryFormat(q), args...)
+	return err
+}
+
 
 func (d *DB) MarkSold(urls []string) error {
 	if len(urls) == 0 {

@@ -3,6 +3,9 @@ import { fetchBargains } from '../api/client';
 import CarCard from '../components/CarCard';
 import MileageBar from '../components/MileageBar';
 import PriceBar from '../components/PriceBar';
+import { CarThumb } from '../components/CarPhoto';
+import CarDetailsModal from '../components/CarDetailsModal';
+import { useTableDensity } from '../hooks/useTableDensity';
 import { useLanguage } from '../context/LanguageContext';
 import { useFavorites } from '../hooks/useFavorites';
 import { useSeenCars } from '../hooks/useSeenCars';
@@ -12,6 +15,8 @@ const BargainsPage = ({ viewMode, setViewMode }) => {
   const [bargains, setBargains] = useState([]);
   const [sortBy, setSortBy] = useState('discount');
   const [loading, setLoading] = useState(true);
+  const [selectedCar, setSelectedCar] = useState(null);
+  const { density, setDensity, showPhotos } = useTableDensity();
   const { language } = useLanguage();
   const { isFavorite, toggleFavorite } = useFavorites();
   const { isNew } = useSeenCars();
@@ -80,6 +85,23 @@ const BargainsPage = ({ viewMode, setViewMode }) => {
               </select>
             </div>
 
+            {viewMode === 'table' && (
+              <div className="table-density-toggle">
+                <button
+                  className={`btn-view-toggle ${density === 'photos' ? 'active' : ''}`}
+                  onClick={() => setDensity('photos')}
+                >
+                  {language === 'es' ? 'Con fotos' : 'Photos'}
+                </button>
+                <button
+                  className={`btn-view-toggle ${density === 'compact' ? 'active' : ''}`}
+                  onClick={() => setDensity('compact')}
+                >
+                  {language === 'es' ? 'Compacta' : 'Compact'}
+                </button>
+              </div>
+            )}
+
             <div className="view-mode-toggle">
               <button 
                 className={`btn-view-toggle ${viewMode === 'cards' ? 'active' : ''}`}
@@ -144,7 +166,7 @@ const BargainsPage = ({ viewMode, setViewMode }) => {
               <div style={{ flexGrow: 1 }} draggable={true} onDragStart={(e) => { e.dataTransfer.setData('application/json', JSON.stringify(b.car)); }}>
                 <CarCard 
                   car={b.car} 
-                  isNew={isNew(b.car.URL)}
+                  isNew={isNew(b.car)}
                   isFav={isFavorite(b.car.URL)}
                   onToggleFav={toggleFavorite}
                 />
@@ -176,6 +198,7 @@ const BargainsPage = ({ viewMode, setViewMode }) => {
             <thead>
               <tr>
                 <th></th>
+                {showPhotos && <th></th>}
                 <th>{language === 'es' ? 'Descuento' : 'Discount'}</th>
                 <th>{language === 'es' ? 'Título' : 'Title'}</th>
                 <th>{language === 'es' ? 'Año' : 'Year'}</th>
@@ -189,12 +212,16 @@ const BargainsPage = ({ viewMode, setViewMode }) => {
             <tbody>
               {sortedBargains.map((b) => {
                 const car = b.car;
-                const carIsNew = isNew(car.URL);
+                const carIsNew = isNew(car);
                 const carIsFav = isFavorite(car.URL);
                 return (
                   <tr 
                     key={car.URL} 
-                    className={`draggable-car-row ${carIsNew ? 'new-car-row' : ''} ${carIsFav ? 'fav-car-row' : ''}`}
+                    className={`draggable-car-row clickable-row ${carIsNew ? 'new-car-row' : ''} ${carIsFav ? 'fav-car-row' : ''}`}
+                    onClick={(e) => {
+                      if (e.target.closest('a, button, .tooltip-container')) return;
+                      setSelectedCar(car);
+                    }}
                     draggable={true}
                     onDragStart={(e) => {
                       e.dataTransfer.setData('application/json', JSON.stringify(car));
@@ -210,6 +237,11 @@ const BargainsPage = ({ viewMode, setViewMode }) => {
                         {carIsFav ? '★' : '☆'}
                       </button>
                     </td>
+                    {showPhotos && (
+                      <td className="photo-cell">
+                        <CarThumb car={car} variant="table" hoverPreview />
+                      </td>
+                    )}
                     <td style={{ fontWeight: 'bold', color: '#10b981' }}>
                       {Math.round(b.discountPercent)}%
                     </td>
@@ -246,6 +278,14 @@ const BargainsPage = ({ viewMode, setViewMode }) => {
             </tbody>
           </table>
         </div>
+      )}
+
+      {selectedCar && (
+        <CarDetailsModal
+          isOpen
+          onClose={() => setSelectedCar(null)}
+          car={selectedCar}
+        />
       )}
     </div>
   );
