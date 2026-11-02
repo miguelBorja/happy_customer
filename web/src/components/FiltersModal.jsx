@@ -391,10 +391,10 @@ const FiltersModal = ({
           {/* Transmission */}
           <div className="filter-group">
             <label>{t('transmission')}</label>
-            <select name="transmision" className="select-field" value={filters.transmision || ''} onChange={handleChange}>
+            <select name="transmision" className="select-field" value={filters.transmision === 'Automática' ? 'Automática/Dual' : (filters.transmision || '')} onChange={handleChange}>
               <option value="">{t('any')}</option>
               <option value="Manual">{t('manual')}</option>
-              <option value="Automática">{t('automatic')}</option>
+              <option value="Automática/Dual">{t('automatic')}</option>
               <option value="Dual">{t('dual')}</option>
             </select>
           </div>

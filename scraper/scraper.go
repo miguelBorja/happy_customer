@@ -413,7 +413,7 @@ func (s *Scraper) ProcessBrand(brandName, brandID string) {
 	savedCount := <-doneCollecting
 	seenUrls := <-producerDone
 
-	if seenUrls != nil {
+	if len(seenUrls) > 0 {
 		var sold []string
 		for url := range activeCars {
 			if !seenUrls[url] {
@@ -426,6 +426,8 @@ func (s *Scraper) ProcessBrand(brandName, brandID string) {
 			}
 			log.Printf("Marked %d cars as sold.", len(sold))
 		}
+	} else {
+		log.Printf("Skipping MarkSold for %s: search returned 0 URLs or encountered an error.", brandName)
 	}
 	log.Printf("Finished brand %s. Saved/updated %d cars.\n", brandName, savedCount)
 }
@@ -461,12 +463,14 @@ func (s *Scraper) producer(client *http.Client, brandName, brandID string, jobs 
 	seenUrls := make(map[string]bool)
 	queuedCount := 0
 	skippedCount := 0
+	hadError := false
 
 	for page := 1; ; page++ {
 		targetURL := fmt.Sprintf("https://crautos.com/autosusados/searchresults.cfm?p=%d", page)
 		req, err := http.NewRequest("POST", targetURL, strings.NewReader(form.Encode()))
 		if err != nil {
 			log.Printf("[%s] Error building request for page %d: %v", brandName, page, err)
+			hadError = true
 			break
 		}
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -479,6 +483,7 @@ func (s *Scraper) producer(client *http.Client, brandName, brandID string, jobs 
 			resp, err = client.Do(req)
 			if err != nil {
 				log.Printf("[%s] Error fetching search page %d: %v", brandName, page, err)
+				hadError = true
 				break
 			}
 		}
@@ -486,6 +491,7 @@ func (s *Scraper) producer(client *http.Client, brandName, brandID string, jobs 
 		if resp.StatusCode != http.StatusOK {
 			resp.Body.Close()
 			log.Printf("[%s] Unexpected status %d on search page %d", brandName, resp.StatusCode, page)
+			hadError = true
 			break
 		}
 
@@ -493,6 +499,7 @@ func (s *Scraper) producer(client *http.Client, brandName, brandID string, jobs 
 		resp.Body.Close()
 		if err != nil {
 			log.Printf("[%s] Failed to parse HTML on search page %d: %v", brandName, page, err)
+			hadError = true
 			break
 		}
 
@@ -557,6 +564,10 @@ func (s *Scraper) producer(client *http.Client, brandName, brandID string, jobs 
 		log.Printf("[%s] Producer summary: %d queued, %d skipped (already refreshed within %dh)", brandName, queuedCount, skippedCount, s.SkipRefreshedHours)
 	} else {
 		log.Printf("[%s] Producer summary: %d queued", brandName, queuedCount)
+	}
+
+	if hadError || len(seenUrls) == 0 {
+		return nil
 	}
 
 	return seenUrls

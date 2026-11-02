@@ -139,3 +139,126 @@ func TestUpsertCarBatch(t *testing.T) {
 		t.Errorf("car 1: expected price 17500, comment 'Precio rebajado!', got %d, %q", price, comment)
 	}
 }
+
+func TestFuelAndTransmissionFilterVariants(t *testing.T) {
+	database, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	now := time.Now()
+	cars := []Car{
+		{
+			URL:         "https://crautos.com/cardetail.cfm?c=201",
+			Title:       "Tesla Model 3 2022",
+			Brand:       "Tesla",
+			Model:       "Model 3",
+			Year:        2022,
+			Price:       35000,
+			Combustible: "Eléctrico",
+			Transmision: "Automática",
+			ScrapedAt:   now,
+			LastSeenAt:  now,
+		},
+		{
+			URL:         "https://crautos.com/cardetail.cfm?c=202",
+			Title:       "Toyota Prius 2021",
+			Brand:       "Toyota",
+			Model:       "Prius",
+			Year:        2021,
+			Price:       22000,
+			Combustible: "Híbrido",
+			Transmision: "Automática/Dual",
+			ScrapedAt:   now,
+			LastSeenAt:  now,
+		},
+		{
+			URL:         "https://crautos.com/cardetail.cfm?c=203",
+			Title:       "Land Rover Defender 2020",
+			Brand:       "Land",
+			Model:       "Defender",
+			Year:        2020,
+			Price:       60000,
+			Combustible: "Diesel",
+			Transmision: "Manual",
+			ScrapedAt:   now,
+			LastSeenAt:  now,
+		},
+	}
+
+	if err := database.UpsertCarBatch(cars); err != nil {
+		t.Fatalf("UpsertCarBatch failed: %v", err)
+	}
+
+	electricVariants := []string{"Eléctrico", "electrico", "eléctrico", "electric"}
+	for _, fuel := range electricVariants {
+		cars, err := database.GetCars(FilterParams{Combustible: fuel})
+		if err != nil {
+			t.Fatalf("GetCars(Combustible: %q) failed: %v", fuel, err)
+		}
+		if len(cars) != 1 || cars[0].Brand != "Tesla" {
+			t.Errorf("GetCars(Combustible: %q) expected 1 Tesla car, got %d", fuel, len(cars))
+		}
+
+		brands, err := database.GetFilteredBrands(FilterParams{Combustible: fuel})
+		if err != nil {
+			t.Fatalf("GetFilteredBrands(Combustible: %q) failed: %v", fuel, err)
+		}
+		if len(brands) != 1 || brands[0] != "Tesla" {
+			t.Errorf("GetFilteredBrands(Combustible: %q) expected [Tesla], got %v", fuel, brands)
+		}
+	}
+
+	hybridVariants := []string{"Híbrido", "hibrido"}
+	for _, fuel := range hybridVariants {
+		cars, err := database.GetCars(FilterParams{Combustible: fuel})
+		if err != nil {
+			t.Fatalf("GetCars(Combustible: %q) failed: %v", fuel, err)
+		}
+		if len(cars) != 1 || cars[0].Brand != "Toyota" {
+			t.Errorf("GetCars(Combustible: %q) expected 1 Toyota car, got %d", fuel, len(cars))
+		}
+
+		brands, err := database.GetFilteredBrands(FilterParams{Combustible: fuel})
+		if err != nil {
+			t.Fatalf("GetFilteredBrands(Combustible: %q) failed: %v", fuel, err)
+		}
+		if len(brands) != 1 || brands[0] != "Toyota" {
+			t.Errorf("GetFilteredBrands(Combustible: %q) expected [Toyota], got %v", fuel, brands)
+		}
+	}
+
+	transVariants := []string{"Automática", "Automática/Dual"}
+	for _, trans := range transVariants {
+		cars, err := database.GetCars(FilterParams{Transmision: trans})
+		if err != nil {
+			t.Fatalf("GetCars(Transmision: %q) failed: %v", trans, err)
+		}
+		if len(cars) != 2 {
+			t.Errorf("GetCars(Transmision: %q) expected 2 cars, got %d", trans, len(cars))
+		}
+
+		brands, err := database.GetFilteredBrands(FilterParams{Transmision: trans})
+		if err != nil {
+			t.Fatalf("GetFilteredBrands(Transmision: %q) failed: %v", trans, err)
+		}
+		if len(brands) != 2 {
+			t.Errorf("GetFilteredBrands(Transmision: %q) expected 2 brands, got %d", trans, len(brands))
+		}
+	}
+
+	// Test multi-word brand resolution in GetActiveURLs and GetActiveCarsLastSeen
+	activeURLs, err := database.GetActiveURLs("Land Rover")
+	if err != nil {
+		t.Fatalf("GetActiveURLs('Land Rover') failed: %v", err)
+	}
+	if len(activeURLs) != 1 || activeURLs[0] != "https://crautos.com/cardetail.cfm?c=203" {
+		t.Errorf("GetActiveURLs('Land Rover') expected 1 URL, got %v", activeURLs)
+	}
+
+	activeMap, err := database.GetActiveCarsLastSeen("Land Rover")
+	if err != nil {
+		t.Fatalf("GetActiveCarsLastSeen('Land Rover') failed: %v", err)
+	}
+	if len(activeMap) != 1 || activeMap["https://crautos.com/cardetail.cfm?c=203"].IsZero() {
+		t.Errorf("GetActiveCarsLastSeen('Land Rover') expected map with car 203, got %v", activeMap)
+	}
+}

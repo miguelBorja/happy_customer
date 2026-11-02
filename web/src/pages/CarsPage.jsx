@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { fetchCars, fetchBrands, fetchCarsByUrls, fetchProvinces, fetchTopSellers, fetchFilteredBrands } from '../api/client';
 import { trackEvent } from '../utils/analytics';
 import { formatListingAge, formatListingDate } from '../utils/listingDate';
@@ -24,6 +24,8 @@ import { CarThumb } from '../components/CarPhoto';
 import CarDetailsModal from '../components/CarDetailsModal';
 import { useTableDensity } from '../hooks/useTableDensity';
 
+const RENDER_STEP = 20;
+
 const CarsPage = ({
   filters,
   setFilters,
@@ -35,6 +37,10 @@ const CarsPage = ({
   setViewMode
 }) => {
   const [cars, setCars] = useState([]);
+  const [visibleCount, setVisibleCount] = useState(RENDER_STEP);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMoreServer, setHasMoreServer] = useState(false);
+  const sentinelRef = useRef(null);
   const [brands, setBrands] = useState([]);
   const [provinces, setProvinces] = useState([]);
   const [sellers, setSellers] = useState([]);
@@ -100,15 +106,49 @@ const CarsPage = ({
 
   const loadCars = useCallback(async () => {
     setLoading(true);
+    setVisibleCount(RENDER_STEP);
     try {
-      const data = await fetchCars(filters);
+      const batchLimit = Number(filters.limit) || 100;
+      const data = await fetchCars({ ...filters, offset: 0 });
       setCars(data);
+      const allowInfiniteServer = !filters.limit || Number(filters.limit) >= 100;
+      setHasMoreServer(allowInfiniteServer && data.length >= batchLimit);
     } catch (err) {
       console.error(err);
+      setHasMoreServer(false);
     } finally {
       setLoading(false);
     }
   }, [filters]);
+
+  useEffect(() => {
+    setVisibleCount(RENDER_STEP);
+  }, [showFavsOnly, clientSort]);
+
+  const loadMoreFromServer = useCallback(async () => {
+    if (loading || loadingMore || !hasMoreServer || showFavsOnly) return;
+    setLoadingMore(true);
+    try {
+      const batchLimit = Number(filters.limit) || 100;
+      const nextBatch = await fetchCars({ ...filters, offset: cars.length });
+      if (nextBatch.length > 0) {
+        const existingUrls = new Set(cars.map(c => c.URL));
+        const uniqueNew = nextBatch.filter(c => !existingUrls.has(c.URL));
+        if (uniqueNew.length > 0) {
+          setCars(prev => [...prev, ...uniqueNew]);
+          setVisibleCount(prev => prev + RENDER_STEP);
+        }
+        setHasMoreServer(nextBatch.length >= batchLimit && uniqueNew.length > 0);
+      } else {
+        setHasMoreServer(false);
+      }
+    } catch (err) {
+      console.error(err);
+      setHasMoreServer(false);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loading, loadingMore, hasMoreServer, showFavsOnly, filters, cars.length]);
 
   useEffect(() => {
     loadCars();
@@ -152,10 +192,42 @@ const CarsPage = ({
     return base;
   }, [cars, favCars, showFavsOnly, isFavorite, clientSort]);
 
+  const visibleCars = useMemo(() => {
+    return displayCars.slice(0, visibleCount);
+  }, [displayCars, visibleCount]);
+
+  useEffect(() => {
+    const sentinelEl = sentinelRef.current;
+    if (!sentinelEl) return;
+
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0]?.isIntersecting) {
+        if (visibleCount < displayCars.length) {
+          setVisibleCount(prev => Math.min(prev + RENDER_STEP, displayCars.length));
+        } else if (!showFavsOnly && hasMoreServer && !loading && !loadingMore) {
+          loadMoreFromServer();
+        }
+      }
+    }, { root: null, rootMargin: '400px', threshold: 0 });
+
+    observer.observe(sentinelEl);
+    return () => {
+      observer.disconnect();
+    };
+  }, [visibleCount, displayCars.length, showFavsOnly, hasMoreServer, loading, loadingMore, loadMoreFromServer]);
+
   const newCarsCountVisible = cars.filter(c => isNew(c)).length;
 
   const currentSortPreset = useMemo(() => {
     if (clientSort) return clientSort;
+    if (
+      filters.sortTitle === 'asc' &&
+      filters.sortYear === 'desc' &&
+      filters.sortPrice === 'asc' &&
+      filters.sortKm === 'asc'
+    ) {
+      return 'optimal';
+    }
     if (filters.sortPrice === 'asc') return 'priceAsc';
     if (filters.sortPrice === 'desc') return 'priceDesc';
     if (filters.sortKm === 'asc') return 'kmAsc';
@@ -181,6 +253,7 @@ const CarsPage = ({
     setClientSort(null);
     const sortPresets = {
       recent: { sortTitle: '', sortYear: '', sortPrice: '', sortKm: '' },
+      optimal: { sortTitle: 'asc', sortYear: 'desc', sortPrice: 'asc', sortKm: 'asc' },
       priceAsc: { sortTitle: '', sortYear: '', sortPrice: 'asc', sortKm: '' },
       priceDesc: { sortTitle: '', sortYear: '', sortPrice: 'desc', sortKm: '' },
       kmAsc: { sortTitle: '', sortYear: '', sortPrice: '', sortKm: 'asc' },
@@ -262,6 +335,25 @@ const CarsPage = ({
     setShowFavsOnly(false);
   };
 
+  const getCombustibleLabel = (val) => {
+    if (!val) return '';
+    const lower = val.toLowerCase();
+    if (['eléctrico', 'electrico', 'electric'].includes(lower)) return t('electric');
+    if (['híbrido', 'hibrido', 'hybrid'].includes(lower)) return t('hybrid');
+    if (['gasolina', 'gasoline'].includes(lower)) return t('gasoline');
+    if (['diesel', 'diésel'].includes(lower)) return t('diesel');
+    return val;
+  };
+
+  const getTransmisionLabel = (val) => {
+    if (!val) return '';
+    const lower = val.toLowerCase();
+    if (['automática/dual', 'automatica/dual', 'automática', 'automatica'].includes(lower)) return t('automatic');
+    if (lower === 'dual') return t('dual');
+    if (lower === 'manual') return t('manual');
+    return val;
+  };
+
   const getActiveFilterTags = () => {
     const tags = [];
     const activeBrands = Array.isArray(filters.brands)
@@ -330,8 +422,8 @@ const CarsPage = ({
     }
     if (filters.kmMax) tags.push({ id: 'kmMax', label: `Max km: ${Number(filters.kmMax).toLocaleString()}`, clear: () => setFilters(f => ({ ...f, kmMax: '', kmMode: '' })) });
     if (filters.estilo) tags.push({ id: 'estilo', label: `Estilo: ${filters.estilo}`, clear: () => setFilters(f => ({ ...f, estilo: '' })) });
-    if (filters.transmision) tags.push({ id: 'transmision', label: `${t('transmission')}: ${t(filters.transmision.toLowerCase()) || filters.transmision}`, clear: () => setFilters(f => ({ ...f, transmision: '' })) });
-    if (filters.combustible) tags.push({ id: 'combustible', label: `${t('fuel')}: ${t(filters.combustible.toLowerCase()) || filters.combustible}`, clear: () => setFilters(f => ({ ...f, combustible: '' })) });
+    if (filters.transmision) tags.push({ id: 'transmision', label: `${t('transmission')}: ${getTransmisionLabel(filters.transmision)}`, clear: () => setFilters(f => ({ ...f, transmision: '' })) });
+    if (filters.combustible) tags.push({ id: 'combustible', label: `${t('fuel')}: ${getCombustibleLabel(filters.combustible)}`, clear: () => setFilters(f => ({ ...f, combustible: '' })) });
     if (filters.sellerName) tags.push({ id: 'sellerName', label: `${t('sellerName') || 'Seller'}: ${filters.sellerName}`, clear: () => setFilters(f => ({ ...f, sellerName: '', sellerMode: '' })) });
     if (filters.scrapedPeriod) {
       let label = '';
@@ -377,6 +469,34 @@ const CarsPage = ({
 
   const quickSearches = [
     {
+      id: 'optimalSort',
+      label: language === 'es' ? '⭐ Óptimo' : '⭐ Optimal',
+      isActive:
+        !clientSort &&
+        filters.sortTitle === 'asc' &&
+        filters.sortYear === 'desc' &&
+        filters.sortPrice === 'asc' &&
+        filters.sortKm === 'asc',
+      apply: () => {
+        setClientSort(null);
+        setFilters(f => ({
+          ...f,
+          sortTitle: 'asc',
+          sortYear: 'desc',
+          sortPrice: 'asc',
+          sortKm: 'asc',
+        }));
+      },
+      remove: () =>
+        setFilters(f => ({
+          ...f,
+          sortTitle: '',
+          sortYear: '',
+          sortPrice: '',
+          sortKm: '',
+        })),
+    },
+    {
       id: 'goodDeals',
       label: language === 'es' ? '🔥 Buenos precios' : '🔥 Good deals',
       isActive: clientSort === 'bestDeal',
@@ -416,21 +536,21 @@ const CarsPage = ({
     {
       id: 'electric',
       label: language === 'es' ? '⚡ Eléctricos' : '⚡ Electric',
-      isActive: filters.combustible === 'Eléctrico',
+      isActive: ['eléctrico', 'electrico'].includes((filters.combustible || '').toLowerCase()),
       apply: () => setFilters(f => ({ ...f, combustible: 'Eléctrico' })),
       remove: () => setFilters(f => ({ ...f, combustible: '' })),
     },
     {
       id: 'hybrid',
       label: language === 'es' ? '🌿 Híbridos' : '🌿 Hybrid',
-      isActive: filters.combustible === 'Híbrido',
+      isActive: ['híbrido', 'hibrido'].includes((filters.combustible || '').toLowerCase()),
       apply: () => setFilters(f => ({ ...f, combustible: 'Híbrido' })),
       remove: () => setFilters(f => ({ ...f, combustible: '' })),
     },
     {
       id: 'auto2020',
       label: language === 'es' ? '⚙️ Automáticos 2020+' : '⚙️ Automatic 2020+',
-      isActive: filters.transmision === 'Automática/Dual' && filters.yearMin === '2020',
+      isActive: ['automática/dual', 'automatica/dual', 'automática', 'automatica'].includes((filters.transmision || '').toLowerCase()) && filters.yearMin === '2020',
       apply: () => setFilters(f => ({ ...f, transmision: 'Automática/Dual', yearMin: '2020' })),
       remove: () => setFilters(f => ({ ...f, transmision: '', yearMin: '' })),
     },
@@ -475,6 +595,7 @@ const CarsPage = ({
           style={{ width: 'auto', minWidth: '170px' }}
         >
           <option value="recent">{language === 'es' ? 'Más recientes' : 'Most recent'}</option>
+          <option value="optimal">{language === 'es' ? 'Óptimo (Modelo, Año, Precio, Km)' : 'Optimal (Model, Year, Price, Km)'}</option>
           <option value="bestDeal">{language === 'es' ? 'Mejor oferta' : 'Best deal'}</option>
           <option value="priceAsc">{language === 'es' ? 'Menor precio' : 'Lowest price'}</option>
           <option value="priceDesc">{language === 'es' ? 'Mayor precio' : 'Highest price'}</option>
@@ -614,7 +735,7 @@ const CarsPage = ({
         {!loading && displayCars.length > 0 && (
           viewMode === 'cards' ? (
             <div className="results-grid">
-              {displayCars.map(car => (
+              {visibleCars.map(car => (
                 <CarCard
                   key={car.URL}
                   car={car}
@@ -649,7 +770,7 @@ const CarsPage = ({
                   </tr>
                 </thead>
                 <tbody>
-                  {displayCars.map((car, idx) => {
+                  {visibleCars.map((car, idx) => {
                     const carIsNew = isNew(car);
                     const carIsFav = isFavorite(car.URL);
                     const waPhone = getWhatsAppPhone(car.SellerPhone);
@@ -755,7 +876,7 @@ const CarsPage = ({
               </table>
 
               <div className="top-car-mobile-list">
-                {displayCars.map((car, idx) => {
+                {visibleCars.map((car, idx) => {
                   const carIsNew = isNew(car);
                   const carIsFav = isFavorite(car.URL);
                   return (
@@ -842,6 +963,15 @@ const CarsPage = ({
               </div>
             </div>
           )
+        )}
+
+        {!loading && displayCars.length > 0 && (visibleCount < displayCars.length || (!showFavsOnly && hasMoreServer)) && (
+          <div
+            ref={sentinelRef}
+            style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '1.5rem 0', minHeight: '40px' }}
+          >
+            {loadingMore && <div className="loader"></div>}
+          </div>
         )}
       </div>
 

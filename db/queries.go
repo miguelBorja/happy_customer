@@ -213,7 +213,12 @@ func (d *DB) MarkSold(urls []string) error {
 
 func (d *DB) GetActiveURLs(brand string) ([]string, error) {
 	q := `SELECT url FROM cars WHERE LOWER(brand)=LOWER(?) AND is_sold=0`
-	rows, err := d.Query(d.queryFormat(q), brand)
+	args := []interface{}{brand}
+	if fields := strings.Fields(brand); len(fields) > 1 {
+		q = `SELECT url FROM cars WHERE (LOWER(brand)=LOWER(?) OR LOWER(brand)=LOWER(?)) AND is_sold=0`
+		args = []interface{}{brand, fields[0]}
+	}
+	rows, err := d.Query(d.queryFormat(q), args...)
 	if err != nil {
 		return nil, err
 	}
@@ -251,7 +256,12 @@ func (d *DB) GetActiveURLsByFuel(fuel string) ([]string, error) {
 
 func (d *DB) GetActiveCarsLastSeen(brand string) (map[string]time.Time, error) {
 	q := `SELECT url, last_seen_at FROM cars WHERE LOWER(brand)=LOWER(?) AND is_sold=0`
-	rows, err := d.Query(d.queryFormat(q), brand)
+	args := []interface{}{brand}
+	if fields := strings.Fields(brand); len(fields) > 1 {
+		q = `SELECT url, last_seen_at FROM cars WHERE (LOWER(brand)=LOWER(?) OR LOWER(brand)=LOWER(?)) AND is_sold=0`
+		args = []interface{}{brand, fields[0]}
+	}
+	rows, err := d.Query(d.queryFormat(q), args...)
 	if err != nil {
 		return nil, err
 	}
@@ -370,6 +380,44 @@ type FilterParams struct {
 	SellerName   string
 }
 
+func appendCombustibleFilter(q string, args []interface{}, combustible string) (string, []interface{}) {
+	c := strings.ToLower(strings.TrimSpace(combustible))
+	switch c {
+	case "electrico", "eléctrico", "electric", "eléctricos", "electricos", "ev":
+		q += " AND combustible IN (?, ?, ?, ?)"
+		args = append(args, "Eléctrico", "Electrico", "eléctrico", "electrico")
+	case "hibrido", "híbrido", "hybrid", "híbridos", "hibridos":
+		q += " AND combustible IN (?, ?, ?, ?)"
+		args = append(args, "Híbrido", "Hibrido", "híbrido", "hibrido")
+	case "gasolina", "gasoline", "gas":
+		q += " AND combustible IN (?, ?)"
+		args = append(args, "Gasolina", "gasolina")
+	case "diesel", "diésel":
+		q += " AND combustible IN (?, ?, ?, ?)"
+		args = append(args, "Diesel", "Diésel", "diesel", "diésel")
+	default:
+		q += " AND combustible = ?"
+		args = append(args, combustible)
+	}
+	return q, args
+}
+
+func appendTransmisionFilter(q string, args []interface{}, transmision string) (string, []interface{}) {
+	t := strings.ToLower(strings.TrimSpace(transmision))
+	switch t {
+	case "automatica", "automática", "automatic", "dual", "automática/dual", "automatica/dual":
+		q += " AND transmision IN (?, ?, ?, ?, ?)"
+		args = append(args, "Automática/Dual", "Automática", "Automatica", "Automatica/Dual", "Dual")
+	case "manual":
+		q += " AND transmision IN (?, ?)"
+		args = append(args, "Manual", "manual")
+	default:
+		q += " AND transmision = ?"
+		args = append(args, transmision)
+	}
+	return q, args
+}
+
 func (d *DB) GetCars(f FilterParams) ([]Car, error) {
 	q := `SELECT url, title, brand, model, year, price, price_text, pasajeros, puertas, cilindrada,
 		color_exterior, color_interior, combustible, estado, estilo, fecha_ingreso,
@@ -473,12 +521,10 @@ func (d *DB) GetCars(f FilterParams) ([]Car, error) {
 		args = append(args, f.Estilo)
 	}
 	if f.Transmision != "" {
-		q += " AND transmision = ?"
-		args = append(args, f.Transmision)
+		q, args = appendTransmisionFilter(q, args, f.Transmision)
 	}
 	if f.Combustible != "" {
-		q += " AND combustible = ?"
-		args = append(args, f.Combustible)
+		q, args = appendCombustibleFilter(q, args, f.Combustible)
 	}
 	if f.Provincia != "" {
 		q += " AND provincia = ?"
@@ -720,12 +766,10 @@ func (d *DB) GetFilteredBrands(f FilterParams) ([]string, error) {
 		args = append(args, f.PriceMin)
 	}
 	if f.Transmision != "" {
-		q += " AND transmision = ?"
-		args = append(args, f.Transmision)
+		q, args = appendTransmisionFilter(q, args, f.Transmision)
 	}
 	if f.Combustible != "" {
-		q += " AND combustible = ?"
-		args = append(args, f.Combustible)
+		q, args = appendCombustibleFilter(q, args, f.Combustible)
 	}
 	if f.SellerName != "" {
 		q += " AND LOWER(seller_name) LIKE ?"
