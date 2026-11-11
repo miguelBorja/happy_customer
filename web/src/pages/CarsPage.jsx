@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { fetchCars, fetchBrands, fetchCarsByUrls, fetchProvinces, fetchTopSellers, fetchFilteredBrands } from '../api/client';
+import { fetchCars, fetchCarsPage, fetchBrands, fetchCarsByUrls, fetchProvinces, fetchTopSellers, fetchFilteredBrands } from '../api/client';
 import { trackEvent } from '../utils/analytics';
 import { formatListingAge, formatListingDate } from '../utils/listingDate';
 import { getWhatsAppPhone, buildWhatsAppLink } from '../utils/phone';
@@ -23,6 +23,7 @@ import {
 import { CarThumb } from '../components/CarPhoto';
 import CarDetailsModal from '../components/CarDetailsModal';
 import { useTableDensity } from '../hooks/useTableDensity';
+import { createDefaultFilters } from '../utils/urlState';
 
 const RENDER_STEP = 20;
 
@@ -33,6 +34,11 @@ const CarsPage = ({
   setLocalTitle,
   showFavsOnly,
   setShowFavsOnly,
+  clientSort,
+  setClientSort,
+  carUrl,
+  onOpenCar,
+  onCloseCar,
   viewMode,
   setViewMode
 }) => {
@@ -40,6 +46,7 @@ const CarsPage = ({
   const [visibleCount, setVisibleCount] = useState(RENDER_STEP);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMoreServer, setHasMoreServer] = useState(false);
+  const [totalCount, setTotalCount] = useState(null);
   const sentinelRef = useRef(null);
   const [brands, setBrands] = useState([]);
   const [provinces, setProvinces] = useState([]);
@@ -52,7 +59,32 @@ const CarsPage = ({
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const { density, setDensity, showPhotos } = useTableDensity();
   const [selectedCar, setSelectedCar] = useState(null);
-  const [clientSort, setClientSort] = useState(null);
+
+  // The open car is driven by carUrl (App keeps it in the URL as ?car=...).
+  // selectedCar only caches the last clicked/fetched car; openCar is derived from the URL.
+  const handleOpenCar = useCallback((car) => {
+    setSelectedCar(car);
+    onOpenCar(car.URL);
+  }, [onOpenCar]);
+
+  const openCar = useMemo(() => {
+    if (!carUrl) return null;
+    if (selectedCar?.URL === carUrl) return selectedCar;
+    return cars.find(c => c.URL === carUrl) || favCars.find(c => c.URL === carUrl) || null;
+  }, [carUrl, selectedCar, cars, favCars]);
+
+  // Shared link: the car may not be in the loaded results, so fetch it once.
+  const needsFetch = Boolean(carUrl) && !openCar && !loading;
+  useEffect(() => {
+    if (!needsFetch) return;
+    let cancelled = false;
+    fetchCarsByUrls([carUrl])
+      .then(data => {
+        if (!cancelled && Array.isArray(data) && data[0]) setSelectedCar(data[0]);
+      })
+      .catch(console.error);
+    return () => { cancelled = true; };
+  }, [needsFetch, carUrl]);
 
   useEffect(() => {
     fetchProvinces().then(setProvinces).catch(console.error);
@@ -104,22 +136,30 @@ const CarsPage = ({
     };
   }, [localTitle]);
 
+  // "Best deal" ordering is resolved by the server over the whole catalog (not just loaded cars).
+  const serverDealParams = useMemo(
+    () => (clientSort === 'bestDeal' ? { sortDeal: 'best' } : {}),
+    [clientSort]
+  );
+
   const loadCars = useCallback(async () => {
     setLoading(true);
     setVisibleCount(RENDER_STEP);
     try {
       const batchLimit = Number(filters.limit) || 100;
-      const data = await fetchCars({ ...filters, offset: 0 });
+      const { cars: data, total } = await fetchCarsPage({ ...filters, ...serverDealParams, offset: 0 });
       setCars(data);
+      setTotalCount(total);
       const allowInfiniteServer = !filters.limit || Number(filters.limit) >= 100;
       setHasMoreServer(allowInfiniteServer && data.length >= batchLimit);
     } catch (err) {
       console.error(err);
       setHasMoreServer(false);
+      setTotalCount(null);
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [filters, serverDealParams]);
 
   useEffect(() => {
     setVisibleCount(RENDER_STEP);
@@ -130,7 +170,7 @@ const CarsPage = ({
     setLoadingMore(true);
     try {
       const batchLimit = Number(filters.limit) || 100;
-      const nextBatch = await fetchCars({ ...filters, offset: cars.length });
+      const nextBatch = await fetchCars({ ...filters, ...serverDealParams, offset: cars.length });
       if (nextBatch.length > 0) {
         const existingUrls = new Set(cars.map(c => c.URL));
         const uniqueNew = nextBatch.filter(c => !existingUrls.has(c.URL));
@@ -148,7 +188,7 @@ const CarsPage = ({
     } finally {
       setLoadingMore(false);
     }
-  }, [loading, loadingMore, hasMoreServer, showFavsOnly, filters, cars.length]);
+  }, [loading, loadingMore, hasMoreServer, showFavsOnly, filters, serverDealParams, cars.length]);
 
   useEffect(() => {
     loadCars();
@@ -172,7 +212,8 @@ const CarsPage = ({
 
   const displayCars = useMemo(() => {
     const base = !showFavsOnly ? cars : favCars.filter(c => isFavorite(c.URL));
-    if (clientSort === 'bestDeal') {
+    // Server already ordered the catalog; only favorites (loaded locally) are sorted here.
+    if (clientSort === 'bestDeal' && showFavsOnly) {
       const withDeals = base.map((car, index) => ({ car, deal: getMarketDeal(car), index }));
       withDeals.sort((a, b) => {
         const hasA = a.deal !== null;
@@ -303,34 +344,7 @@ const CarsPage = ({
 
   const handleResetFilters = () => {
     setClientSort(null);
-    setFilters({
-      title: '',
-      brand: '',
-      brands: [],
-      provincia: '',
-      yearMin: '',
-      yearMax: '',
-      priceMin: '',
-      priceMax: '',
-      priceMode: '',
-      kmMax: '',
-      kmMode: '',
-      estilo: '',
-      transmision: '',
-      combustible: '',
-      sellerName: '',
-      sellerMode: '',
-      isSold: 'false',
-      equipments: [],
-      scrapedFrom: '',
-      scrapedTo: '',
-      scrapedPeriod: '',
-      limit: '100',
-      sortTitle: '',
-      sortYear: '',
-      sortPrice: '',
-      sortKm: '',
-    });
+    setFilters(createDefaultFilters());
     setLocalTitle('');
     setShowFavsOnly(false);
   };
@@ -459,6 +473,7 @@ const CarsPage = ({
       });
     }
     if (filters.isSold !== 'false') tags.push({ id: 'isSold', label: t('showSold'), clear: () => setFilters(f => ({ ...f, isSold: 'false' })) });
+    if (filters.deal === 'good') tags.push({ id: 'deal', label: language === 'es' ? 'Solo buenos precios' : 'Good prices only', clear: () => setFilters(f => ({ ...f, deal: '' })) });
     if (showFavsOnly) tags.push({ id: 'showFavsOnly', label: t('showFavsOnly'), clear: () => setShowFavsOnly(false) });
     
     return tags;
@@ -499,18 +514,23 @@ const CarsPage = ({
     {
       id: 'goodDeals',
       label: language === 'es' ? '🔥 Buenos precios' : '🔥 Good deals',
-      isActive: clientSort === 'bestDeal',
+      // Filter "good prices only" (server-side, whole catalog) + order by best deal.
+      isActive: filters.deal === 'good',
       apply: () => {
         setClientSort('bestDeal');
         setFilters(f => ({
           ...f,
+          deal: 'good',
           sortTitle: '',
           sortYear: '',
           sortPrice: '',
           sortKm: '',
         }));
       },
-      remove: () => setClientSort(null),
+      remove: () => {
+        setClientSort(null);
+        setFilters(f => ({ ...f, deal: '' }));
+      },
     },
     {
       id: 'under15k',
@@ -562,6 +582,11 @@ const CarsPage = ({
       remove: () => setFilters(f => ({ ...f, kmMax: '' })),
     },
   ];
+
+  // Real number of matches from the server (X-Total-Count); favorites and fallbacks use what is loaded.
+  const resultsCount = !showFavsOnly && totalCount !== null
+    ? Math.max(totalCount, displayCars.length)
+    : displayCars.length;
 
   const handleQuickChipClick = (chip) => {
     if (chip.isActive) {
@@ -652,7 +677,7 @@ const CarsPage = ({
         setFilters={setFilters}
         showFavsOnly={showFavsOnly}
         setShowFavsOnly={setShowFavsOnly}
-        resultsCount={displayCars.length}
+        resultsCount={resultsCount}
         onReset={handleResetFilters}
         brands={brands}
         provinces={provinces}
@@ -663,7 +688,7 @@ const CarsPage = ({
       <div className="results-container">
         <div className="results-header">
           <h2>
-            {t('carsFound', { count: displayCars.length })}
+            {t('carsFound', { count: resultsCount.toLocaleString(language === 'es' ? 'es-CR' : 'en-US') })}
             {showFavsOnly && <span style={{ fontSize: '1rem', color: 'var(--text-muted)', marginLeft: '0.5rem' }}>{t('favoritesOnlyLabel')}</span>}
           </h2>
           
@@ -744,6 +769,7 @@ const CarsPage = ({
                   onToggleFav={toggleFavorite}
                   maxPrice={filters.priceMax ? Number(filters.priceMax) : 0}
                   maxMileage={filters.kmMax ? Number(filters.kmMax) : 0}
+                  onOpenDetails={handleOpenCar}
                 />
               ))}
             </div>
@@ -787,7 +813,7 @@ const CarsPage = ({
                         onClick={(e) => {
                           if (e.target.closest('a, button, .tooltip-container')) return;
                           markSeen(car.URL);
-                          setSelectedCar(car);
+                          handleOpenCar(car);
                         }}
                       >
                         <td>
@@ -892,7 +918,7 @@ const CarsPage = ({
                       onClick={(e) => {
                         if (e.target.closest('a, button, .tooltip-container')) return;
                         markSeen(car.URL);
-                        setSelectedCar(car);
+                        handleOpenCar(car);
                       }}
                     >
                       <button
@@ -975,11 +1001,11 @@ const CarsPage = ({
         )}
       </div>
 
-      {selectedCar && (
+      {openCar && (
         <CarDetailsModal
           isOpen
-          onClose={() => setSelectedCar(null)}
-          car={selectedCar}
+          onClose={onCloseCar}
+          car={openCar}
         />
       )}
     </div>

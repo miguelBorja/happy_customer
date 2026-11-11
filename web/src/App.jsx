@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import CarsPage from './pages/CarsPage';
 import FavoritesPage from './pages/FavoritesPage';
 import StatsPage from './pages/StatsPage';
@@ -9,6 +9,7 @@ import { fetchStats, recordVisit } from './api/client';
 import { useFavorites } from './hooks/useFavorites';
 import { useLanguage } from './context/LanguageContext';
 import { trackPageView } from './utils/analytics';
+import { parseUrlState, buildUrlSearch, sameFilters } from './utils/urlState';
 import {
   FlagIcon,
   StarIcon,
@@ -20,7 +21,9 @@ import {
 } from './components/icons/AppIcons';
 
 function App() {
-  const [activeTab, setActiveTab] = useState('browse');
+  // Tab, filters, sort and open car are restored from the URL (shareable links + Back button).
+  const initialUrlState = useMemo(() => parseUrlState(window.location.search), []);
+  const [activeTab, setActiveTab] = useState(initialUrlState.tab);
   const [stats, setStats] = useState({ total: 0, active: 0, sold: 0, visits: 0 });
   const { favCount } = useFavorites();
   const { language, toggleLanguage, t } = useLanguage();
@@ -47,38 +50,67 @@ function App() {
     localStorage.setItem('happy_customer_bargains_view_mode', mode);
   };
 
-  // Unified Filter States
-  const [filters, setFilters] = useState({
-    title: '',
-    brand: '',
-    brands: [],
-    provincia: '',
-    yearMin: '',
-    yearMax: '',
-    priceMin: '',
-    priceMax: '',
-    priceMode: '',
-    kmMax: '',
-    kmMode: '',
-    estilo: '',
-    transmision: '',
-    combustible: '',
-    sellerName: '',
-    sellerMode: '',
-    isSold: 'false',
-    equipments: [],
-    scrapedFrom: '',
-    scrapedTo: '',
-    scrapedPeriod: '',
-    limit: '100',
-    // Empty sort fields => backend default ORDER BY scraped_at DESC ("most recent")
-    sortTitle: '',
-    sortYear: '',
-    sortPrice: '',
-    sortKm: '',
-  });
-  const [localTitle, setLocalTitle] = useState('');
+  // Unified Filter States (defaults live in utils/urlState.js)
+  const [filters, setFilters] = useState(initialUrlState.filters);
+  const [localTitle, setLocalTitle] = useState(initialUrlState.filters.title);
   const [showFavsOnly, setShowFavsOnly] = useState(false);
+  const [clientSort, setClientSort] = useState(initialUrlState.clientSort);
+  const [carUrl, setCarUrl] = useState(initialUrlState.carUrl);
+  // True while the current history entry was pushed by opening a car, so closing it can go "Back".
+  const carPushedRef = useRef(false);
+  const prevUrlStateRef = useRef(null);
+
+  // State -> URL. Typing in the search box (or the client sort) only replaces the entry;
+  // tab, filter and car changes add a history step so "Back" undoes them.
+  useEffect(() => {
+    const search = buildUrlSearch({ tab: activeTab, filters, clientSort, carUrl });
+    const prev = prevUrlStateRef.current;
+    prevUrlStateRef.current = { tab: activeTab, filters, carUrl };
+    if (search === window.location.search) return;
+
+    const url = window.location.pathname + search + window.location.hash;
+    const minorChange = !prev || (
+      prev.tab === activeTab &&
+      prev.carUrl === carUrl &&
+      sameFilters({ ...prev.filters, title: '' }, { ...filters, title: '' })
+    );
+    if (minorChange) {
+      window.history.replaceState(null, '', url);
+    } else {
+      window.history.pushState(null, '', url);
+      carPushedRef.current = Boolean(carUrl) && !prev.carUrl;
+    }
+  }, [activeTab, filters, clientSort, carUrl]);
+
+  // URL -> state when the user presses Back / Forward.
+  useEffect(() => {
+    const onPopState = () => {
+      const s = parseUrlState(window.location.search);
+      carPushedRef.current = false;
+      setActiveTab(s.tab);
+      setFilters(prev => (sameFilters(prev, s.filters) ? prev : s.filters));
+      setLocalTitle(s.filters.title);
+      setClientSort(s.clientSort);
+      setCarUrl(s.carUrl);
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
+  const goToTab = (tab) => {
+    setActiveTab(tab);
+    setCarUrl(null);
+  };
+
+  const handleOpenCar = useCallback((url) => setCarUrl(url), []);
+  const handleCloseCar = useCallback(() => {
+    if (carPushedRef.current) {
+      carPushedRef.current = false;
+      window.history.back(); // popstate clears carUrl
+    } else {
+      setCarUrl(null);
+    }
+  }, []);
   
   // AI Copilot State & Attached Cars Context
   const MAX_COPILOT_CARS = 5;
@@ -165,6 +197,11 @@ function App() {
             setShowFavsOnly={setShowFavsOnly}
             viewMode={browseViewMode}
             setViewMode={handleSetBrowseViewMode}
+            clientSort={clientSort}
+            setClientSort={setClientSort}
+            carUrl={carUrl}
+            onOpenCar={handleOpenCar}
+            onCloseCar={handleCloseCar}
           />
         );
     }
@@ -173,7 +210,7 @@ function App() {
   return (
     <div className="app-container">
       <nav className="navbar">
-        <div className="logo" onClick={() => setActiveTab('browse')}>
+        <div className="logo" onClick={() => goToTab('browse')}>
           {t('logo')}
         </div>
         
@@ -213,7 +250,7 @@ function App() {
           <div className="nav-links">
             <button 
               className={activeTab === 'browse' ? 'active' : ''} 
-              onClick={() => setActiveTab('browse')}
+              onClick={() => goToTab('browse')}
               style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
             >
               <SearchIcon size={16} color="currentColor" />
@@ -221,7 +258,7 @@ function App() {
             </button>
             <button 
               className={activeTab === 'favorites' ? 'active' : ''} 
-              onClick={() => setActiveTab('favorites')}
+              onClick={() => goToTab('favorites')}
               style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
             >
               <StarIcon size={16} color="#fbbf24" />
@@ -230,7 +267,7 @@ function App() {
             </button>
             <button 
               className={activeTab === 'bargains' ? 'active' : ''} 
-              onClick={() => setActiveTab('bargains')}
+              onClick={() => goToTab('bargains')}
               style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
             >
               <TagIcon size={16} color="#fbbf24" />
@@ -238,7 +275,7 @@ function App() {
             </button>
             <button 
               className={activeTab === 'stats' ? 'active' : ''} 
-              onClick={() => setActiveTab('stats')}
+              onClick={() => goToTab('stats')}
               style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
             >
               <StatsChartIcon size={16} color="#fbbf24" />
@@ -246,7 +283,7 @@ function App() {
             </button>
             <button 
               className={activeTab === 'about' ? 'active' : ''} 
-              onClick={() => setActiveTab('about')}
+              onClick={() => goToTab('about')}
               style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
             >
               <InfoCircleIcon size={16} color="#cbd5e1" />
@@ -263,7 +300,7 @@ function App() {
       <nav className="bottom-nav">
         <button 
           className={`bottom-nav-btn ${activeTab === 'browse' ? 'active' : ''}`}
-          onClick={() => setActiveTab('browse')}
+          onClick={() => goToTab('browse')}
         >
           <span className="bottom-nav-icon">
             <SearchIcon size={20} color="currentColor" />
@@ -272,7 +309,7 @@ function App() {
         </button>
         <button 
           className={`bottom-nav-btn ${activeTab === 'favorites' ? 'active' : ''}`}
-          onClick={() => setActiveTab('favorites')}
+          onClick={() => goToTab('favorites')}
         >
           <span className="bottom-nav-icon">
             <StarIcon size={20} color="#fbbf24" />
@@ -282,7 +319,7 @@ function App() {
         </button>
         <button 
           className={`bottom-nav-btn ${activeTab === 'bargains' ? 'active' : ''}`}
-          onClick={() => setActiveTab('bargains')}
+          onClick={() => goToTab('bargains')}
         >
           <span className="bottom-nav-icon">
             <TagIcon size={20} color="#fbbf24" />
@@ -301,7 +338,7 @@ function App() {
         </button>
         <button 
           className={`bottom-nav-btn ${activeTab === 'stats' ? 'active' : ''}`}
-          onClick={() => setActiveTab('stats')}
+          onClick={() => goToTab('stats')}
         >
           <span className="bottom-nav-icon">
             <StatsChartIcon size={20} color="#fbbf24" />
@@ -310,7 +347,7 @@ function App() {
         </button>
         <button 
           className={`bottom-nav-btn ${activeTab === 'about' ? 'active' : ''}`}
-          onClick={() => setActiveTab('about')}
+          onClick={() => goToTab('about')}
         >
           <span className="bottom-nav-icon">
             <InfoCircleIcon size={20} color="#cbd5e1" />

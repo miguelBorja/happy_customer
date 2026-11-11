@@ -105,6 +105,10 @@ func (d *DB) migrate() error {
 		d.Exec("ALTER TABLE cars ADD COLUMN IF NOT EXISTS comment TEXT DEFAULT ''")
 		d.Exec("ALTER TABLE cars ENABLE ROW LEVEL SECURITY")
 		d.Exec("ALTER TABLE page_views ENABLE ROW LEVEL SECURITY")
+		d.Exec("ALTER TABLE price_history ENABLE ROW LEVEL SECURITY")
+	}
+	if _, err := d.Exec(seedPriceHistory); err != nil {
+		log.Printf("Warning: price_history seed failed: %v", err)
 	}
 	return nil
 }
@@ -199,7 +203,22 @@ CREATE TABLE IF NOT EXISTS page_views (
     visited_at  DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_page_views_visited_at ON page_views(visited_at);
+
+CREATE TABLE IF NOT EXISTS price_history (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    url         TEXT NOT NULL,
+    price       INTEGER NOT NULL,
+    seen_at     DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_price_history_url ON price_history(url, seen_at);
 `
+
+// seedPriceHistory records the current price of every car as its baseline the first time
+// price_history is created, so the first price change after deploy has something to compare to.
+const seedPriceHistory = `
+INSERT INTO price_history (url, price, seen_at)
+SELECT url, price, COALESCE(scraped_at, CURRENT_TIMESTAMP) FROM cars
+WHERE price > 0 AND NOT EXISTS (SELECT 1 FROM price_history)`
 
 // queryFormat converts SQLite '?' placeholders to PostgreSQL '$1', '$2' etc. if the active driver is Postgres.
 func (d *DB) queryFormat(query string) string {

@@ -1,6 +1,13 @@
 const BASE_URL = '/api';
 
 export const fetchCars = async (filters) => {
+  const { cars } = await fetchCarsPage(filters);
+  return cars;
+};
+
+// Like fetchCars, but also returns the total number of matches (X-Total-Count header,
+// sent only for the first page). total is null when the server did not send it.
+export const fetchCarsPage = async (filters) => {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(filters)) {
     if (value !== '' && value !== null && value !== undefined) {
@@ -14,7 +21,9 @@ export const fetchCars = async (filters) => {
   
   const res = await fetch(`${BASE_URL}/cars?${params.toString()}`);
   if (!res.ok) throw new Error('Failed to fetch cars');
-  return res.json();
+  const header = res.headers.get('X-Total-Count');
+  const total = header !== null && header !== '' && !Number.isNaN(Number(header)) ? Number(header) : null;
+  return { cars: await res.json(), total };
 };
 
 export const fetchBargains = async () => {

@@ -125,6 +125,9 @@ func carToArgs(car *Car) []interface{} {
 }
 
 func (d *DB) UpsertCar(car Car) error {
+	if err := d.recordPriceChanges([]Car{car}); err != nil {
+		log.Printf("Warning: price history for %s: %v", car.URL, err)
+	}
 	q := fmt.Sprintf("INSERT INTO cars (%s) VALUES (%s) %s",
 		carColumns,
 		strings.Repeat("?, ", 67)+"?",
@@ -168,6 +171,9 @@ func (d *DB) upsertCarChunk(cars []Car) error {
 	}
 
 	const colsPerRow = 68
+	if err := d.recordPriceChanges(cars); err != nil {
+		log.Printf("Warning: price history for batch of %d: %v", len(cars), err)
+	}
 	valueRow := "(" + strings.Repeat("?, ", colsPerRow-1) + "?)"
 	rowPlaceholders := make([]string, len(cars))
 	for i := range cars {
@@ -187,6 +193,55 @@ func (d *DB) upsertCarChunk(cars []Car) error {
 
 	_, err := d.Exec(d.queryFormat(q), args...)
 	return err
+}
+
+// recordPriceChanges appends a price_history row for every car that is new or whose price
+// differs from the stored one. It must run before the upsert overwrites cars.price.
+// Uses a single statement per batch (VALUES columns are column1/column2 in SQLite and Postgres).
+func (d *DB) recordPriceChanges(cars []Car) error {
+	rows := make([]string, 0, len(cars))
+	args := make([]interface{}, 0, len(cars)*2)
+	for i := range cars {
+		if cars[i].URL == "" || cars[i].Price <= 0 {
+			continue
+		}
+		rows = append(rows, "(CAST(? AS TEXT), CAST(? AS INTEGER))")
+		args = append(args, cars[i].URL, cars[i].Price)
+	}
+	if len(rows) == 0 {
+		return nil
+	}
+	q := fmt.Sprintf(`INSERT INTO price_history (url, price, seen_at)
+		SELECT v.column1, v.column2, CURRENT_TIMESTAMP
+		FROM (VALUES %s) AS v
+		LEFT JOIN cars c ON c.url = v.column1
+		WHERE c.url IS NULL OR c.price IS NULL OR c.price <> v.column2`, strings.Join(rows, ", "))
+	_, err := d.Exec(d.queryFormat(q), args...)
+	return err
+}
+
+// PricePoint is one recorded price for a listing.
+type PricePoint struct {
+	Price  int       `json:"price"`
+	SeenAt time.Time `json:"seenAt"`
+}
+
+// GetPriceHistory returns the recorded prices for a listing, oldest first.
+func (d *DB) GetPriceHistory(url string) ([]PricePoint, error) {
+	rows, err := d.Query(d.queryFormat(`SELECT price, seen_at FROM price_history WHERE url = ? ORDER BY seen_at ASC, id ASC`), url)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	points := []PricePoint{}
+	for rows.Next() {
+		var p PricePoint
+		if err := rows.Scan(&p.Price, &p.SeenAt); err != nil {
+			return nil, err
+		}
+		points = append(points, p)
+	}
+	return points, rows.Err()
 }
 
 
@@ -418,22 +473,9 @@ func appendTransmisionFilter(q string, args []interface{}, transmision string) (
 	return q, args
 }
 
-func (d *DB) GetCars(f FilterParams) ([]Car, error) {
-	q := `SELECT url, title, brand, model, year, price, price_text, pasajeros, puertas, cilindrada,
-		color_exterior, color_interior, combustible, estado, estilo, fecha_ingreso,
-		kilometraje, placa, precio_negociable, provincia, se_recibe, transmision, pago_impuestos,
-		equip_aire_ac, equip_aire_climatizado, equip_alarma, equip_android_auto, equip_apple_carplay,
-		equip_aros_lujo, equip_asiento_memoria, equip_asientos_electricos, equip_bluetooth,
-		equip_bolsa_aire, equip_caja_dual, equip_cierre_central, equip_computadora, equip_control_crucero,
-		equip_control_descenso, equip_radio_volante, equip_estabilidad, equip_camara_360,
-		equip_camara_retroceso, equip_desempanador, equip_direccion, equip_espejos_electricos,
-		equip_frenos_abs, equip_halogenos, equip_llave_inteligente, equip_xenon, equip_radio_usb,
-		equip_retrovisores, equip_revision_tecnica, equip_sensor_lluvia, equip_sensores_retroceso,
-		equip_sensores_frontales, equip_sunroof, equip_tapiceria_cuero, equip_turbo,
-		equip_vidrios_electricos, equip_vidrios_tintados, equip_volante_ajustable, equip_volante_multifuncional,
-		seller_name, seller_phone, seller_address, comment,
-		is_sold, scraped_at, last_seen_at, sold_at FROM cars WHERE 1=1`
-	
+// buildCarFilters returns the AND clauses (appended after "WHERE 1=1") and args shared by GetCars and CountCars.
+func buildCarFilters(f FilterParams) (string, []interface{}) {
+	q := ""
 	var args []interface{}
 	
 	if f.TitleQuery != "" {
@@ -599,6 +641,66 @@ func (d *DB) GetCars(f FilterParams) ([]Car, error) {
 			q += fmt.Sprintf(" AND %s = 1", col)
 		}
 	}
+	return q, args
+}
+
+// CarPriceKey is the minimum data needed to compare a listing against the market median.
+type CarPriceKey struct {
+	URL   string
+	Brand string
+	Model string
+	Year  int
+	Price int
+}
+
+// GetCarPriceKeys returns every car matching the filters (no sort/limit), most recent first.
+// Used for server-side "best deal" ordering and the "good prices only" filter.
+func (d *DB) GetCarPriceKeys(f FilterParams) ([]CarPriceKey, error) {
+	where, args := buildCarFilters(f)
+	q := "SELECT url, COALESCE(brand, ''), COALESCE(model, ''), COALESCE(year, 0), COALESCE(price, 0) FROM cars WHERE 1=1" +
+		where + " ORDER BY scraped_at DESC"
+	rows, err := d.Query(d.queryFormat(q), args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	keys := []CarPriceKey{}
+	for rows.Next() {
+		var k CarPriceKey
+		if err := rows.Scan(&k.URL, &k.Brand, &k.Model, &k.Year, &k.Price); err != nil {
+			return nil, err
+		}
+		keys = append(keys, k)
+	}
+	return keys, rows.Err()
+}
+
+// CountCars returns how many cars match the filters, ignoring sort, limit and offset.
+func (d *DB) CountCars(f FilterParams) (int, error) {
+	where, args := buildCarFilters(f)
+	var n int
+	err := d.QueryRow(d.queryFormat("SELECT COUNT(*) FROM cars WHERE 1=1"+where), args...).Scan(&n)
+	return n, err
+}
+
+func (d *DB) GetCars(f FilterParams) ([]Car, error) {
+	q := `SELECT url, title, brand, model, year, price, price_text, pasajeros, puertas, cilindrada,
+		color_exterior, color_interior, combustible, estado, estilo, fecha_ingreso,
+		kilometraje, placa, precio_negociable, provincia, se_recibe, transmision, pago_impuestos,
+		equip_aire_ac, equip_aire_climatizado, equip_alarma, equip_android_auto, equip_apple_carplay,
+		equip_aros_lujo, equip_asiento_memoria, equip_asientos_electricos, equip_bluetooth,
+		equip_bolsa_aire, equip_caja_dual, equip_cierre_central, equip_computadora, equip_control_crucero,
+		equip_control_descenso, equip_radio_volante, equip_estabilidad, equip_camara_360,
+		equip_camara_retroceso, equip_desempanador, equip_direccion, equip_espejos_electricos,
+		equip_frenos_abs, equip_halogenos, equip_llave_inteligente, equip_xenon, equip_radio_usb,
+		equip_retrovisores, equip_revision_tecnica, equip_sensor_lluvia, equip_sensores_retroceso,
+		equip_sensores_frontales, equip_sunroof, equip_tapiceria_cuero, equip_turbo,
+		equip_vidrios_electricos, equip_vidrios_tintados, equip_volante_ajustable, equip_volante_multifuncional,
+		seller_name, seller_phone, seller_address, comment,
+		is_sold, scraped_at, last_seen_at, sold_at FROM cars WHERE 1=1`
+
+	where, args := buildCarFilters(f)
+	q += where
 
 	if f.SortTitle == "" && f.SortYear == "" && f.SortPrice == "" && f.SortKm == "" {
 		sortCol := "scraped_at"

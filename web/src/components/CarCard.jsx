@@ -44,9 +44,11 @@ const FuelPumpIcon = () => (
   </svg>
 );
 
-const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage }) => {
+// onOpenDetails (optional): let the parent own the details modal (e.g. to keep ?car= in the URL).
+const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage, onOpenDetails }) => {
   const { t, language } = useLanguage();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const openDetails = () => (onOpenDetails ? onOpenDetails(car) : setIsModalOpen(true));
 
   const limitPrice = maxPrice && maxPrice > 0 ? maxPrice : MAX_PRICE;
   const limitMileage = maxMileage && maxMileage > 0 ? maxMileage : MAX_MILEAGE;
@@ -90,7 +92,7 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage }) => {
       <div 
         className="car-card-photo" 
         style={{ cursor: 'pointer', margin: '0 0 0.5rem 0' }}
-        onClick={(e) => { e.stopPropagation(); setIsModalOpen(true); }}
+        onClick={(e) => { e.stopPropagation(); openDetails(); }}
       >
         <CarThumb car={car} variant="card" badge={isNew ? <NewBadgeIcon size={18} /> : null} />
       </div>
@@ -265,7 +267,7 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage }) => {
               cursor: 'pointer',
               userSelect: 'none'
             }}
-            onClick={(e) => { e.stopPropagation(); setIsModalOpen(true); }}
+            onClick={(e) => { e.stopPropagation(); openDetails(); }}
             title={language === 'es' ? 'Clic para ver más detalles' : 'Click to view details'}
           >
             {`"${car.Comment}"`}
@@ -284,7 +286,7 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage }) => {
               <span 
                 className="equip-badge"
                 style={{ cursor: 'pointer', opacity: 0.7, borderStyle: 'dashed' }}
-                onClick={(e) => { e.stopPropagation(); setIsModalOpen(true); }}
+                onClick={(e) => { e.stopPropagation(); openDetails(); }}
                 title={language === 'es' ? 'Mostrar más equipamiento' : 'Show more equipment'}
               >
                 +{Object.keys(car.Equipments).length - 3} {t('more')}
@@ -297,7 +299,7 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage }) => {
         {hasMoreDetails && (
           <button 
             className="btn-details-trigger"
-            onClick={(e) => { e.stopPropagation(); setIsModalOpen(true); }}
+            onClick={(e) => { e.stopPropagation(); openDetails(); }}
           >
             <span>▼</span> {language === 'es' ? 'Mostrar más detalles' : 'Show more details'}
           </button>

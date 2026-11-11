@@ -86,6 +86,15 @@ func (s *Server) HandleCars(w http.ResponseWriter, r *http.Request) {
 		f.SortDesc = true // default desc
 	}
 
+	// Market-deal mode: ordering by deal and/or the "good prices only" filter need the market
+	// median of every matching car, so they are resolved here over the whole catalog.
+	onlyGood := q.Get("deal") == "good"
+	bestFirst := q.Get("sortDeal") == "best"
+	if onlyGood || bestFirst {
+		s.serveDealCars(w, f, onlyGood, bestFirst)
+		return
+	}
+
 	cars, err := s.DB.GetCars(f)
 	if err != nil {
 		log.Printf("[API ERROR] GetCars failed: %v", err)
@@ -96,7 +105,24 @@ func (s *Server) HandleCars(w http.ResponseWriter, r *http.Request) {
 	if cars == nil {
 		cars = []db.Car{} // Return empty array instead of null
 	}
-	
+
+	// Total matching rows for "N encontrados". Only on the first page: the client keeps it while scrolling.
+	if f.Offset == 0 {
+		total := len(cars)
+		if len(cars) >= f.Limit {
+			if n, err := s.DB.CountCars(f); err != nil {
+				log.Printf("[API ERROR] CountCars failed: %v", err)
+				total = -1
+			} else {
+				total = n
+			}
+		}
+		if total >= 0 {
+			w.Header().Set("X-Total-Count", strconv.Itoa(total))
+			w.Header().Set("Access-Control-Expose-Headers", "X-Total-Count")
+		}
+	}
+
 	json.NewEncoder(w).Encode(s.withMarket(cars))
 }
 
