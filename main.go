@@ -1,25 +1,67 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"flag"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
+	"time"
 
 	"crautosdb/api"
 	"crautosdb/db"
 	"crautosdb/scraper"
 )
 
+// loadDotEnv loads KEY=VALUE pairs from filename into the environment.
+// Missing files are ignored silently. Existing environment variables are not overwritten.
+func loadDotEnv(filename string) {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return
+	}
+	for _, line := range strings.Split(strings.ReplaceAll(string(data), "\r\n", "\n"), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		line = strings.TrimPrefix(line, "export ")
+		key, val, ok := strings.Cut(line, "=")
+		if !ok {
+			continue
+		}
+		key = strings.TrimSpace(key)
+		val = strings.TrimSpace(val)
+		if len(val) >= 2 {
+			if (val[0] == '"' && val[len(val)-1] == '"') || (val[0] == '\'' && val[len(val)-1] == '\'') {
+				val = val[1 : len(val)-1]
+			}
+		}
+		if key != "" && os.Getenv(key) == "" {
+			os.Setenv(key, val)
+		}
+	}
+}
+
 func main() {
+	loadDotEnv(".env")
+
 	scrapeFlag := flag.Bool("scrape", true, "Run the scraper")
 	serveFlag := flag.Bool("serve", true, "Run the API server")
 	backfillFlag := flag.Bool("backfill", false, "Backfill seller info for existing cars")
 	backfillCommentsFlag := flag.Bool("backfill-comments", false, "Backfill comments for active cars")
-	portFlag := flag.String("port", "8080", "Port for the API server")
+	cleanupFlag := flag.Bool("cleanup", false, "Clean up whitespace and placeholder comments in existing car records")
+	defaultPort := os.Getenv("PORT")
+	if defaultPort == "" {
+		defaultPort = "8080"
+	}
+	portFlag := flag.String("port", defaultPort, "Port for the API server")
 	migrateFlag := flag.Bool("migrate", false, "Migrate all data from local SQLite (cars.db) to Supabase")
 	forceScrapeFlag := flag.Bool("force-scrape", false, "Force scrape all cars even if they exist in the database")
 	skipRefreshedHoursFlag := flag.Int("skip-refreshed-hours", 24, "Skip force-scraping cars that were already refreshed within this number of hours (0 to disable skipping)")
@@ -112,6 +154,13 @@ func main() {
 	}
 	defer database.Close()
 
+	if *cleanupFlag {
+		log.Println("Running database cleanup...")
+		if err := database.CleanUpData(); err != nil {
+			log.Printf("Warning: database cleanup failed: %v", err)
+		}
+	}
+
 	if *scrapeFlag || *backfillFlag || *backfillCommentsFlag {
 		runScraper := func() {
 			s := scraper.NewScraper(database, *forceScrapeFlag, *skipRefreshedHoursFlag)
@@ -173,8 +222,34 @@ func main() {
 		}
 
 		log.Printf("Starting API server on :%s...\n", *portFlag)
-		if err := http.ListenAndServe(":"+*portFlag, mux); err != nil {
+
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+
+		httpServer := &http.Server{
+			Addr:              ":" + *portFlag,
+			Handler:           mux,
+			ReadHeaderTimeout: 10 * time.Second,
+			IdleTimeout:       120 * time.Second,
+		}
+
+		serverErr := make(chan error, 1)
+		go func() {
+			if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				serverErr <- err
+			}
+		}()
+
+		select {
+		case err := <-serverErr:
 			log.Fatalf("Server failed: %v", err)
+		case <-ctx.Done():
+			log.Println("Shutting down server...")
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			if err := httpServer.Shutdown(shutdownCtx); err != nil {
+				log.Printf("Server shutdown error: %v", err)
+			}
 		}
 	}
 }

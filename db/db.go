@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 	"unicode"
 
 	_ "github.com/lib/pq"
@@ -31,6 +32,10 @@ func Init(path string) (*DB, error) {
 		if err != nil {
 			return nil, fmt.Errorf("open libsql: %w", err)
 		}
+		sqlDB.SetMaxOpenConns(25)
+		sqlDB.SetMaxIdleConns(10)
+		sqlDB.SetConnMaxLifetime(5 * time.Minute)
+		sqlDB.SetConnMaxIdleTime(2 * time.Minute)
 	} else if strings.HasPrefix(path, "postgres://") || strings.HasPrefix(path, "postgresql://") {
 		driverName = "postgres"
 		// Append binary_parameters=yes to support PgBouncer transaction pooling mode without prepared statement errors
@@ -45,6 +50,10 @@ func Init(path string) (*DB, error) {
 		if err != nil {
 			return nil, fmt.Errorf("open postgres: %w", err)
 		}
+		sqlDB.SetMaxOpenConns(25)
+		sqlDB.SetMaxIdleConns(10)
+		sqlDB.SetConnMaxLifetime(5 * time.Minute)
+		sqlDB.SetConnMaxIdleTime(2 * time.Minute)
 	} else {
 		driverName = "sqlite"
 		sqlDB, err = sql.Open("sqlite", path)
@@ -57,12 +66,16 @@ func Init(path string) (*DB, error) {
 			"PRAGMA synchronous=NORMAL",
 			"PRAGMA cache_size=-64000",
 			"PRAGMA foreign_keys=ON",
+			"PRAGMA busy_timeout=5000",
 		} {
 			if _, err := sqlDB.Exec(p); err != nil {
 				sqlDB.Close()
 				return nil, fmt.Errorf("pragma %q: %w", p, err)
 			}
 		}
+		// SQLite works best with a single connection; this also keeps :memory: DBs alive.
+		sqlDB.SetMaxOpenConns(1)
+		sqlDB.SetMaxIdleConns(1)
 	}
 
 	d := &DB{
@@ -72,9 +85,6 @@ func Init(path string) (*DB, error) {
 	if err := d.migrate(); err != nil {
 		sqlDB.Close()
 		return nil, err
-	}
-	if err := d.CleanUpData(); err != nil {
-		log.Printf("Warning: startup database cleanup failed: %v", err)
 	}
 	return d, nil
 }
@@ -194,6 +204,10 @@ CREATE INDEX IF NOT EXISTS idx_cars_is_sold      ON cars(is_sold);
 CREATE INDEX IF NOT EXISTS idx_cars_estilo       ON cars(estilo);
 CREATE INDEX IF NOT EXISTS idx_cars_transmision  ON cars(transmision);
 CREATE INDEX IF NOT EXISTS idx_cars_combustible  ON cars(combustible);
+CREATE INDEX IF NOT EXISTS idx_cars_active_brand_year ON cars(is_sold, brand, year);
+CREATE INDEX IF NOT EXISTS idx_cars_active_price      ON cars(is_sold, price);
+CREATE INDEX IF NOT EXISTS idx_cars_active_scraped    ON cars(is_sold, scraped_at);
+CREATE INDEX IF NOT EXISTS idx_cars_last_seen         ON cars(last_seen_at);
 
 CREATE TABLE IF NOT EXISTS page_views (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -261,6 +275,10 @@ func CleanComment(comment string) string {
 }
 
 func (d *DB) CleanUpData() error {
+	if _, err := d.Exec("UPDATE cars SET comment = '' WHERE comment IN ('-', '--', '---', '.', ' ')"); err != nil {
+		return err
+	}
+
 	rows, err := d.Query("SELECT url, title, comment FROM cars")
 	if err != nil {
 		return err
@@ -305,6 +323,12 @@ func (d *DB) CleanUpData() error {
 			})
 		}
 	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	// Close rows explicitly before opening a transaction; with SetMaxOpenConns(1)
+	// on SQLite, an open rows cursor would deadlock waiting for the connection.
+	rows.Close()
 
 	if len(updates) > 0 {
 		log.Printf("[DB] Found %d cars needing title/comment cleanups. Updating in database...", len(updates))

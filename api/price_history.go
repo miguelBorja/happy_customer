@@ -22,20 +22,20 @@ func (s *Server) HandlePriceHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
 
 	carURL := strings.TrimSpace(r.URL.Query().Get("url"))
 	if carURL == "" {
-		http.Error(w, "missing url parameter", http.StatusBadRequest)
+		respondError(w, http.StatusBadRequest, "missing url parameter")
 		return
 	}
 
 	points, err := s.DB.GetPriceHistory(carURL)
 	if err != nil {
 		log.Printf("[API ERROR] GetPriceHistory failed: %v", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		respondError(w, http.StatusInternalServerError, "Failed to fetch price history")
 		return
 	}
 

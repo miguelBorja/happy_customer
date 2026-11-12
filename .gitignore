@@ -23,3 +23,9 @@ download_chromedriver.js
 run_local.sh
 deploy*
 run_*
+
+# Local environment & backups
+.env
+.env.*
+!.env.example
+backups/

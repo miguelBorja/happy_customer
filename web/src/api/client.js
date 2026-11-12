@@ -140,7 +140,14 @@ export const compareWithAI = async (carsOrCar1, car2OrLang, langOrMessages, mess
 
   if (!res.ok) {
     const errText = await res.text();
-    throw new Error(errText || 'Failed to compare cars');
+    let errMsg = errText;
+    try {
+      const parsedErr = JSON.parse(errText);
+      if (parsedErr?.error) errMsg = parsedErr.error;
+    } catch {
+      // Keep plain text fallback
+    }
+    throw new Error(errMsg || 'Failed to compare cars');
   }
 
   const reader = res.body.getReader();

@@ -19,7 +19,9 @@ import (
 )
 
 type Server struct {
-	DB *db.DB
+	DB       *db.DB
+	CacheTTL time.Duration
+	cache    serverCache
 }
 
 func (s *Server) HandleCars(w http.ResponseWriter, r *http.Request) {
@@ -114,7 +116,7 @@ func (s *Server) HandleCars(w http.ResponseWriter, r *http.Request) {
 	cars, err := s.DB.GetCars(f)
 	if err != nil {
 		log.Printf("[API ERROR] GetCars failed: %v", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		respondError(w, http.StatusInternalServerError, "Failed to fetch cars")
 		return
 	}
 
@@ -146,20 +148,13 @@ func (s *Server) HandleBrands(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
-	rows, err := s.DB.Query(`SELECT DISTINCT brand FROM cars WHERE brand != '' ORDER BY brand ASC`)
+	brands, err := s.getBrands()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Printf("[API ERROR] getBrands failed: %v", err)
+		respondError(w, http.StatusInternalServerError, "Failed to fetch brands")
 		return
 	}
-	defer rows.Close()
 
-	var brands []string
-	for rows.Next() {
-		var b string
-		if err := rows.Scan(&b); err == nil {
-			brands = append(brands, b)
-		}
-	}
 	json.NewEncoder(w).Encode(brands)
 }
 
@@ -208,7 +203,8 @@ func (s *Server) HandleFilteredBrands(w http.ResponseWriter, r *http.Request) {
 
 	brands, err := s.DB.GetFilteredBrands(f)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Printf("[API ERROR] GetFilteredBrands failed: %v", err)
+		respondError(w, http.StatusInternalServerError, "Failed to fetch brands")
 		return
 	}
 
@@ -223,23 +219,11 @@ func (s *Server) HandleProvinces(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
-	rows, err := s.DB.Query(`SELECT DISTINCT provincia FROM cars WHERE provincia != '' AND provincia IS NOT NULL ORDER BY provincia ASC`)
+	provinces, err := s.getProvinces()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Printf("[API ERROR] getProvinces failed: %v", err)
+		respondError(w, http.StatusInternalServerError, "Failed to fetch provinces")
 		return
-	}
-	defer rows.Close()
-
-	var provinces []string
-	for rows.Next() {
-		var p string
-		if err := rows.Scan(&p); err == nil {
-			provinces = append(provinces, p)
-		}
-	}
-
-	if provinces == nil {
-		provinces = []string{}
 	}
 
 	json.NewEncoder(w).Encode(provinces)
@@ -249,33 +233,24 @@ func (s *Server) HandleStats(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
-	var total, active, sold int
-	s.DB.QueryRow(`SELECT count(*) FROM cars`).Scan(&total)
-	s.DB.QueryRow(`SELECT count(*) FROM cars WHERE is_sold=0`).Scan(&active)
-	s.DB.QueryRow(`SELECT count(*) FROM cars WHERE is_sold=1`).Scan(&sold)
-
-	visits, err := s.DB.GetTotalVisits()
+	stats, err := s.getSummaryStats()
 	if err != nil {
-		log.Printf("[API ERROR] Failed to get total visits: %v", err)
-		visits = 0
+		log.Printf("[API ERROR] getSummaryStats failed: %v", err)
+		respondError(w, http.StatusInternalServerError, "Failed to fetch stats")
+		return
 	}
 
-	json.NewEncoder(w).Encode(map[string]int{
-		"total":  total,
-		"active": active,
-		"sold":   sold,
-		"visits": visits,
-	})
+	json.NewEncoder(w).Encode(stats)
 }
 
 func (s *Server) HandleDetailedStats(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
-	stats, err := s.DB.GetDetailedStats()
+	stats, err := s.getDetailedStats()
 	if err != nil {
-		log.Printf("[API ERROR] GetDetailedStats failed: %v", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Printf("[API ERROR] getDetailedStats failed: %v", err)
+		respondError(w, http.StatusInternalServerError, "Failed to fetch detailed stats")
 		return
 	}
 
@@ -308,7 +283,7 @@ func (s *Server) HandleRecordVisit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method != "POST" {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
 
@@ -324,10 +299,13 @@ func (s *Server) HandleRecordVisit(w http.ResponseWriter, r *http.Request) {
 
 	if err := s.DB.RecordVisit(ip, ua, body.Path); err != nil {
 		log.Printf("[API ERROR] RecordVisit failed: %v", err)
-		http.Error(w, "Failed to record visit", http.StatusInternalServerError)
+		respondError(w, http.StatusInternalServerError, "Failed to record visit")
 		return
 	}
 
+	s.incrementCachedVisits()
+
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
 }
@@ -344,7 +322,7 @@ func (s *Server) HandleCarsByURLs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method != "POST" {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
 
@@ -352,13 +330,14 @@ func (s *Server) HandleCarsByURLs(w http.ResponseWriter, r *http.Request) {
 		URLs []string `json:"urls"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		http.Error(w, "Invalid JSON body", http.StatusBadRequest)
+		respondError(w, http.StatusBadRequest, "Invalid JSON body")
 		return
 	}
 
 	cars, err := s.DB.GetCarsByURLs(body.URLs)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Printf("[API ERROR] GetCarsByURLs failed: %v", err)
+		respondError(w, http.StatusInternalServerError, "Failed to fetch cars")
 		return
 	}
 
@@ -455,14 +434,14 @@ func (s *Server) HandleAICompare(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method != "POST" {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
 
 	apiKey := os.Getenv("OPENROUTER_API_KEY")
 	if apiKey == "" {
 		log.Println("[API ERROR] OPENROUTER_API_KEY environment variable is not set")
-		http.Error(w, "AI service not configured", http.StatusInternalServerError)
+		respondError(w, http.StatusInternalServerError, "AI service not configured")
 		return
 	}
 
@@ -477,7 +456,7 @@ func (s *Server) HandleAICompare(w http.ResponseWriter, r *http.Request) {
 		} `json:"messages"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		http.Error(w, "Invalid JSON body", http.StatusBadRequest)
+		respondError(w, http.StatusBadRequest, "Invalid JSON body")
 		return
 	}
 
@@ -792,14 +771,9 @@ GUIDELINES:
 		},
 	}
 
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("X-Accel-Buffering", "no")
-
 	flusher, ok := w.(http.Flusher)
 	if !ok {
-		http.Error(w, "Streaming not supported", http.StatusInternalServerError)
+		respondError(w, http.StatusInternalServerError, "Streaming not supported")
 		return
 	}
 
@@ -815,7 +789,8 @@ GUIDELINES:
 	firstReqBytes, _ := json.Marshal(firstReqBodyMap)
 	req, err := http.NewRequest("POST", "https://openrouter.ai/api/v1/chat/completions", bytes.NewReader(firstReqBytes))
 	if err != nil {
-		http.Error(w, "Failed to create AI request", http.StatusInternalServerError)
+		log.Printf("[API ERROR] Failed to create AI request: %v", err)
+		respondError(w, http.StatusInternalServerError, "Failed to create AI request")
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
@@ -826,7 +801,7 @@ GUIDELINES:
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Printf("[API ERROR] OpenRouter request failed: %v", err)
-		http.Error(w, "Failed to call AI API", http.StatusInternalServerError)
+		respondError(w, http.StatusInternalServerError, "Failed to call AI API")
 		return
 	}
 	defer resp.Body.Close()
@@ -834,19 +809,19 @@ GUIDELINES:
 	if resp.StatusCode != http.StatusOK {
 		errBody, _ := io.ReadAll(resp.Body)
 		log.Printf("[API ERROR] OpenRouter returned %d: %s", resp.StatusCode, string(errBody))
-		http.Error(w, fmt.Sprintf("AI API error: %d", resp.StatusCode), resp.StatusCode)
+		respondError(w, resp.StatusCode, fmt.Sprintf("AI API error: %d", resp.StatusCode))
 		return
 	}
 
 	var openRouterResp OpenRouterResponse
 	if err := json.NewDecoder(resp.Body).Decode(&openRouterResp); err != nil {
 		log.Printf("[API ERROR] Failed to decode OpenRouter response: %v", err)
-		http.Error(w, "Failed to parse AI response", http.StatusInternalServerError)
+		respondError(w, http.StatusInternalServerError, "Failed to parse AI response")
 		return
 	}
 
 	if len(openRouterResp.Choices) == 0 {
-		http.Error(w, "No response choice returned by AI", http.StatusInternalServerError)
+		respondError(w, http.StatusInternalServerError, "No response choice returned by AI")
 		return
 	}
 
@@ -883,7 +858,8 @@ GUIDELINES:
 				json.Unmarshal([]byte(fnArgsJSON), &args)
 				stats, err := s.DB.GetMarketStats(args.Brand, args.Model, args.YearMin, args.YearMax)
 				if err != nil {
-					toolOutput = fmt.Sprintf(`{"error": "%s"}`, err.Error())
+					log.Printf("[API ERROR] GetMarketStats tool call failed: %v", err)
+					toolOutput = `{"error": "database query failed"}`
 				} else {
 					outBytes, _ := json.Marshal(stats)
 					toolOutput = string(outBytes)
@@ -918,7 +894,8 @@ GUIDELINES:
 				}
 				cars, err := s.DB.GetCars(f)
 				if err != nil {
-					toolOutput = fmt.Sprintf(`{"error": "%s"}`, err.Error())
+					log.Printf("[API ERROR] GetCars tool call failed: %v", err)
+					toolOutput = `{"error": "database query failed"}`
 				} else {
 					type SimpleCar struct {
 						Title       string `json:"title"`
@@ -968,7 +945,8 @@ GUIDELINES:
 		secondReqBytes, _ := json.Marshal(secondReqBodyMap)
 		secondReq, err := http.NewRequest("POST", "https://openrouter.ai/api/v1/chat/completions", bytes.NewReader(secondReqBytes))
 		if err != nil {
-			http.Error(w, "Failed to create streaming request", http.StatusInternalServerError)
+			log.Printf("[API ERROR] Failed to create streaming request: %v", err)
+			respondError(w, http.StatusInternalServerError, "Failed to create streaming request")
 			return
 		}
 		secondReq.Header.Set("Content-Type", "application/json")
@@ -979,10 +957,15 @@ GUIDELINES:
 		secondResp, err := client.Do(secondReq)
 		if err != nil {
 			log.Printf("[API ERROR] Streamed OpenRouter request failed: %v", err)
-			http.Error(w, "Failed to stream AI response", http.StatusInternalServerError)
+			respondError(w, http.StatusInternalServerError, "Failed to stream AI response")
 			return
 		}
 		defer secondResp.Body.Close()
+
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Connection", "keep-alive")
+		w.Header().Set("X-Accel-Buffering", "no")
 
 		buf := make([]byte, 4096)
 		for {
@@ -1000,6 +983,11 @@ GUIDELINES:
 
 	// If no tool was called, stream the choice content directly as SSE
 	if choiceMsg.Content != "" {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Connection", "keep-alive")
+		w.Header().Set("X-Accel-Buffering", "no")
+
 		// Send standard SSE chunk
 		deltaPayload := map[string]interface{}{
 			"choices": []map[string]interface{}{
@@ -1021,10 +1009,10 @@ func (s *Server) HandleTopSellers(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
-	sellers, err := s.DB.GetTopSellers()
+	sellers, err := s.getTopSellers()
 	if err != nil {
-		log.Printf("[API ERROR] GetTopSellers failed: %v", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Printf("[API ERROR] getTopSellers failed: %v", err)
+		respondError(w, http.StatusInternalServerError, "Failed to fetch sellers")
 		return
 	}
 

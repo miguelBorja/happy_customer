@@ -131,7 +131,7 @@ func (s *Server) HandleBargains(w http.ResponseWriter, r *http.Request) {
 	keys, err := s.DB.GetCarPriceKeys(db.FilterParams{IsSold: &active, ExcludeURLs: stats.ActiveDuplicateURLs()})
 	if err != nil {
 		log.Printf("[API ERROR] GetCarPriceKeys (bargains) failed: %v", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		respondError(w, http.StatusInternalServerError, "Failed to fetch bargains")
 		return
 	}
 	ranked := rankDeals(keys, stats, greatDealMaxPct, true)
@@ -148,7 +148,7 @@ func (s *Server) HandleBargains(w http.ResponseWriter, r *http.Request) {
 		loaded, err := s.DB.GetCarsByURLs(urls)
 		if err != nil {
 			log.Printf("[API ERROR] GetCarsByURLs (bargains) failed: %v", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			respondError(w, http.StatusInternalServerError, "Failed to fetch bargains")
 			return
 		}
 		cars := s.withMarket(orderCarsByURLs(loaded, urls))
@@ -196,7 +196,7 @@ func (s *Server) serveDealCars(w http.ResponseWriter, f db.FilterParams, onlyGoo
 	keys, err := s.DB.GetCarPriceKeys(f)
 	if err != nil {
 		log.Printf("[API ERROR] GetCarPriceKeys failed: %v", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		respondError(w, http.StatusInternalServerError, "Failed to fetch cars")
 		return
 	}
 	urls := rankDealURLs(keys, s.getMarketStats(), onlyGood, bestFirst)
@@ -207,7 +207,7 @@ func (s *Server) serveDealCars(w http.ResponseWriter, f db.FilterParams, onlyGoo
 		loaded, err := s.DB.GetCarsByURLs(page)
 		if err != nil {
 			log.Printf("[API ERROR] GetCarsByURLs failed: %v", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			respondError(w, http.StatusInternalServerError, "Failed to fetch cars")
 			return
 		}
 		cars = orderCarsByURLs(loaded, page)
