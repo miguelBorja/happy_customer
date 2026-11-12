@@ -5,6 +5,7 @@ import './styles/photos.css'
 import App from './App.jsx'
 import { LanguageProvider } from './context/LanguageContext.jsx'
 import { FavoritesProvider } from './context/FavoritesContext.jsx'
+import { CompareProvider } from './context/CompareContext.jsx'
 import { initGA } from './utils/analytics'
 
 // Initialize Google Analytics 4
@@ -14,7 +15,9 @@ createRoot(document.getElementById('root')).render(
   <StrictMode>
     <LanguageProvider>
       <FavoritesProvider>
-        <App />
+        <CompareProvider>
+          <App />
+        </CompareProvider>
       </FavoritesProvider>
     </LanguageProvider>
   </StrictMode>,

@@ -28,7 +28,9 @@ const PriceBar = ({ price, maxPrice, priceText, deal }) => {
   const colors = getDynamicColors(pct);
 
   const title = deal
-    ? `Mediana: ${formatUSD(deal.median)} (${deal.count} autos)`
+    ? (deal.kmAdjusted
+      ? `Mediana: ${formatUSD(deal.rawMedian)} (${deal.count} autos) · ajustada por km: ${formatUSD(deal.median)}`
+      : `Mediana: ${formatUSD(deal.median)} (${deal.count} autos)`)
     : `$${price?.toLocaleString() || 0} / $${limit.toLocaleString()}`;
 
   const border = deal ? deal.border : colors.border;

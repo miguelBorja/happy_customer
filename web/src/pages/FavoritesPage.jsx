@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { fetchCarsByUrls } from '../api/client';
 import { useFavorites } from '../hooks/useFavorites';
 import { useSeenCars } from '../hooks/useSeenCars';
@@ -12,9 +12,11 @@ import MarketBadge from '../components/MarketBadge';
 import { getMarketDeal } from '../utils/marketDeal';
 import { useLanguage } from '../context/LanguageContext';
 import { useTableDensity } from '../hooks/useTableDensity';
+import { useCompare } from '../hooks/useCompare';
 import { CarThumb } from '../components/CarPhoto';
 import CarDetailsModal from '../components/CarDetailsModal';
 import { StarIcon, CardsGridIcon, TableListIcon } from '../components/icons/AppIcons';
+import { ResultsSkeleton } from '../components/LoadingSkeletons';
 
 const FavoritesPage = ({ viewMode, setViewMode }) => {
   const [cars, setCars] = useState([]);
@@ -23,6 +25,7 @@ const FavoritesPage = ({ viewMode, setViewMode }) => {
   const { isNew } = useSeenCars();
   const [selectedCar, setSelectedCar] = useState(null);
   const { density, setDensity, showPhotos } = useTableDensity();
+  const { isComparing, toggleCompare } = useCompare();
   const { t, language } = useLanguage();
 
   const loadFavorites = useCallback(async () => {
@@ -106,11 +109,7 @@ const FavoritesPage = ({ viewMode, setViewMode }) => {
         </div>
       </div>
 
-      {loading && (
-        <div style={{ padding: '4rem', display: 'flex', justifyContent: 'center' }}>
-          <div className="loader"></div>
-        </div>
-      )}
+      {loading && <ResultsSkeleton viewMode={viewMode} count={4} />}
 
       {!loading && displayCars.length === 0 && (
         <div style={{ textAlign: 'center', padding: '6rem 2rem', color: 'var(--text-muted)' }}>
@@ -130,6 +129,7 @@ const FavoritesPage = ({ viewMode, setViewMode }) => {
                 isNew={isNew(car)}
                 isFav={true}
                 onToggleFav={toggleFavorite}
+                onOpenDetails={setSelectedCar}
               />
             ))}
           </div>
@@ -138,16 +138,16 @@ const FavoritesPage = ({ viewMode, setViewMode }) => {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th></th>
-                  {showPhotos && <th></th>}
-                  <th>{t('title')}</th>
-                  <th>{t('year')}</th>
-                  <th>{t('priceHeader')}</th>
-                  <th>{t('mileageHeader')}</th>
-                  <th>{t('province')}</th>
-                  <th>{language === 'es' ? 'Publicado' : 'Listed'}</th>
-                  <th>{t('status')}</th>
-                  <th className="text-right">{t('action')}</th>
+                  <th className="col-fav"></th>
+                  {showPhotos && <th className="col-photo"></th>}
+                  <th className="col-title">{t('title')}</th>
+                  <th className="col-year">{t('year')}</th>
+                  <th className="col-price">{t('priceHeader')}</th>
+                  <th className="col-km">{t('mileageHeader')}</th>
+                  <th className="col-province">{t('province')}</th>
+                  <th className="col-listed">{language === 'es' ? 'Publicado' : 'Listed'}</th>
+                  <th className="col-status">{t('status')}</th>
+                  <th className="text-right col-action">{t('action')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -168,7 +168,7 @@ const FavoritesPage = ({ viewMode, setViewMode }) => {
                         e.dataTransfer.effectAllowed = 'copy';
                       }}
                     >
-                      <td>
+                      <td className="col-fav">
                         <button
                           className="fav-btn-table active"
                           onClick={() => toggleFavorite(car.URL)}
@@ -178,11 +178,11 @@ const FavoritesPage = ({ viewMode, setViewMode }) => {
                         </button>
                       </td>
                       {showPhotos && (
-                        <td className="photo-cell">
+                        <td className="photo-cell col-photo">
                           <CarThumb car={car} variant="table" hoverPreview />
                         </td>
                       )}
-                    <td style={{ fontWeight: '500' }}>
+                    <td className="col-title" style={{ fontWeight: '500' }}>
                       <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', flexWrap: 'wrap' }}>
                         {car.Title}
                         {car.Comment && (
@@ -193,30 +193,41 @@ const FavoritesPage = ({ viewMode, setViewMode }) => {
                         )}
                       </span>
                     </td>
-                    <td>{car.Year}</td>
-                    <td>
+                    <td className="col-year">{car.Year}</td>
+                    <td className="col-price">
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'nowrap' }}>
                         <PriceBar price={car.Price} priceText={car.PriceText} deal={getMarketDeal(car)} />
                         <MarketBadge car={car} variant="compact" />
                       </div>
                     </td>
-                    <td>
+                    <td className="col-km">
                       <MileageBar km={car.Kilometraje} />
                     </td>
-                    <td>{car.Provincia}</td>
-                    <td>
+                    <td className="col-province">{car.Provincia}</td>
+                    <td className="col-listed">
                       <span title={formatListingDate(car, language)} style={{ color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
                         {formatListingAge(car, language)}
                       </span>
                     </td>
-                    <td>
+                    <td className="col-status">
                       {car.IsSold
                         ? <span style={{ color: 'var(--danger)', fontWeight: '600' }}>{t('soldStatus')}</span>
                         : <span style={{ color: 'var(--success)' }}>{t('activeStatus')}</span>
                       }
                     </td>
-                    <td className="text-right" style={{ whiteSpace: 'nowrap' }}>
+                    <td className="text-right col-action" style={{ whiteSpace: 'nowrap' }}>
                       <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                        <button
+                          type="button"
+                          className={`btn-compare-table ${isComparing(car.URL) ? 'active' : ''}`}
+                          onClick={() => toggleCompare(car)}
+                          title={isComparing(car.URL)
+                            ? (language === 'es' ? 'Quitar del comparador' : 'Remove from comparator')
+                            : (language === 'es' ? 'Comparar' : 'Compare')}
+                          aria-pressed={isComparing(car.URL)}
+                        >
+                          ⇄
+                        </button>
                         {waPhone && (
                           <a
                             href={buildWhatsAppLink(waPhone, car, language)}

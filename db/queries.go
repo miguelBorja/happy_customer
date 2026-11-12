@@ -433,6 +433,7 @@ type FilterParams struct {
 	ScrapedFrom  string
 	ScrapedTo    string
 	SellerName   string
+	ExcludeURLs  []string
 }
 
 func appendCombustibleFilter(q string, args []interface{}, combustible string) (string, []interface{}) {
@@ -641,6 +642,24 @@ func buildCarFilters(f FilterParams) (string, []interface{}) {
 			q += fmt.Sprintf(" AND %s = 1", col)
 		}
 	}
+
+	// Exclude duplicate listings (chunked so a huge list never exceeds parameter limits).
+	if len(f.ExcludeURLs) > 0 {
+		const excludeChunk = 500
+		for i := 0; i < len(f.ExcludeURLs); i += excludeChunk {
+			end := i + excludeChunk
+			if end > len(f.ExcludeURLs) {
+				end = len(f.ExcludeURLs)
+			}
+			part := f.ExcludeURLs[i:end]
+			placeholders := make([]string, len(part))
+			for j, u := range part {
+				placeholders[j] = "?"
+				args = append(args, u)
+			}
+			q += fmt.Sprintf(" AND url NOT IN (%s)", strings.Join(placeholders, ","))
+		}
+	}
 	return q, args
 }
 
@@ -651,13 +670,14 @@ type CarPriceKey struct {
 	Model string
 	Year  int
 	Price int
+	Km    int // kilometraje, for the mileage-adjusted market price
 }
 
 // GetCarPriceKeys returns every car matching the filters (no sort/limit), most recent first.
 // Used for server-side "best deal" ordering and the "good prices only" filter.
 func (d *DB) GetCarPriceKeys(f FilterParams) ([]CarPriceKey, error) {
 	where, args := buildCarFilters(f)
-	q := "SELECT url, COALESCE(brand, ''), COALESCE(model, ''), COALESCE(year, 0), COALESCE(price, 0) FROM cars WHERE 1=1" +
+	q := "SELECT url, COALESCE(brand, ''), COALESCE(model, ''), COALESCE(year, 0), COALESCE(price, 0), COALESCE(kilometraje, 0) FROM cars WHERE 1=1" +
 		where + " ORDER BY scraped_at DESC"
 	rows, err := d.Query(d.queryFormat(q), args...)
 	if err != nil {
@@ -667,7 +687,7 @@ func (d *DB) GetCarPriceKeys(f FilterParams) ([]CarPriceKey, error) {
 	keys := []CarPriceKey{}
 	for rows.Next() {
 		var k CarPriceKey
-		if err := rows.Scan(&k.URL, &k.Brand, &k.Model, &k.Year, &k.Price); err != nil {
+		if err := rows.Scan(&k.URL, &k.Brand, &k.Model, &k.Year, &k.Price, &k.Km); err != nil {
 			return nil, err
 		}
 		keys = append(keys, k)
@@ -1478,92 +1498,6 @@ func (d *DB) GetDetailedStats() (DetailedStats, error) {
 	}
 
 	return stats, nil
-}
-
-type BargainResult struct {
-	Car                Car     `json:"car"`
-	HistoricalAvgPrice float64 `json:"historicalAvgPrice"`
-	DiscountPercent    float64 `json:"discountPercent"`
-}
-
-func (d *DB) GetBargains() ([]BargainResult, error) {
-	q := `
-		WITH min_prices AS (
-			SELECT brand, model, year, MIN(price) as min_p
-			FROM cars
-			WHERE is_sold = 1 AND price > 0 AND brand != '' AND model != ''
-			GROUP BY brand, model, year
-		),
-		sold_stats AS (
-			SELECT c.brand, c.model, c.year, AVG(c.price) as avg_price, COUNT(*) as sold_count
-			FROM cars c
-			JOIN min_prices m ON LOWER(c.brand) = LOWER(m.brand) AND LOWER(c.model) = LOWER(m.model) AND c.year = m.year
-			WHERE c.is_sold = 1 AND c.price > 0 AND c.brand != '' AND c.model != ''
-			  AND c.price <= m.min_p * 3 -- Outlier filter: ignore absurdly high prices
-			GROUP BY c.brand, c.model, c.year
-			HAVING COUNT(*) >= 1
-		)
-		SELECT c.url, s.avg_price, 
-		       ((s.avg_price - c.price) * 100.0 / s.avg_price) as discount_percent
-		FROM cars c
-		JOIN sold_stats s ON LOWER(c.brand) = LOWER(s.brand) AND LOWER(c.model) = LOWER(s.model) AND c.year = s.year
-		WHERE c.is_sold = 0 
-		  AND c.price > 0 
-		  AND c.price <= s.avg_price * 0.9
-		ORDER BY discount_percent DESC
-		LIMIT 50
-	`
-
-	rows, err := d.Query(d.queryFormat(q))
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	type bargainMeta struct {
-		url                string
-		historicalAvgPrice float64
-		discountPercent    float64
-	}
-	var metas []bargainMeta
-	var urls []string
-
-	for rows.Next() {
-		var m bargainMeta
-		if err := rows.Scan(&m.url, &m.historicalAvgPrice, &m.discountPercent); err != nil {
-			return nil, err
-		}
-		metas = append(metas, m)
-		urls = append(urls, m.url)
-	}
-	rows.Close()
-
-	if len(urls) == 0 {
-		return []BargainResult{}, nil
-	}
-
-	cars, err := d.GetCarsByURLs(urls)
-	if err != nil {
-		return nil, err
-	}
-
-	carMap := make(map[string]Car)
-	for _, c := range cars {
-		carMap[c.URL] = c
-	}
-
-	var results []BargainResult
-	for _, m := range metas {
-		if c, ok := carMap[m.url]; ok {
-			results = append(results, BargainResult{
-				Car:                c,
-				HistoricalAvgPrice: m.historicalAvgPrice,
-				DiscountPercent:    m.discountPercent,
-			})
-		}
-	}
-
-	return results, nil
 }
 
 func (d *DB) GetTopSellers() ([]string, error) {

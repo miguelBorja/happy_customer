@@ -1,5 +1,5 @@
 import { useLanguage } from '../context/LanguageContext';
-import { getMarketDeal, formatDealDelta, dealTooltip } from '../utils/marketDeal';
+import { getMarketDeal, formatDealDelta, dealTooltip, dealReason } from '../utils/marketDeal';
 
 /**
  * Market price badge.
@@ -42,7 +42,7 @@ const MarketBadge = ({ car, variant = 'full', style }) => {
         <span>
           {deal.label(language)}
           {deal.level !== 'fair' && (
-            <span style={{ fontWeight: 500, opacity: 0.85 }}> · {formatDealDelta(deal, language)}</span>
+            <span style={{ fontWeight: 500, opacity: 0.85 }}> · {deal.level === 'check' ? dealReason(deal, language) : formatDealDelta(deal, language)}</span>
           )}
         </span>
       )}

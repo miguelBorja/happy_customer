@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"log"
+	"math"
 	"net/http"
 	"sort"
 	"strconv"
@@ -10,41 +11,92 @@ import (
 	"crautosdb/db"
 )
 
-// Market-deal thresholds. Keep in sync with web/src/utils/marketDeal.js.
+// Market-deal thresholds (signed % vs the mileage-adjusted median). Must match the exported
+// constants in web/src/utils/marketDeal.js; TestDealThresholdsMatchFrontend enforces it.
+// great/high are used by the badges; greatDealMaxPct also defines the Gangas tab (HandleBargains).
 const (
-	minMarketComparables = 4    // includes the car itself
-	goodDealMaxPct       = -5.0 // "Buen precio" or better
+	minMarketComparables = 4     // includes the car itself
+	greatDealMaxPct      = -12.0 // "Gran precio"
+	goodDealMaxPct       = -5.0  // "Buen precio" or better (deal=good)
+	highDealMinPct       = 10.0  // "Sobre el mercado"
 )
 
+// "Check the price" flags (MarketFlag in the API). A flagged car gets a warning badge instead of
+// a deal level, is excluded from deal=good and Gangas, and goes last in sortDeal=best.
+const (
+	flagTypo      = "typo"               // price looks off by a factor of 10 (missing or extra zero)
+	flagOutlier   = "outlier"            // too far below market to be a real deal
+	flagCondition = db.TextFlagCondition // comment: damaged / repairs / for parts
+	flagDebt      = db.TextFlagDebt      // comment: assume a loan / lien
+)
+
+// dealFlag classifies a listing whose deviation is pct (vs expected). textFlag comes from the
+// comment and only matters when the price would otherwise earn a "good" badge or better.
+func dealFlag(pct float64, price, expected int, textFlag string) string {
+	if db.IsTypoPrice(price, expected) {
+		return flagTypo
+	}
+	if pct <= db.SuspiciousLowPct {
+		if textFlag != "" {
+			return textFlag
+		}
+		return flagOutlier
+	}
+	if pct <= goodDealMaxPct && textFlag != "" {
+		return textFlag
+	}
+	return ""
+}
+
 // marketDealPct returns the signed deviation (%) of price vs the market median for its
-// brand/model/year, and false when there is not enough market data.
-func marketDealPct(stats map[string]db.MarketStat, k db.CarPriceKey) (float64, bool) {
-	if stats == nil || k.Price <= 0 {
-		return 0, false
+// brand/model/year adjusted to its mileage, the "check the price" flag, and false when there is
+// not enough market data.
+func marketDealPct(stats *db.MarketIndex, k db.CarPriceKey) (float64, string, bool) {
+	if k.Price <= 0 {
+		return 0, "", false
 	}
-	stat, ok := stats[db.MarketKey(k.Brand, k.Model, k.Year)]
-	if !ok || stat.Median <= 0 || stat.Count < minMarketComparables {
-		return 0, false
+	ref, ok := stats.Lookup(k.Brand, k.Model, k.Year, k.Km)
+	if !ok || ref.Expected <= 0 || ref.Count < minMarketComparables {
+		return 0, "", false
 	}
-	return float64(k.Price-stat.Median) / float64(stat.Median) * 100, true
+	pct := float64(k.Price-ref.Expected) / float64(ref.Expected) * 100
+	return pct, dealFlag(pct, k.Price, ref.Expected, stats.TextFlag(k.URL)), true
 }
 
 // rankDealURLs filters and/or orders the candidate keys (already most-recent-first) by market deal.
 // onlyGood keeps cars at least goodDealMaxPct below market; bestFirst orders by deviation ascending,
-// with cars lacking market data last. Ties keep the incoming (recency) order.
-func rankDealURLs(keys []db.CarPriceKey, stats map[string]db.MarketStat, onlyGood, bestFirst bool) []string {
-	type ranked struct {
-		url string
-		pct float64
-		ok  bool
+// with flagged cars and cars lacking market data last. Ties keep the incoming (recency) order.
+func rankDealURLs(keys []db.CarPriceKey, stats *db.MarketIndex, onlyGood, bestFirst bool) []string {
+	maxPct := math.Inf(1)
+	if onlyGood {
+		maxPct = goodDealMaxPct
 	}
-	items := make([]ranked, 0, len(keys))
+	items := rankDeals(keys, stats, maxPct, bestFirst)
+	urls := make([]string, len(items))
+	for i, it := range items {
+		urls[i] = it.url
+	}
+	return urls
+}
+
+type rankedDeal struct {
+	url string
+	pct float64 // signed deviation vs the mileage-adjusted median
+	ok  bool    // false when there is not enough market data or the price is flagged
+}
+
+// rankDeals is the core of rankDealURLs. With a finite maxPct only unflagged cars with market data
+// and pct <= maxPct are kept; with +Inf every car is kept.
+func rankDeals(keys []db.CarPriceKey, stats *db.MarketIndex, maxPct float64, bestFirst bool) []rankedDeal {
+	filter := !math.IsInf(maxPct, 1)
+	items := make([]rankedDeal, 0, len(keys))
 	for _, k := range keys {
-		pct, ok := marketDealPct(stats, k)
-		if onlyGood && (!ok || pct > goodDealMaxPct) {
+		pct, flag, ok := marketDealPct(stats, k)
+		ok = ok && flag == ""
+		if filter && (!ok || pct > maxPct) {
 			continue
 		}
-		items = append(items, ranked{url: k.URL, pct: pct, ok: ok})
+		items = append(items, rankedDeal{url: k.URL, pct: pct, ok: ok})
 	}
 	if bestFirst {
 		sort.SliceStable(items, func(i, j int) bool {
@@ -54,11 +106,61 @@ func rankDealURLs(keys []db.CarPriceKey, stats map[string]db.MarketStat, onlyGoo
 			return items[i].ok && items[i].pct < items[j].pct
 		})
 	}
-	urls := make([]string, len(items))
-	for i, it := range items {
-		urls[i] = it.url
+	return items
+}
+
+// maxBargains caps the Gangas tab.
+const maxBargains = 50
+
+// Bargain is one entry of /api/bargains. Same market reference as the badges: MarketPrice is the
+// mileage-adjusted median (car.MarketExpected) and DiscountPercent = -pct.
+type Bargain struct {
+	Car             CarWithMarket `json:"car"`
+	MarketPrice     int           `json:"marketPrice"`
+	DiscountPercent float64       `json:"discountPercent"`
+}
+
+// HandleBargains serves the Gangas tab: active listings with a "Gran precio" badge
+// (pct <= greatDealMaxPct vs the mileage-adjusted median), biggest discount first.
+func (s *Server) HandleBargains(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	stats := s.getMarketStats()
+	active := false
+	keys, err := s.DB.GetCarPriceKeys(db.FilterParams{IsSold: &active, ExcludeURLs: stats.ActiveDuplicateURLs()})
+	if err != nil {
+		log.Printf("[API ERROR] GetCarPriceKeys (bargains) failed: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
-	return urls
+	ranked := rankDeals(keys, stats, greatDealMaxPct, true)
+	if len(ranked) > maxBargains {
+		ranked = ranked[:maxBargains]
+	}
+
+	bargains := []Bargain{}
+	if len(ranked) > 0 {
+		urls := make([]string, len(ranked))
+		for i, it := range ranked {
+			urls[i] = it.url
+		}
+		loaded, err := s.DB.GetCarsByURLs(urls)
+		if err != nil {
+			log.Printf("[API ERROR] GetCarsByURLs (bargains) failed: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		cars := s.withMarket(orderCarsByURLs(loaded, urls))
+		pctByURL := make(map[string]float64, len(ranked))
+		for _, it := range ranked {
+			pctByURL[it.url] = it.pct
+		}
+		for _, c := range cars {
+			bargains = append(bargains, Bargain{Car: c, MarketPrice: c.MarketExpected, DiscountPercent: -pctByURL[c.URL]})
+		}
+	}
+	json.NewEncoder(w).Encode(bargains)
 }
 
 // pageOfURLs returns urls[offset:offset+limit] (bounds-safe).
@@ -89,7 +191,7 @@ func orderCarsByURLs(cars []db.Car, urls []string) []db.Car {
 }
 
 // serveDealCars answers /api/cars when deal=good and/or sortDeal=best: it ranks every matching
-// car against the market median, then loads only the requested page. X-Total-Count is always set.
+// car against the mileage-adjusted market median, then loads only the requested page. X-Total-Count is always set.
 func (s *Server) serveDealCars(w http.ResponseWriter, f db.FilterParams, onlyGood, bestFirst bool) {
 	keys, err := s.DB.GetCarPriceKeys(f)
 	if err != nil {

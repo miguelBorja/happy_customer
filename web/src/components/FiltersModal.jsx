@@ -1,14 +1,20 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useLanguage } from '../context/LanguageContext';
 import { FilterFunnelIcon } from './icons/AppIcons';
 import ExcelMultiSelect from './ExcelMultiSelect';
 
 const commonEquipments = [
-  { id: "Tapicería de cuero", labelKey: "equipLeather" },
+  { id: "Apple CarPlay" },
+  { id: "Android Auto" },
   { id: "Cámara de retroceso", labelKey: "equipCamera" },
-  { id: "Bluetooth", labelKey: "equipBluetooth" },
-  { id: "Aros de lujo", labelKey: "equipRims" },
+  { id: "Cámara 360" },
   { id: "Sunroof/techo panorámico", labelKey: "equipSunroof" },
+  { id: "Tapicería de cuero", labelKey: "equipLeather" },
+  { id: "Llave inteligente/botón de arranque" },
+  { id: "Control crucero" },
+  { id: "Sensores de retroceso" },
+  { id: "Aros de lujo", labelKey: "equipRims" },
+  { id: "Bluetooth", labelKey: "equipBluetooth" },
   { id: "Control de radio en el volante", labelKey: "equipSteering" },
 ];
 
@@ -437,7 +443,7 @@ const FiltersModal = ({
                     checked={(filters.equipments || []).includes(eq.id)} 
                     onChange={handleChange} 
                   />
-                  <span>{t(eq.labelKey)}</span>
+                  <span>{eq.labelKey ? t(eq.labelKey) : t(eq.id)}</span>
                 </label>
               ))}
             </div>

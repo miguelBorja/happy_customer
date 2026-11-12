@@ -1,15 +1,17 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import CarsPage from './pages/CarsPage';
 import FavoritesPage from './pages/FavoritesPage';
 import StatsPage from './pages/StatsPage';
 import AboutPage from './pages/AboutPage';
 import BargainsPage from './pages/BargainsPage';
 import AICopilotWindow from './components/AICopilotWindow';
+import CompareWidget from './components/CompareWidget';
+import WelcomeBanner from './components/WelcomeBanner';
 import { fetchStats, recordVisit } from './api/client';
 import { useFavorites } from './hooks/useFavorites';
 import { useLanguage } from './context/LanguageContext';
 import { trackPageView } from './utils/analytics';
-import { parseUrlState, buildUrlSearch, sameFilters } from './utils/urlState';
+import { parseUrlState, buildUrlSearch, sameFilters, createDefaultFilters } from './utils/urlState';
 import {
   FlagIcon,
   StarIcon,
@@ -23,6 +25,13 @@ import {
 function App() {
   // Tab, filters, sort and open car are restored from the URL (shareable links + Back button).
   const initialUrlState = useMemo(() => parseUrlState(window.location.search), []);
+  // A shared link (car, filters, sort, tab) must never be interrupted by the welcome banner.
+  const hasInitialUrlParams = useMemo(() => Boolean(
+    initialUrlState.carUrl ||
+    initialUrlState.tab !== 'browse' ||
+    initialUrlState.clientSort ||
+    !sameFilters(initialUrlState.filters, createDefaultFilters())
+  ), [initialUrlState]);
   const [activeTab, setActiveTab] = useState(initialUrlState.tab);
   const [stats, setStats] = useState({ total: 0, active: 0, sold: 0, visits: 0 });
   const { favCount } = useFavorites();
@@ -151,6 +160,21 @@ function App() {
       setIsCopilotOpen(false);
     }
   };
+
+  const handleExploreGoodDeals = useCallback(() => {
+    setActiveTab('browse');
+    setCarUrl(null);
+    setShowFavsOnly(false);
+    setLocalTitle('');
+    setFilters({ ...createDefaultFilters(), deal: 'good' });
+    setClientSort('bestDeal');
+  }, []);
+
+  const handleAnalyzeWithCopilot = useCallback((carsToAnalyze) => {
+    setAttachedCars(carsToAnalyze.slice(0, MAX_COPILOT_CARS));
+    setIsCopilotOpen(true);
+    setIsCopilotMinimized(false);
+  }, []);
 
   useEffect(() => {
     recordVisit('/').catch(console.error);
@@ -294,6 +318,13 @@ function App() {
       </nav>
 
       <main className="main-content">
+        {!hasInitialUrlParams && activeTab === 'browse' && !carUrl && (
+          <WelcomeBanner
+            stats={stats}
+            onExploreGoodDeals={handleExploreGoodDeals}
+            onOpenBargains={() => goToTab('bargains')}
+          />
+        )}
         {renderPage()}
       </main>
 
@@ -355,6 +386,8 @@ function App() {
           <span>{t('navAbout')}</span>
         </button>
       </nav>
+
+      <CompareWidget onAnalyzeWithCopilot={handleAnalyzeWithCopilot} />
 
       <AICopilotWindow 
         isOpen={isCopilotOpen}

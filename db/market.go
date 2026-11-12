@@ -7,52 +7,257 @@ import (
 	"strings"
 )
 
+// MarketStat summarizes the comparable listings (active + sold) of one brand/model/year.
 type MarketStat struct {
-	Median int
-	Count  int
+	Median   int
+	Count    int
+	MedianKm int // median mileage of the comparables with a known mileage (0 = unknown)
+	KmCount  int // comparables with a known mileage
 }
+
+// MarketIndex holds the per-group stats plus the mileage adjustment learned from the whole catalog.
+type MarketIndex struct {
+	Groups map[string]MarketStat
+	// KmSlope is the change in log(price) per 10,000 km above the group's median mileage
+	// (always ≤ 0). Example: -0.02 ≈ -2% of value for every extra 10k km.
+	KmSlope float64
+	// KmSamples is how many listings were used to fit KmSlope (0 = no adjustment).
+	KmSamples int
+	// TextFlags maps a listing URL to TextFlagCondition / TextFlagDebt when its comment explains
+	// a low price (see market_flags.go). Listings without a flag are absent.
+	TextFlags map[string]string
+	// DuplicateURLs holds the sorted URLs of active listings that duplicate a newer active
+	// listing of the same physical car (see dedup.go). Sold duplicates are not included.
+	DuplicateURLs []string
+}
+
+// TextFlag returns the comment-based flag of a listing ("" when none).
+func (m *MarketIndex) TextFlag(url string) string {
+	if m == nil || m.TextFlags == nil {
+		return ""
+	}
+	return m.TextFlags[url]
+}
+
+// ActiveDuplicateURLs returns the sorted URLs of active listings that duplicate a newer
+// active listing of the same physical car.
+func (m *MarketIndex) ActiveDuplicateURLs() []string {
+	if m == nil {
+		return nil
+	}
+	return m.DuplicateURLs
+}
+
+// MarketRef is the market reference for one specific listing.
+type MarketRef struct {
+	Median   int // plain median of the group
+	Count    int
+	MedianKm int // typical mileage of the group (0 = unknown)
+	Expected int // median adjusted to this listing's mileage (== Median when not adjustable)
+}
+
+// Mileage-adjustment parameters.
+const (
+	maxValidKm           = 1_000_000 // ignore obvious typos
+	minKmComparables     = 3         // comparables with known mileage needed to adjust a group
+	minFitGroupSize      = 4         // only groups with this many comparables feed the slope fit
+	minKmFitSamples      = 50        // below this the slope is not trusted (no adjustment)
+	kmMaxDelta           = 10.0      // clamp |km - medianKm| to 100k km (fit and adjustment): the effect flattens beyond
+	kmFitMaxLogDev       = 0.7       // clamp |log(price/median)| (≈ -50%/+100%) when fitting
+	kmSlopeMin           = -0.05     // at most -5% per 10k km
+	kmAdjustMaxDeviation = 0.25      // the adjusted median stays within ±25% of the plain median
+)
 
 func MarketKey(brand, model string, year int) string {
 	return strings.ToLower(strings.TrimSpace(brand)) + "|" + strings.ToLower(strings.TrimSpace(model)) + "|" + strconv.Itoa(year)
 }
 
-func (d *DB) GetAllMarketStats() (map[string]MarketStat, error) {
-	q := `SELECT brand, model, year, price FROM cars WHERE price > 0 AND brand != '' AND model != ''`
+func validKm(km int) bool { return km > 0 && km <= maxValidKm }
+
+func medianInt(sorted []int) int {
+	n := len(sorted)
+	if n == 0 {
+		return 0
+	}
+	if n%2 == 1 {
+		return sorted[n/2]
+	}
+	return int(math.Round(float64(sorted[n/2-1]+sorted[n/2]) / 2.0))
+}
+
+// Lookup returns the market reference for a listing, adjusting the group median to the listing's
+// mileage. ok is false when the group is unknown.
+func (m *MarketIndex) Lookup(brand, model string, year, km int) (MarketRef, bool) {
+	if m == nil || m.Groups == nil {
+		return MarketRef{}, false
+	}
+	stat, ok := m.Groups[MarketKey(brand, model, year)]
+	if !ok {
+		return MarketRef{}, false
+	}
+	ref := MarketRef{Median: stat.Median, Count: stat.Count, MedianKm: stat.MedianKm, Expected: stat.Median}
+	if m.KmSlope < 0 && validKm(km) && stat.MedianKm > 0 && stat.KmCount >= minKmComparables && stat.Median > 0 {
+		ref.Expected = int(math.Round(float64(stat.Median) * kmAdjustFactor(m.KmSlope, km, stat.MedianKm)))
+	}
+	return ref, true
+}
+
+// kmAdjustFactor is the multiplier applied to the group median for a listing with km kilometers.
+func kmAdjustFactor(slope float64, km, medianKm int) float64 {
+	dx := math.Max(-kmMaxDelta, math.Min(kmMaxDelta, float64(km-medianKm)/10000.0))
+	f := math.Exp(slope * dx)
+	return math.Max(1-kmAdjustMaxDeviation, math.Min(1+kmAdjustMaxDeviation, f))
+}
+
+type marketSample struct {
+	price, km int
+	textFlag  string
+}
+
+// filterCleanSamples removes obvious price typos and text-flagged cars priced well below the
+// group's seed median, so a damaged/parts/debt listing cannot drag the median down.
+func filterCleanSamples(samples []marketSample) []marketSample {
+	seedPrices := make([]int, 0, len(samples))
+	for _, s := range samples {
+		if s.price > 0 && s.textFlag == "" {
+			seedPrices = append(seedPrices, s.price)
+		}
+	}
+	if len(seedPrices) == 0 {
+		for _, s := range samples {
+			if s.price > 0 {
+				seedPrices = append(seedPrices, s.price)
+			}
+		}
+	}
+	sort.Ints(seedPrices)
+	seed := medianInt(seedPrices)
+	if seed <= 0 {
+		return samples
+	}
+	clean := make([]marketSample, 0, len(samples))
+	for _, s := range samples {
+		if IsTypoPrice(s.price, seed) {
+			continue
+		}
+		if s.textFlag != "" && float64(s.price-seed)/float64(seed)*100 <= FlaggedExcludeMaxPct {
+			continue
+		}
+		clean = append(clean, s)
+	}
+	if len(clean) == 0 {
+		return samples
+	}
+	return clean
+}
+
+// buildMarketIndex groups the samples by key, computes medians and fits the mileage slope.
+func buildMarketIndex(groups map[string][]marketSample) *MarketIndex {
+	idx := &MarketIndex{Groups: make(map[string]MarketStat, len(groups))}
+
+	// Pooled within-group regression of log(price/median) on (km - medianKm)/10k.
+	var sx, sy, sxx, sxy float64
+	var n int
+
+	for k, samples := range groups {
+		clean := filterCleanSamples(samples)
+		prices := make([]int, 0, len(clean))
+		kms := make([]int, 0, len(clean))
+		for _, s := range clean {
+			prices = append(prices, s.price)
+			if validKm(s.km) {
+				kms = append(kms, s.km)
+			}
+		}
+		sort.Ints(prices)
+		sort.Ints(kms)
+		stat := MarketStat{Median: medianInt(prices), Count: len(prices), MedianKm: medianInt(kms), KmCount: len(kms)}
+		idx.Groups[k] = stat
+
+		if stat.Count < minFitGroupSize || stat.KmCount < minKmComparables || stat.Median <= 0 {
+			continue
+		}
+		for _, s := range clean {
+			if !validKm(s.km) || s.price <= 0 {
+				continue
+			}
+			x := math.Max(-kmMaxDelta, math.Min(kmMaxDelta, float64(s.km-stat.MedianKm)/10000.0))
+			y := math.Max(-kmFitMaxLogDev, math.Min(kmFitMaxLogDev, math.Log(float64(s.price)/float64(stat.Median))))
+			sx += x
+			sy += y
+			sxx += x * x
+			sxy += x * y
+			n++
+		}
+	}
+
+	if n >= minKmFitSamples {
+		fn := float64(n)
+		den := sxx - sx*sx/fn
+		if den > 0 {
+			slope := (sxy - sx*sy/fn) / den
+			idx.KmSlope = math.Max(kmSlopeMin, math.Min(0, slope))
+			idx.KmSamples = n
+		}
+	}
+	return idx
+}
+
+// GetAllMarketStats builds the market index (median price per brand/model/year over active and
+// sold listings, plus the mileage adjustment and the comment-based flags).
+func (d *DB) GetAllMarketStats() (*MarketIndex, error) {
+	q := `SELECT url, COALESCE(title, ''), brand, model, year, price, COALESCE(kilometraje, 0),
+		COALESCE(placa, ''), COALESCE(color_exterior, ''), COALESCE(seller_phone, ''),
+		COALESCE(comment, ''), COALESCE(is_sold, 0)
+	FROM cars
+	WHERE price > 0 AND brand != '' AND model != ''
+	ORDER BY is_sold ASC, scraped_at DESC, url DESC`
 	rows, err := d.Query(d.queryFormat(q))
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	groups := make(map[string][]int)
+	groups := make(map[string][]marketSample)
+	textFlags := make(map[string]string)
+	seen := make(map[string][]dedupCandidate)
+	var dupURLs []string
 	for rows.Next() {
-		var brand, model string
-		var year, price int
-		if err := rows.Scan(&brand, &model, &year, &price); err != nil {
+		var url, title, brand, model, placa, color, sellerPhone, comment string
+		var year, price, km, isSold int
+		if err := rows.Scan(&url, &title, &brand, &model, &year, &price, &km, &placa, &color, &sellerPhone, &comment, &isSold); err != nil {
 			return nil, err
 		}
+		tf := DetectTextFlag(comment)
+		if tf != "" {
+			textFlags[url] = tf
+		}
+
+		cand := newDedupCandidate(url, title, brand, model, price, km, placa, color, sellerPhone)
 		k := MarketKey(brand, model, year)
-		groups[k] = append(groups[k], price)
+		dup := false
+		for _, prev := range seen[k] {
+			if samePhysicalCar(prev, cand) {
+				dup = true
+				break
+			}
+		}
+		if dup {
+			if isSold == 0 {
+				dupURLs = append(dupURLs, url)
+			}
+			continue
+		}
+		seen[k] = append(seen[k], cand)
+		groups[k] = append(groups[k], marketSample{price: price, km: km, textFlag: tf})
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
 
-	stats := make(map[string]MarketStat, len(groups))
-	for k, prices := range groups {
-		sort.Ints(prices)
-		n := len(prices)
-		var median int
-		if n%2 == 1 {
-			median = prices[n/2]
-		} else {
-			median = int(math.Round(float64(prices[n/2-1]+prices[n/2]) / 2.0))
-		}
-		stats[k] = MarketStat{
-			Median: median,
-			Count:  n,
-		}
-	}
-
-	return stats, nil
+	sort.Strings(dupURLs)
+	idx := buildMarketIndex(groups)
+	idx.TextFlags = textFlags
+	idx.DuplicateURLs = dupURLs
+	return idx, nil
 }

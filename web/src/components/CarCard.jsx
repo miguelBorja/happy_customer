@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useLanguage } from '../context/LanguageContext';
-import { trackEvent } from '../utils/analytics';
 import { formatListingAge, formatListingDate } from '../utils/listingDate';
+import { sortEquipments, isFeaturedEquipment } from '../utils/equipmentPriority';
 import {
   AutoTransmissionIcon,
   ElectricPlugIcon,
@@ -13,6 +13,7 @@ import { CarThumb } from './CarPhoto';
 import CarDetailsModal from './CarDetailsModal';
 import MarketBadge from './MarketBadge';
 import { getMarketDeal } from '../utils/marketDeal';
+import { useCompare } from '../hooks/useCompare';
 
 const MAX_PRICE = 100000;
 const MAX_MILEAGE = 150000;
@@ -74,15 +75,22 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage, onOpenD
   const priceColors = getDynamicColors(pricePercent);
   const mileageColors = getDynamicColors(mileagePercent);
 
+  const { isComparing, toggleCompare } = useCompare();
+  const inCompare = isComparing(car.URL);
+
   const listingAge = formatListingAge(car, language);
   const listingDate = formatListingDate(car, language);
 
-  const hasMoreDetails = (car.Comment && car.Comment.trim() !== '-') || (car.Equipments && Object.keys(car.Equipments).length > 3);
+  const sortedEquips = sortEquipments(car.Equipments);
 
   return (
     <div 
       className={`car-card draggable-car-card ${car.IsSold ? 'sold' : ''} ${isNew ? 'new-car-card' : ''} ${isFav ? 'fav-car-card' : ''}`}
+      role="button"
+      tabIndex={0}
       draggable={true}
+      onClick={(e) => { if (e.target.closest('a, button')) return; openDetails(); }}
+      onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); openDetails(); } }}
       onDragStart={(e) => {
         e.dataTransfer.setData('application/json', JSON.stringify(car));
         e.dataTransfer.setData('text/plain', JSON.stringify(car));
@@ -91,11 +99,23 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage, onOpenD
     >
       <div 
         className="car-card-photo" 
-        style={{ cursor: 'pointer', margin: '0 0 0.5rem 0' }}
-        onClick={(e) => { e.stopPropagation(); openDetails(); }}
+        style={{ margin: '0 0 0.5rem 0' }}
       >
         <CarThumb car={car} variant="card" badge={isNew ? <NewBadgeIcon size={18} /> : null} />
       </div>
+
+      <button
+        type="button"
+        className={`compare-btn-card ${inCompare ? 'active' : ''}`}
+        style={{ zIndex: 5 }}
+        onClick={(e) => { e.stopPropagation(); toggleCompare(car); }}
+        title={inCompare
+          ? (language === 'es' ? 'Quitar del comparador' : 'Remove from comparator')
+          : (language === 'es' ? 'Comparar lado a lado' : 'Compare side by side')}
+        aria-pressed={inCompare}
+      >
+        ⇄
+      </button>
 
       <button
         className={`fav-btn-card ${isFav ? 'active' : ''}`}
@@ -263,11 +283,8 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage, onOpenD
               display: '-webkit-box',
               WebkitLineClamp: 2,
               WebkitBoxOrient: 'vertical',
-              overflow: 'hidden',
-              cursor: 'pointer',
-              userSelect: 'none'
+              overflow: 'hidden'
             }}
-            onClick={(e) => { e.stopPropagation(); openDetails(); }}
             title={language === 'es' ? 'Clic para ver más detalles' : 'Click to view details'}
           >
             {`"${car.Comment}"`}
@@ -275,48 +292,19 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage, onOpenD
         )}
 
         {/* Feature Tags: Display maximum of 3 feature pills, plus a "+[X] más" pill that triggers the modal */}
-        {car.Equipments && Object.keys(car.Equipments).length > 0 && (
+        {sortedEquips.length > 0 && (
           <div className="car-equip">
-            {Object.keys(car.Equipments)
-              .slice(0, 3)
-              .map(eq => (
-                <span key={eq} className="equip-badge">{t(eq)}</span>
-              ))}
-            {Object.keys(car.Equipments).length > 3 && (
-              <span 
-                className="equip-badge"
-                style={{ cursor: 'pointer', opacity: 0.7, borderStyle: 'dashed' }}
-                onClick={(e) => { e.stopPropagation(); openDetails(); }}
-                title={language === 'es' ? 'Mostrar más equipamiento' : 'Show more equipment'}
-              >
-                +{Object.keys(car.Equipments).length - 3} {t('more')}
+            {sortedEquips.slice(0, 3).map(eq => (
+              <span key={eq} className={`equip-badge ${isFeaturedEquipment(eq) ? 'equip-badge--featured' : ''}`}>{t(eq)}</span>
+            ))}
+            {sortedEquips.length > 3 && (
+              <span className="equip-badge" style={{ opacity: 0.75, borderStyle: 'dashed' }}>
+                +{sortedEquips.length - 3} {t('more')}
               </span>
             )}
           </div>
         )}
 
-        {/* Modal trigger details button */}
-        {hasMoreDetails && (
-          <button 
-            className="btn-details-trigger"
-            onClick={(e) => { e.stopPropagation(); openDetails(); }}
-          >
-            <span>▼</span> {language === 'es' ? 'Mostrar más detalles' : 'Show more details'}
-          </button>
-        )}
-      </div>
-      
-      {/* View on Crautos button: Pinned to the absolute bottom of the card using margin-top: auto */}
-      <div className="car-footer" style={{ marginTop: 'auto' }}>
-        <a 
-          href={car.URL} 
-          target="_blank" 
-          rel="noreferrer" 
-          className="btn-link"
-          onClick={() => trackEvent('view_external_car', 'outbound', car.Title || car.URL)}
-        >
-          {t('view')}{language === 'es' ? ' en Crautos' : ' on Crautos'}
-        </a>
       </div>
 
       {/* Details modal overlay */}

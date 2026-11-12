@@ -6,7 +6,8 @@ import { parsePhones, getWhatsAppPhone, buildWhatsAppLink, buildTelLink } from '
 import { formatListingAge, formatListingDate } from '../utils/listingDate';
 import { CarGallery } from './CarPhoto';
 import MarketBadge from './MarketBadge';
-import { getMarketDeal, formatUSD } from '../utils/marketDeal';
+import { getMarketDeal, formatUSD, formatMarketReference, dealReason } from '../utils/marketDeal';
+import { useCompare } from '../hooks/useCompare';
 
 // Data Categorization Utility
 const categorizeFeatures = (featuresArray, translateFn) => {
@@ -98,6 +99,7 @@ const WhatsAppIcon = ({ size = 18, color = 'currentColor', style = {} }) => (
 
 const CarDetailsModal = ({ isOpen, onClose, car }) => {
   const { t, language } = useLanguage();
+  const { isComparing, toggleCompare } = useCompare();
 
   useEffect(() => {
     if (!isOpen) return;
@@ -111,6 +113,7 @@ const CarDetailsModal = ({ isOpen, onClose, car }) => {
   }, [isOpen, onClose]);
 
   if (!isOpen || !car) return null;
+  const inCompare = isComparing(car.URL);
 
   const featuresArray = car.Equipments ? Object.keys(car.Equipments) : [];
   const categorized = categorizeFeatures(featuresArray, t);
@@ -129,6 +132,9 @@ const CarDetailsModal = ({ isOpen, onClose, car }) => {
   const clampedPrice = Math.max(minRange, Math.min(carPrice, maxRange));
   const dotPercent = deal ? ((clampedPrice - minRange) / (maxRange - minRange)) * 100 : 50;
   const carSubject = [car.Brand, car.Model, car.Year].filter(Boolean).join(' ') || car.Title || '';
+  const medianLabel = deal?.kmAdjusted
+    ? (language === 'es' ? 'Ajustada por km' : 'Mileage-adjusted')
+    : (language === 'es' ? 'Mediana' : 'Median');
 
   const sellerName = car.SellerName && String(car.SellerName).trim() !== '-' ? String(car.SellerName).trim() : null;
   const listingAge = formatListingAge(car, language);
@@ -210,12 +216,10 @@ const CarDetailsModal = ({ isOpen, onClose, car }) => {
               </div>
 
               <div style={{ fontSize: '0.9rem', color: 'var(--text-main, #f8fafc)', fontWeight: 500 }}>
-                {language === 'es'
-                  ? `Mediana de ${deal.count} autos ${carSubject}: ${formatUSD(deal.median)}`
-                  : `Median of ${deal.count} ${carSubject} cars: ${formatUSD(deal.median)}`}
+                {formatMarketReference(deal, carSubject, language)}
               </div>
 
-              {/* Range indicator: 0.7×median to 1.3×median */}
+              {/* Range indicator: 0.7×reference to 1.3×reference (reference = mileage-adjusted median) */}
               <div style={{ marginTop: '0.25rem', marginBottom: '0.15rem' }}>
                 <div
                   style={{
@@ -228,7 +232,7 @@ const CarDetailsModal = ({ isOpen, onClose, car }) => {
                 >
                   {/* Median tick */}
                   <div
-                    title={`${language === 'es' ? 'Mediana' : 'Median'}: ${formatUSD(deal.median)}`}
+                    title={`${medianLabel}: ${formatUSD(deal.median)}`}
                     style={{
                       position: 'absolute',
                       left: '50%',
@@ -261,15 +265,27 @@ const CarDetailsModal = ({ isOpen, onClose, car }) => {
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-muted, #94a3b8)', marginTop: '0.35rem' }}>
                   <span>{formatUSD(minRange)}</span>
-                  <span style={{ color: 'rgba(255, 255, 255, 0.7)' }}>{language === 'es' ? 'Mediana' : 'Median'} ({formatUSD(deal.median)})</span>
+                  <span style={{ color: 'rgba(255, 255, 255, 0.7)' }}>{medianLabel} ({formatUSD(deal.median)})</span>
                   <span>{formatUSD(maxRange)}</span>
                 </div>
               </div>
 
+              {deal.level === 'check' && (
+                <div style={{ fontSize: '0.82rem', color: '#fcd34d', lineHeight: 1.4 }}>
+                  ⚠️ {language === 'es'
+                    ? `Verifica el precio con el vendedor: ${dealReason(deal, language)}.`
+                    : `Check the price with the seller: ${dealReason(deal, language)}.`}
+                </div>
+              )}
+
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted, #94a3b8)', fontStyle: 'italic' }}>
-                {language === 'es'
-                  ? 'Comparación aproximada; no considera kilometraje, versión ni estado.'
-                  : 'Approximate comparison; does not consider mileage, trim, or condition.'}
+                {deal.kmAdjusted
+                  ? (language === 'es'
+                    ? 'Comparación aproximada, ajustada por kilometraje; no considera versión ni estado.'
+                    : 'Approximate comparison, adjusted for mileage; does not consider trim or condition.')
+                  : (language === 'es'
+                    ? 'Comparación aproximada; no considera versión ni estado.'
+                    : 'Approximate comparison; does not consider trim or condition.')}
               </div>
             </div>
           )}
@@ -401,6 +417,19 @@ const CarDetailsModal = ({ isOpen, onClose, car }) => {
           >
             {t('view')}{language === 'es' ? ' en Crautos' : ' on Crautos'}
           </a>
+
+          <button
+            type="button"
+            className={`btn-modal-compare ${inCompare ? 'active' : ''}`}
+            onClick={() => toggleCompare(car)}
+          >
+            <span>{inCompare ? '✓' : '⇄'}</span>
+            <span>
+              {inCompare
+                ? (language === 'es' ? 'En comparador' : 'In comparator')
+                : (language === 'es' ? 'Comparar' : 'Compare')}
+            </span>
+          </button>
 
           {otherPhones.length > 0 && (
             <div

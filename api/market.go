@@ -10,17 +10,24 @@ import (
 
 var marketCache struct {
 	sync.Mutex
-	stats    map[string]db.MarketStat
+	stats    *db.MarketIndex
 	loadedAt time.Time
 }
 
+// CarWithMarket adds the market reference to a car. MarketExpected is the median adjusted to the
+// car's mileage; the deal badges (and sortDeal/deal=good) compare the price against it.
 type CarWithMarket struct {
 	db.Car
-	MarketMedian int `json:"MarketMedian,omitempty"`
-	MarketCount  int `json:"MarketCount,omitempty"`
+	MarketMedian   int `json:"MarketMedian,omitempty"`
+	MarketCount    int `json:"MarketCount,omitempty"`
+	MarketExpected int `json:"MarketExpected,omitempty"`
+	MarketMedianKm int `json:"MarketMedianKm,omitempty"`
+	// MarketFlag ("typo", "outlier", "condition", "debt") means "check the price": the badge
+	// shows a warning instead of a deal level (see dealFlag in deals.go).
+	MarketFlag string `json:"MarketFlag,omitempty"`
 }
 
-func (s *Server) getMarketStats() map[string]db.MarketStat {
+func (s *Server) getMarketStats() *db.MarketIndex {
 	marketCache.Lock()
 	defer marketCache.Unlock()
 
@@ -48,12 +55,15 @@ func (s *Server) withMarket(cars []db.Car) []CarWithMarket {
 	stats := s.getMarketStats()
 	for _, car := range cars {
 		cwm := CarWithMarket{Car: car}
-		if stats != nil {
-			key := db.MarketKey(car.Brand, car.Model, car.Year)
-			if stat, ok := stats[key]; ok {
-				cwm.MarketMedian = stat.Median
-				cwm.MarketCount = stat.Count
-			}
+		if ref, ok := stats.Lookup(car.Brand, car.Model, car.Year, car.Kilometraje); ok {
+			cwm.MarketMedian = ref.Median
+			cwm.MarketCount = ref.Count
+			cwm.MarketExpected = ref.Expected
+			cwm.MarketMedianKm = ref.MedianKm
+			// Same key and rules as sortDeal / deal=good / Gangas.
+			_, cwm.MarketFlag, _ = marketDealPct(stats, db.CarPriceKey{
+				URL: car.URL, Brand: car.Brand, Model: car.Model, Year: car.Year, Price: car.Price, Km: car.Kilometraje,
+			})
 		}
 		result = append(result, cwm)
 	}

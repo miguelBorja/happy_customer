@@ -86,6 +86,10 @@ func (s *Server) HandleCars(w http.ResponseWriter, r *http.Request) {
 		f.SortDesc = true // default desc
 	}
 
+	if stats := s.getMarketStats(); stats != nil {
+		f.ExcludeURLs = stats.ActiveDuplicateURLs()
+	}
+
 	// Market-deal mode: ordering by deal and/or the "good prices only" filter need the market
 	// median of every matching car, so they are resolved here over the whole catalog.
 	onlyGood := q.Get("deal") == "good"
@@ -987,24 +991,6 @@ GUIDELINES:
 		fmt.Fprintf(w, "data: [DONE]\n\n")
 		flusher.Flush()
 	}
-}
-
-func (s *Server) HandleBargains(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-
-	bargains, err := s.DB.GetBargains()
-	if err != nil {
-		log.Printf("[API ERROR] GetBargains failed: %v", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	if bargains == nil {
-		bargains = []db.BargainResult{}
-	}
-
-	json.NewEncoder(w).Encode(bargains)
 }
 
 func (s *Server) HandleTopSellers(w http.ResponseWriter, r *http.Request) {

@@ -22,7 +22,9 @@ import {
 } from '../components/icons/AppIcons';
 import { CarThumb } from '../components/CarPhoto';
 import CarDetailsModal from '../components/CarDetailsModal';
+import { ResultsSkeleton } from '../components/LoadingSkeletons';
 import { useTableDensity } from '../hooks/useTableDensity';
+import { useCompare } from '../hooks/useCompare';
 import { createDefaultFilters } from '../utils/urlState';
 
 const RENDER_STEP = 20;
@@ -58,14 +60,16 @@ const CarsPage = ({
   const { language, t } = useLanguage();
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const { density, setDensity, showPhotos } = useTableDensity();
+  const { isComparing, toggleCompare } = useCompare();
   const [selectedCar, setSelectedCar] = useState(null);
 
   // The open car is driven by carUrl (App keeps it in the URL as ?car=...).
   // selectedCar only caches the last clicked/fetched car; openCar is derived from the URL.
   const handleOpenCar = useCallback((car) => {
     setSelectedCar(car);
+    markSeen(car.URL);
     onOpenCar(car.URL);
-  }, [onOpenCar]);
+  }, [onOpenCar, markSeen]);
 
   const openCar = useMemo(() => {
     if (!carUrl) return null;
@@ -216,8 +220,9 @@ const CarsPage = ({
     if (clientSort === 'bestDeal' && showFavsOnly) {
       const withDeals = base.map((car, index) => ({ car, deal: getMarketDeal(car), index }));
       withDeals.sort((a, b) => {
-        const hasA = a.deal !== null;
-        const hasB = b.deal !== null;
+        // Flagged prices ('check') are not deals: they go with the cars without market data.
+        const hasA = a.deal !== null && a.deal.level !== 'check';
+        const hasB = b.deal !== null && b.deal.level !== 'check';
         if (hasA && hasB) {
           if (a.deal.pct !== b.deal.pct) {
             return a.deal.pct - b.deal.pct;
@@ -688,7 +693,9 @@ const CarsPage = ({
       <div className="results-container">
         <div className="results-header">
           <h2>
-            {t('carsFound', { count: resultsCount.toLocaleString(language === 'es' ? 'es-CR' : 'en-US') })}
+            {loading && cars.length === 0
+              ? (language === 'es' ? 'Buscando autos…' : 'Searching cars…')
+              : t('carsFound', { count: resultsCount.toLocaleString(language === 'es' ? 'es-CR' : 'en-US') })}
             {showFavsOnly && <span style={{ fontSize: '1rem', color: 'var(--text-muted)', marginLeft: '0.5rem' }}>{t('favoritesOnlyLabel')}</span>}
           </h2>
           
@@ -749,11 +756,49 @@ const CarsPage = ({
           </div>
         )}
 
-        {!loading && cars.length === 0 && (
-          <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>
-            {t('noCarsFound')}
-          </div>
+        {loading && (
+          <ResultsSkeleton viewMode={viewMode} count={6} />
         )}
+
+        {!loading && displayCars.length === 0 && (() => {
+          let suggestion = null;
+          if (showFavsOnly) {
+            suggestion = { label: t('showFavsOnly'), clear: () => setShowFavsOnly(false) };
+          } else if ((localTitle || filters.title)?.trim()) {
+            const term = (localTitle || filters.title).trim();
+            suggestion = {
+              label: `${language === 'es' ? 'Búsqueda' : 'Search'}: "${term}"`,
+              clear: () => { setLocalTitle(''); setFilters(f => ({ ...f, title: '' })); }
+            };
+          } else {
+            const priorityOrder = ['sellerName', 'eq-', 'deal', 'scrapedPeriod', 'scrapedDate', 'price', 'kmMax', 'year', 'combustible', 'estilo', 'transmision', 'provincia', 'brand-', 'isSold'];
+            for (const prefix of priorityOrder) {
+              const tag = activeTags.find(tg => tg.id === prefix || tg.id.startsWith(prefix));
+              if (tag) { suggestion = { label: tag.label, clear: tag.clear }; break; }
+            }
+          }
+          const hasAnyActive = activeTags.length + ((localTitle || filters.title)?.trim() ? 1 : 0);
+          return (
+            <div className="empty-results-state">
+              <h3>{hasAnyActive > 0 ? (language === 'es' ? 'No encontramos autos con esos criterios' : 'No cars match your criteria') : t('noCarsFound')}</h3>
+              {suggestion && (
+                <p>{language === 'es' ? 'Prueba quitando el filtro más restrictivo para ampliar la búsqueda:' : 'Try removing the most restrictive filter to broaden your search:'}</p>
+              )}
+              <div className="empty-results-actions">
+                {suggestion && (
+                  <button className="btn-empty-primary" onClick={suggestion.clear}>
+                    {language === 'es' ? `Quitar «${suggestion.label}»` : `Remove "${suggestion.label}"`}
+                  </button>
+                )}
+                {hasAnyActive > 1 && (
+                  <button className="btn-empty-secondary" onClick={handleResetFilters}>
+                    {t('clearAll')}
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Dynamic Presentation Views */}
         {/* Dynamic Presentation Views */}
@@ -778,21 +823,21 @@ const CarsPage = ({
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th></th>
-                    {showPhotos ? <th></th> : <th>{t('rank')}</th>}
-                    <th>{t('title')}</th>
-                    <th className="sortable" onClick={() => handleSortHeader('year')}>
+                    <th className="col-fav"></th>
+                    {showPhotos ? <th className="col-photo"></th> : <th className="col-rank">{t('rank')}</th>}
+                    <th className="col-title">{t('title')}</th>
+                    <th className="sortable col-year" onClick={() => handleSortHeader('year')}>
                       {t('year')}{!clientSort && filters.sortYear === 'asc' ? ' ▲' : !clientSort && filters.sortYear === 'desc' ? ' ▼' : ''}
                     </th>
-                    <th className="sortable" onClick={() => handleSortHeader('price')}>
+                    <th className="sortable col-price" onClick={() => handleSortHeader('price')}>
                       {t('priceHeader')}{!clientSort && filters.sortPrice === 'asc' ? ' ▲' : !clientSort && filters.sortPrice === 'desc' ? ' ▼' : ''}
                     </th>
-                    <th className="sortable" onClick={() => handleSortHeader('km')}>
+                    <th className="sortable col-km" onClick={() => handleSortHeader('km')}>
                       {t('mileageHeader')}{!clientSort && filters.sortKm === 'asc' ? ' ▲' : !clientSort && filters.sortKm === 'desc' ? ' ▼' : ''}
                     </th>
-                    <th>{t('province')}</th>
-                    <th>{language === 'es' ? 'Publicado' : 'Listed'}</th>
-                    <th className="text-right">{t('action')}</th>
+                    <th className="col-province">{t('province')}</th>
+                    <th className="col-listed">{language === 'es' ? 'Publicado' : 'Listed'}</th>
+                    <th className="text-right col-action">{t('action')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -800,6 +845,7 @@ const CarsPage = ({
                     const carIsNew = isNew(car);
                     const carIsFav = isFavorite(car.URL);
                     const waPhone = getWhatsAppPhone(car.SellerPhone);
+                    const inCompare = isComparing(car.URL);
                     return (
                       <tr 
                         key={car.URL} 
@@ -816,7 +862,7 @@ const CarsPage = ({
                           handleOpenCar(car);
                         }}
                       >
-                        <td>
+                        <td className="col-fav">
                           <button
                             className={`fav-btn-table ${carIsFav ? 'active' : ''}`}
                             onClick={() => toggleFavorite(car.URL)}
@@ -830,14 +876,14 @@ const CarsPage = ({
                             <CarThumb car={car} variant="table" hoverPreview />
                           </td>
                         ) : (
-                          <td style={{ fontWeight: 'bold', color: 'var(--accent)' }}>
+                          <td className="col-rank" style={{ fontWeight: 'bold', color: 'var(--accent)' }}>
                             <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                               #{idx + 1}
                               {carIsNew && <span className="new-badge-inline">{t('newBadge')}</span>}
                             </span>
                           </td>
                         )}
-                        <td style={{ fontWeight: '500' }}>
+                        <td className="col-title" style={{ fontWeight: '500' }}>
                           <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', flexWrap: 'wrap' }}>
                             {car.Title}
                             {showPhotos && carIsNew && <span className="new-badge-inline">{t('newBadge')}</span>}
@@ -849,24 +895,35 @@ const CarsPage = ({
                             )}
                           </span>
                         </td>
-                        <td>{car.Year}</td>
-                        <td>
+                        <td className="col-year">{car.Year}</td>
+                        <td className="col-price">
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'nowrap' }}>
                             <PriceBar price={car.Price} maxPrice={filters.priceMax ? Number(filters.priceMax) : 0} priceText={car.PriceText} deal={getMarketDeal(car)} />
                             <MarketBadge car={car} variant="compact" />
                           </div>
                         </td>
-                        <td>
+                        <td className="col-km">
                           <MileageBar km={car.Kilometraje} maxMileage={filters.kmMax ? Number(filters.kmMax) : 0} />
                         </td>
-                        <td>{car.Provincia}</td>
-                        <td>
+                        <td className="col-province">{car.Provincia}</td>
+                        <td className="col-listed">
                           <span title={formatListingDate(car, language)} style={{ color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
                             {formatListingAge(car, language)}
                           </span>
                         </td>
-                        <td className="text-right" style={{ whiteSpace: 'nowrap' }}>
+                        <td className="text-right col-action" style={{ whiteSpace: 'nowrap' }}>
                           <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                            <button
+                              type="button"
+                              className={`btn-compare-table ${inCompare ? 'active' : ''}`}
+                              onClick={() => toggleCompare(car)}
+                              title={inCompare
+                                ? (language === 'es' ? 'Quitar del comparador' : 'Remove from comparator')
+                                : (language === 'es' ? 'Comparar' : 'Compare')}
+                              aria-pressed={inCompare}
+                            >
+                              ⇄
+                            </button>
                             {waPhone && (
                               <a
                                 href={buildWhatsAppLink(waPhone, car, language)}
