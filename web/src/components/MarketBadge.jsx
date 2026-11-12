@@ -20,18 +20,9 @@ const MarketBadge = ({ car, variant = 'full', style }) => {
       className={`market-badge market-badge--${deal.level} market-badge--${variant}`}
       title={dealTooltip(car, deal, language)}
       style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '0.3rem',
-        padding: variant === 'compact' ? '0.15rem 0.45rem' : '0.25rem 0.6rem',
-        borderRadius: '999px',
         border: `1px solid ${deal.border}`,
         background: deal.bg,
         color: deal.color,
-        fontSize: variant === 'compact' ? '0.72rem' : '0.78rem',
-        fontWeight: 700,
-        whiteSpace: 'nowrap',
-        lineHeight: 1.2,
         ...style,
       }}
     >
@@ -42,7 +33,7 @@ const MarketBadge = ({ car, variant = 'full', style }) => {
         <span>
           {deal.label(language)}
           {deal.level !== 'fair' && (
-            <span style={{ fontWeight: 500, opacity: 0.85 }}> · {deal.level === 'check' ? dealReason(deal, language) : formatDealDelta(deal, language)}</span>
+            <span className="market-badge__delta"> · {deal.level === 'check' ? dealReason(deal, language) : formatDealDelta(deal, language)}</span>
           )}
         </span>
       )}

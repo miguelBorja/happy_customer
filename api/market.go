@@ -24,7 +24,11 @@ type CarWithMarket struct {
 	MarketMedianKm int `json:"MarketMedianKm,omitempty"`
 	// MarketFlag ("typo", "outlier", "condition", "debt") means "check the price": the badge
 	// shows a warning instead of a deal level (see dealFlag in deals.go).
-	MarketFlag string `json:"MarketFlag,omitempty"`
+	MarketFlag     string     `json:"MarketFlag,omitempty"`
+	PricePrevious  int        `json:"PricePrevious,omitempty"`
+	PriceInitial   int        `json:"PriceInitial,omitempty"`
+	PriceChangedAt *time.Time `json:"PriceChangedAt,omitempty"`
+	PriceChanges   int        `json:"PriceChanges,omitempty"`
 }
 
 func (s *Server) getMarketStats() *db.MarketIndex {
@@ -64,6 +68,13 @@ func (s *Server) withMarket(cars []db.Car) []CarWithMarket {
 			_, cwm.MarketFlag, _ = marketDealPct(stats, db.CarPriceKey{
 				URL: car.URL, Brand: car.Brand, Model: car.Model, Year: car.Year, Price: car.Price, Km: car.Kilometraje,
 			})
+		}
+		if pc, ok := stats.PriceChangeOf(car.URL); ok && pc.CurrentPrice == car.Price && pc.PreviousPrice > 0 && pc.PreviousPrice != car.Price && cwm.MarketFlag != flagTypo {
+			changedAt := pc.ChangedAt
+			cwm.PricePrevious = pc.PreviousPrice
+			cwm.PriceInitial = pc.InitialPrice
+			cwm.PriceChangedAt = &changedAt
+			cwm.PriceChanges = pc.Changes
 		}
 		result = append(result, cwm)
 	}

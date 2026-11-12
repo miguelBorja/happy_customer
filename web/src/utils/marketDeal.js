@@ -12,47 +12,49 @@
 // The backend (api/deals.go: deal=good, sortDeal=best) uses the same values;
 // TestDealThresholdsMatchFrontend reads these exports, so keep them as plain numeric literals.
 
+import { translate } from '../translations';
+
 export const MIN_MARKET_COMPARABLES = 4; // includes the car itself
 export const DEAL_GREAT_MAX_PCT = -12; // "Gran precio"
-export const DEAL_GOOD_MAX_PCT = -5; // "Buen precio"
+export const DEAL_GOOD_MAX_PCT = -5; // "Buen precio" or better (deal=good)
 export const DEAL_HIGH_MIN_PCT = 10; // "Sobre el mercado"
 
 const LEVELS = {
   great: {
-    es: 'Gran precio', en: 'Great price',
+    labelKey: 'dealGreat',
     color: '#34d399', bg: 'rgba(16, 185, 129, 0.14)', border: 'rgba(16, 185, 129, 0.45)', icon: '🔥',
   },
   good: {
-    es: 'Buen precio', en: 'Good price',
+    labelKey: 'dealGood',
     color: '#86efac', bg: 'rgba(34, 197, 94, 0.10)', border: 'rgba(34, 197, 94, 0.35)', icon: '👍',
   },
   fair: {
-    es: 'Precio justo', en: 'Fair price',
+    labelKey: 'dealFair',
     color: '#93c5fd', bg: 'rgba(59, 130, 246, 0.10)', border: 'rgba(59, 130, 246, 0.30)', icon: '⚖️',
   },
   high: {
-    es: 'Sobre el mercado', en: 'Above market',
+    labelKey: 'dealHigh',
     color: '#fdba74', bg: 'rgba(249, 115, 22, 0.10)', border: 'rgba(249, 115, 22, 0.35)', icon: '▲',
   },
   // The server flagged the price (MarketFlag): likely a typo, damaged car, or partial price.
   check: {
-    es: 'Verificar precio', en: 'Check price',
+    labelKey: 'dealCheck',
     color: '#fcd34d', bg: 'rgba(234, 179, 8, 0.10)', border: 'rgba(234, 179, 8, 0.40)', icon: '⚠️',
   },
 };
 
 // Why the price needs checking (MarketFlag values from api/deals.go: dealFlag).
-const FLAG_REASONS = {
-  typo: { es: '¿le falta o le sobra un cero?', en: 'missing or extra zero?' },
-  outlier: { es: 'demasiado bajo para el mercado', en: 'unusually low for the market' },
-  condition: { es: 'el anuncio menciona daños o reparaciones', en: 'listing mentions damage or repairs' },
-  debt: { es: 'el precio parece incluir deuda o gravamen', en: 'price may involve a loan or lien' },
+const FLAG_REASON_KEYS = {
+  typo: 'flagTypoReason',
+  outlier: 'flagOutlierReason',
+  condition: 'flagConditionReason',
+  debt: 'flagDebtReason',
 };
 
 export const dealReason = (deal, language) => {
   if (!deal || deal.level !== 'check') return '';
-  const reason = FLAG_REASONS[deal.flag] || FLAG_REASONS.outlier;
-  return language === 'es' ? reason.es : reason.en;
+  const reasonKey = FLAG_REASON_KEYS[deal.flag] || FLAG_REASON_KEYS.outlier;
+  return translate(language, reasonKey);
 };
 
 /**
@@ -97,7 +99,7 @@ export const getMarketDeal = (car) => {
     bg: meta.bg,
     border: meta.border,
     icon: meta.icon,
-    label: (language) => (language === 'es' ? meta.es : meta.en),
+    label: (language) => translate(language, meta.labelKey),
   };
 };
 
@@ -105,9 +107,9 @@ export const getMarketDeal = (car) => {
 export const formatDealDelta = (deal, language) => {
   if (!deal) return '';
   const abs = Math.round(Math.abs(deal.pct));
-  if (abs < 1) return language === 'es' ? 'En el promedio' : 'At market average';
-  if (deal.pct < 0) return language === 'es' ? `${abs}% bajo el mercado` : `${abs}% below market`;
-  return language === 'es' ? `${abs}% sobre el mercado` : `${abs}% above market`;
+  if (abs < 1) return translate(language, 'dealAtAverage');
+  if (deal.pct < 0) return translate(language, 'dealBelowMarket', { pct: abs });
+  return translate(language, 'dealAboveMarket', { pct: abs });
 };
 
 export const formatUSD = (value) =>
@@ -118,18 +120,20 @@ const formatKm = (km) => `${Math.round(km / 1000).toLocaleString('en-US')}k km`;
 // "Mediana de 12 autos Toyota Hilux 2018: $20,000 · ajustada por km: $18,500 (150k km vs. 95k km típico)"
 export const formatMarketReference = (deal, subject, language) => {
   if (!deal) return '';
-  const base = language === 'es'
-    ? `Mediana de ${deal.count} autos ${subject}: ${formatUSD(deal.rawMedian)}`
-    : `Median of ${deal.count} ${subject} listings: ${formatUSD(deal.rawMedian)}`;
+  const base = translate(language, 'marketRefBase', {
+    count: deal.count,
+    subject,
+    rawMedian: formatUSD(deal.rawMedian),
+  });
   if (!deal.kmAdjusted) return base;
   const kmNote = deal.km > 0 && deal.medianKm > 0
-    ? (language === 'es'
-      ? ` (${formatKm(deal.km)} vs. ${formatKm(deal.medianKm)} típico)`
-      : ` (${formatKm(deal.km)} vs. typical ${formatKm(deal.medianKm)})`)
+    ? translate(language, 'marketRefKmNote', { km: formatKm(deal.km), medianKm: formatKm(deal.medianKm) })
     : '';
-  return language === 'es'
-    ? `${base} · ajustada por km: ${formatUSD(deal.median)}${kmNote}`
-    : `${base} · mileage-adjusted: ${formatUSD(deal.median)}${kmNote}`;
+  return translate(language, 'marketRefAdjusted', {
+    base,
+    median: formatUSD(deal.median),
+    kmNote,
+  });
 };
 
 // Tooltip text explaining the comparison.

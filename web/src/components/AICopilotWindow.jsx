@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLanguage } from '../context/LanguageContext';
+import { translate } from '../translations';
 import { compareWithAI } from '../api/client';
 import { useFavorites } from '../hooks/useFavorites';
 import { useChatHistory } from '../hooks/useChatHistory';
@@ -99,12 +100,12 @@ const formatSessionTime = (timestamp, lang) => {
   const diffHours = Math.floor(diffMs / 3600000);
   const diffDays = Math.floor(diffMs / 86400000);
 
-  if (diffMins < 1) return lang === 'es' ? 'Hace un momento' : 'Just now';
+  if (diffMins < 1) return translate(lang, 'aiJustNow');
   if (diffMins < 60) return `${diffMins}m`;
   if (diffHours < 24) return `${diffHours}h`;
-  if (diffDays === 1) return lang === 'es' ? 'Ayer' : 'Yesterday';
+  if (diffDays === 1) return translate(lang, 'yesterday');
   if (diffDays < 7) return `${diffDays}d`;
-  return date.toLocaleDateString(lang === 'es' ? 'es-CR' : 'en-US', {
+  return date.toLocaleDateString(translate(lang, 'locale'), {
     month: 'short',
     day: 'numeric'
   });
@@ -380,7 +381,7 @@ const AICopilotWindow = ({
   };
 
   const handleClearAllHistory = () => {
-    if (window.confirm(t('aiConfirmClearHistory') || (language === 'es' ? '¿Eliminar todo el historial de conversaciones de IA?' : 'Clear all AI conversation history?'))) {
+    if (window.confirm(t('aiConfirmClearHistory'))) {
       clearAllChats();
       setChatMessages([]);
       if (onClearCars) onClearCars();
@@ -611,14 +612,14 @@ const AICopilotWindow = ({
                         {cars.length > 0 && (
                           <span className="ai-meta-tag car-tag" title={cars.map(c => c.Title).join(', ')}>
                             🚗 {cars.length > 2 
-                              ? `${cars[0].Title.split(' ')[0]} + ${cars.length - 1} más` 
+                              ? `${cars[0].Title.split(' ')[0]} + ${cars.length - 1} ${t('more')}` 
                               : (cars.length === 2 
                                   ? `${cars[0].Title.split(' ')[0]} vs ${cars[1].Title.split(' ')[0]}` 
                                   : cars[0].Title.split(' ')[0])}
                           </span>
                         )}
                         {isActive && (
-                          <span className="ai-meta-tag active-tag">● {language === 'es' ? 'Actual' : 'Active'}</span>
+                          <span className="ai-meta-tag active-tag">{t('aiActiveSession')}</span>
                         )}
                       </div>
                     </div>
@@ -653,11 +654,11 @@ const AICopilotWindow = ({
           <div className="ai-copilot-messages" ref={chatScrollRef}>
             {chatMessages.length === 0 && !error && (
               <div className="ai-welcome-box">
-                <AdvisorOrb size={95} style={{ marginBottom: '1.25rem' }} />
-                <h4 style={{ fontSize: '1.25rem', fontWeight: '800', letterSpacing: '-0.01em', marginBottom: '0.4rem' }}>
+                <AdvisorOrb size={95} />
+                <h4>
                   {t('copilotTitle')}
                 </h4>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>
+                <p>
                   {t('copilotSubtitle')}
                 </p>
                 {attachedCars.length === 1 && (
@@ -789,7 +790,7 @@ const AICopilotWindow = ({
                               e.stopPropagation();
                               toggleFavorite(car.URL);
                             }}
-                            title={isFavorite(car.URL) ? 'Remove favorite' : 'Add favorite'}
+                            title={isFavorite(car.URL) ? t('removeFromFavorites') : t('addToFavorites')}
                           >
                             <StarIcon size={12} color="#fbbf24" filled={isFavorite(car.URL)} />
                           </button>

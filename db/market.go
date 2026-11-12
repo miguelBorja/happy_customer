@@ -1,6 +1,7 @@
 package db
 
 import (
+	"log"
 	"math"
 	"sort"
 	"strconv"
@@ -29,6 +30,8 @@ type MarketIndex struct {
 	// DuplicateURLs holds the sorted URLs of active listings that duplicate a newer active
 	// listing of the same physical car (see dedup.go). Sold duplicates are not included.
 	DuplicateURLs []string
+	// PriceChanges maps a listing URL to its cleaned price-change summary (listings with >=2 distinct prices).
+	PriceChanges map[string]PriceChange
 }
 
 // TextFlag returns the comment-based flag of a listing ("" when none).
@@ -46,6 +49,15 @@ func (m *MarketIndex) ActiveDuplicateURLs() []string {
 		return nil
 	}
 	return m.DuplicateURLs
+}
+
+// PriceChangeOf returns the cached price-change summary for a listing URL, if any.
+func (m *MarketIndex) PriceChangeOf(url string) (PriceChange, bool) {
+	if m == nil || m.PriceChanges == nil {
+		return PriceChange{}, false
+	}
+	pc, ok := m.PriceChanges[url]
+	return pc, ok
 }
 
 // MarketRef is the market reference for one specific listing.
@@ -218,8 +230,14 @@ func (d *DB) GetAllMarketStats() (*MarketIndex, error) {
 	}
 	defer rows.Close()
 
+	type carLookupKey struct {
+		brand, model string
+		year, km     int
+	}
+
 	groups := make(map[string][]marketSample)
 	textFlags := make(map[string]string)
+	carKeys := make(map[string]carLookupKey)
 	seen := make(map[string][]dedupCandidate)
 	var dupURLs []string
 	for rows.Next() {
@@ -228,6 +246,7 @@ func (d *DB) GetAllMarketStats() (*MarketIndex, error) {
 		if err := rows.Scan(&url, &title, &brand, &model, &year, &price, &km, &placa, &color, &sellerPhone, &comment, &isSold); err != nil {
 			return nil, err
 		}
+		carKeys[url] = carLookupKey{brand: brand, model: model, year: year, km: km}
 		tf := DetectTextFlag(comment)
 		if tf != "" {
 			textFlags[url] = tf
@@ -259,5 +278,23 @@ func (d *DB) GetAllMarketStats() (*MarketIndex, error) {
 	idx := buildMarketIndex(groups)
 	idx.TextFlags = textFlags
 	idx.DuplicateURLs = dupURLs
+
+	if histories, err := d.GetChangedPriceHistories(); err != nil {
+		log.Printf("Warning: GetChangedPriceHistories failed: %v", err)
+	} else if len(histories) > 0 {
+		idx.PriceChanges = make(map[string]PriceChange, len(histories))
+		for u, pts := range histories {
+			expected := 0
+			if ck, ok := carKeys[u]; ok {
+				if ref, ok := idx.Lookup(ck.brand, ck.model, ck.year, ck.km); ok {
+					expected = ref.Expected
+				}
+			}
+			if pc, ok := SummarizePriceHistory(pts, expected); ok {
+				idx.PriceChanges[u] = pc
+			}
+		}
+	}
+
 	return idx, nil
 }

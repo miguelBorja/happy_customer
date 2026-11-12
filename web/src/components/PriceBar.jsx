@@ -1,3 +1,4 @@
+import { useLanguage } from '../context/LanguageContext';
 import { formatUSD } from '../utils/marketDeal';
 
 const DEFAULT_MAX_PRICE = 100000;
@@ -20,6 +21,7 @@ const getDynamicColors = (percent) => {
 };
 
 const PriceBar = ({ price, maxPrice, priceText, deal }) => {
+  const { t } = useLanguage();
   const displayVal = price > 0 ? formatPrice(price) : priceText;
   if (!displayVal) return null;
 
@@ -29,8 +31,8 @@ const PriceBar = ({ price, maxPrice, priceText, deal }) => {
 
   const title = deal
     ? (deal.kmAdjusted
-      ? `Mediana: ${formatUSD(deal.rawMedian)} (${deal.count} autos) · ajustada por km: ${formatUSD(deal.median)}`
-      : `Mediana: ${formatUSD(deal.median)} (${deal.count} autos)`)
+      ? t('priceBarTooltipKm', { raw: formatUSD(deal.rawMedian), count: deal.count, adj: formatUSD(deal.median) })
+      : t('priceBarTooltipPlain', { median: formatUSD(deal.median), count: deal.count }))
     : `$${price?.toLocaleString() || 0} / $${limit.toLocaleString()}`;
 
   const border = deal ? deal.border : colors.border;
@@ -38,42 +40,20 @@ const PriceBar = ({ price, maxPrice, priceText, deal }) => {
   const textColor = deal ? deal.color : colors.text;
 
   return (
-    <div 
+    <div
+      className="car-pill"
       title={title}
-      style={{
-        position: 'relative',
-        overflow: 'hidden',
-        padding: '0.35rem 0.75rem',
-        borderRadius: '8px',
-        border: `1px solid ${border}`,
-        background,
-        display: 'inline-flex',
-        alignItems: 'center',
-        flexShrink: 0
-      }}
+      style={{ border: `1px solid ${border}`, background }}
     >
       {!deal && (
-        <div 
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            height: '100%',
-            width: `${pct}%`,
-            background: colors.fill,
-            zIndex: 1,
-            transition: 'width 0.6s ease'
-          }}
+        <div
+          className="car-pill-fill"
+          style={{ width: `${pct}%`, background: colors.fill }}
         />
       )}
-      <span 
-        style={{
-          fontSize: '0.9rem',
-          fontWeight: '800',
-          color: textColor,
-          zIndex: 2,
-          position: 'relative'
-        }}
+      <span
+        className="car-pill-text car-pill-text--price-bar"
+        style={{ color: textColor }}
       >
         {displayVal}
       </span>

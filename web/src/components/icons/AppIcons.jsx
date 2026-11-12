@@ -8,7 +8,7 @@ export const FlagIcon = ({ size = 18, color = 'currentColor', className = '', st
     viewBox="0 0 24 24"
     fill={color}
     className={`hc-icon hc-icon-flag ${className}`}
-    style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0, ...style }}
+    style={style}
   >
     <path d="M4 2.5C4 1.67 4.67 1 5.5 1S7 1.67 7 2.5V3.34C8.42 2.65 10.3 2.5 12.5 3.3C15.8 4.5 18.2 3.8 19.8 3.1C20.6 2.8 21.5 3.4 21.5 4.3V14.2C21.5 14.8 21 15.3 20.4 15.5C18.6 16.1 16.1 16.6 13.5 15.7C10.2 14.5 7.8 15.2 6.2 15.9V21.5C6.2 22.33 5.53 23 4.7 23C3.87 23 3.2 22.33 3.2 21.5V3.5C3.2 3.1 3.5 2.7 4 2.5Z" />
   </svg>
@@ -28,7 +28,7 @@ export const StarIcon = ({ size = 18, color = '#fbbf24', filled = true, classNam
     strokeLinecap="round"
     strokeLinejoin="round"
     className={`hc-icon hc-icon-star ${className}`}
-    style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0, ...style }}
+    style={style}
   >
     <path d="M12 2.5L14.9 8.6L21.6 9.5C22.2 9.6 22.5 10.4 22 10.9L17.1 15.6L18.3 22.2C18.4 22.8 17.8 23.3 17.2 23L12 20.2L6.8 23C6.2 23.3 5.6 22.8 5.7 22.2L6.9 15.6L2 10.9C1.5 10.4 1.8 9.6 2.4 9.5L9.1 8.6L12 2.5Z" />
   </svg>
@@ -44,7 +44,7 @@ export const TagIcon = ({ size = 18, color = '#fbbf24', className = '', style = 
     viewBox="0 0 24 24"
     fill={color}
     className={`hc-icon hc-icon-tag ${className}`}
-    style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0, ...style }}
+    style={style}
   >
     <path d="M21.4 11.6L12.4 2.6C11.6 1.8 10.6 1.4 9.5 1.4H4C2.6 1.4 1.4 2.6 1.4 4V9.5C1.4 10.6 1.8 11.6 2.6 12.4L11.6 21.4C12.4 22.2 13.6 22.6 14.8 22.6C16 22.6 17.2 22.2 18 21.4L21.4 18C23.1 16.3 23.1 13.3 21.4 11.6ZM6.5 8C5.4 8 4.5 7.1 4.5 6C4.5 4.9 5.4 4 6.5 4C7.6 4 8.5 4.9 8.5 6C8.5 7.1 7.6 8 6.5 8Z" />
   </svg>
@@ -60,7 +60,7 @@ export const StatsChartIcon = ({ size = 18, color = '#fbbf24', className = '', s
     viewBox="0 0 24 24"
     fill={color}
     className={`hc-icon hc-icon-stats ${className}`}
-    style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0, ...style }}
+    style={style}
   >
     <rect x="2" y="13" width="5" height="9" rx="2.5" />
     <rect x="9.5" y="8" width="5" height="14" rx="2.5" />
@@ -78,7 +78,7 @@ export const InfoCircleIcon = ({ size = 18, color = 'currentColor', className = 
     viewBox="0 0 24 24"
     fill={color}
     className={`hc-icon hc-icon-info ${className}`}
-    style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0, ...style }}
+    style={style}
   >
     <circle cx="12" cy="12" r="11" />
     <path
@@ -102,7 +102,7 @@ export const SearchIcon = ({ size = 18, color = 'currentColor', className = '', 
     strokeLinecap="round"
     strokeLinejoin="round"
     className={`hc-icon hc-icon-search ${className}`}
-    style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0, ...style }}
+    style={style}
   >
     <circle cx="10.5" cy="10.5" r="7.5" />
     <line x1="16.2" y1="16.2" x2="21.5" y2="21.5" strokeWidth="3.2" />
@@ -119,7 +119,7 @@ export const SortIcon = ({ size = 18, color = 'currentColor', className = '', st
     viewBox="0 0 24 24"
     fill={color}
     className={`hc-icon hc-icon-sort ${className}`}
-    style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0, ...style }}
+    style={style}
   >
     {/* Up Arrow */}
     <path d="M7.5 3.2C8 2.6 8.9 2.6 9.4 3.2L12.8 7.2C13.4 7.9 12.9 9 12 9H9.7V17.5C9.7 18.3 9 19 8.2 19C7.4 19 6.7 18.3 6.7 17.5V9H4.4C3.5 9 3 7.9 3.6 7.2L7.5 3.2Z" />
@@ -138,7 +138,7 @@ export const FilterFunnelIcon = ({ size = 18, color = 'currentColor', className 
     viewBox="0 0 24 24"
     fill={color}
     className={`hc-icon hc-icon-funnel ${className}`}
-    style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0, ...style }}
+    style={style}
   >
     <path d="M2.5 3.8C2.5 2.8 3.3 2 4.3 2H19.7C20.7 2 21.5 2.8 21.5 3.8C21.5 4.4 21.2 5 20.8 5.4L14.8 12.2V19.8C14.8 20.5 14.3 21.2 13.6 21.5L10.6 22.8C9.6 23.2 8.5 22.5 8.5 21.4V12.2L2.9 5.4C2.6 5 2.5 4.4 2.5 3.8Z" />
   </svg>
@@ -154,7 +154,7 @@ export const CardsGridIcon = ({ size = 18, color = 'currentColor', className = '
     viewBox="0 0 24 24"
     fill={color}
     className={`hc-icon hc-icon-cards ${className}`}
-    style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0, ...style }}
+    style={style}
   >
     <rect x="2" y="2" width="8.5" height="8.5" rx="2.5" />
     <rect x="13.5" y="2" width="8.5" height="8.5" rx="2.5" />
@@ -173,7 +173,7 @@ export const TableListIcon = ({ size = 18, color = 'currentColor', className = '
     viewBox="0 0 24 24"
     fill={color}
     className={`hc-icon hc-icon-table ${className}`}
-    style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0, ...style }}
+    style={style}
   >
     {/* Row 1 */}
     <circle cx="4" cy="5" r="2" />
@@ -197,7 +197,7 @@ export const AutoTransmissionIcon = ({ size = 18, color = '#fbbf24', className =
     viewBox="0 0 28 28"
     fill={color}
     className={`hc-icon hc-icon-transmission ${className}`}
-    style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0, ...style }}
+    style={style}
   >
     {/* Gear Body (Top Left) */}
     <path d="M12.5 7.2L13.8 5.9C14.2 5.5 14.1 4.8 13.6 4.5L12 3.6C11.5 3.3 10.9 3.5 10.6 4L9.8 5.1C9.2 5 8.6 5 8 5.1L7.2 4C6.9 3.5 6.3 3.3 5.8 3.6L4.2 4.5C3.7 4.8 3.6 5.5 4 5.9L5.3 7.2C4.9 7.7 4.6 8.3 4.4 8.9L3 9.2C2.4 9.3 2 9.9 2 10.5V12.3C2 12.9 2.4 13.5 3 13.6L4.4 13.9C4.6 14.5 4.9 15.1 5.3 15.6L4 16.9C3.6 17.3 3.7 18 4.2 18.3L5.8 19.2C6.3 19.5 6.9 19.3 7.2 18.8L8 17.7C8.6 17.8 9.2 17.8 9.8 17.7L10.6 18.8C10.9 19.3 11.5 19.5 12 19.2L13.6 18.3C14.1 18 14.2 17.3 13.8 16.9L12.5 15.6C12.9 15.1 13.2 14.5 13.4 13.9L14.8 13.6C15.4 13.5 15.8 12.9 15.8 12.3V10.5C15.8 9.9 15.4 9.3 14.8 9.2L13.4 8.9C13.2 8.3 12.9 7.7 12.5 7.2Z" />
@@ -224,7 +224,7 @@ export const ElectricPlugIcon = ({ size = 18, color = '#38bdf8', className = '',
     viewBox="0 0 24 24"
     fill={color}
     className={`hc-icon hc-icon-electric ${className}`}
-    style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0, ...style }}
+    style={style}
   >
     {/* 2 Prongs */}
     <rect x="7" y="2" width="2.5" height="5" rx="1" />
@@ -245,7 +245,7 @@ export const LocationPinIcon = ({ size = 16, color = 'currentColor', className =
     viewBox="0 0 24 24"
     fill={color}
     className={`hc-icon hc-icon-location ${className}`}
-    style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0, ...style }}
+    style={style}
   >
     <path d="M12 2C7.6 2 4 5.6 4 10C4 15.2 10.8 21.8 11.3 22.3C11.7 22.7 12.3 22.7 12.7 22.3C13.2 21.8 20 15.2 20 10C20 5.6 16.4 2 12 2ZM12 13C10.3 13 9 11.7 9 10C9 8.3 10.3 7 12 7C13.7 7 15 8.3 15 10C15 11.7 13.7 13 12 13Z" />
   </svg>
@@ -260,7 +260,7 @@ export const NewBadgeIcon = ({ size = 18, className = '', style = {} }) => (
     height={size}
     viewBox="0 0 24 24"
     className={`hc-icon hc-icon-new-badge ${className}`}
-    style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0, ...style }}
+    style={style}
   >
     <circle cx="12" cy="12" r="11" fill="#22c55e" />
     <path
@@ -280,7 +280,7 @@ export const SparkleIcon = ({ size = 16, color = '#c084fc', className = '', styl
     viewBox="0 0 24 24"
     fill={color}
     className={`hc-icon hc-icon-sparkle ${className}`}
-    style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0, ...style }}
+    style={style}
   >
     <path d="M12 0C12 6.6 6.6 12 0 12C6.6 12 12 17.4 12 24C12 17.4 17.4 12 24 12C17.4 12 12 6.6 12 0Z" />
   </svg>
@@ -296,7 +296,7 @@ export const SparkleClusterIcon = ({ size = 20, color = '#fef08a', className = '
     viewBox="0 0 28 28"
     fill={color}
     className={`hc-icon hc-icon-sparkle-cluster ${className}`}
-    style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0, ...style }}
+    style={style}
   >
     {/* Main Big Sparkle */}
     <path d="M14 2C14 7.5 9.5 12 4 12C9.5 12 14 16.5 14 22C14 16.5 18.5 12 24 12C18.5 12 14 7.5 14 2Z" />
@@ -312,29 +312,11 @@ export const SparkleClusterIcon = ({ size = 20, color = '#fef08a', className = '
  */
 export const AdvisorOrb = ({ size = 110, className = '', style = {} }) => (
   <div
-    className={`hc-advisor-orb-container ${className}`}
-    style={{
-      width: size,
-      height: size,
-      position: 'relative',
-      display: 'inline-flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      ...style
-    }}
+    className={`hc-advisor-orb ${className}`}
+    style={{ width: size, height: size, ...style }}
   >
     {/* Glowing Radial Halo */}
-    <div
-      className="hc-advisor-orb-glow"
-      style={{
-        position: 'absolute',
-        inset: '-15%',
-        borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(168, 85, 247, 0.5) 0%, rgba(99, 102, 241, 0.3) 45%, transparent 75%)',
-        filter: 'blur(12px)',
-        animation: 'orbGlowPulse 3s ease-in-out infinite'
-      }}
-    />
+    <div className="hc-advisor-orb-glow" />
 
     {/* Concentric Dashed / Arc Rings & Sparkles */}
     <svg
@@ -343,7 +325,6 @@ export const AdvisorOrb = ({ size = 110, className = '', style = {} }) => (
       viewBox="0 0 100 100"
       fill="none"
       className="hc-advisor-orb-svg"
-      style={{ position: 'relative', zIndex: 2 }}
     >
       {/* Outer Orbit Arcs */}
       <circle
@@ -420,7 +401,7 @@ export const SendAirplaneIcon = ({ size = 18, color = '#ffffff', className = '',
     viewBox="0 0 24 24"
     fill={color}
     className={`hc-icon hc-icon-send ${className}`}
-    style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0, ...style }}
+    style={style}
   >
     <path d="M2.3 11.2C1.4 10.8 1.4 9.5 2.4 9.1L21.4 1.3C22.3 0.9 23.2 1.8 22.8 2.7L15 21.7C14.6 22.7 13.3 22.7 12.9 21.8L9.8 14.2L2.3 11.2ZM19.2 4.8L8.7 12.8L10.5 17.2L12.5 14.5C12.8 14.1 13.2 13.8 13.7 13.7L19.2 4.8Z" />
   </svg>
@@ -475,7 +456,7 @@ export const ChevronUpIcon = ({ size = 14, color = 'currentColor', className = '
     strokeLinecap="round"
     strokeLinejoin="round"
     className={`hc-icon hc-icon-chevron-up ${className}`}
-    style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0, ...style }}
+    style={style}
   >
     <path d="M18 15L12 9L6 15" />
   </svg>
@@ -492,7 +473,7 @@ export const ChevronDownIcon = ({ size = 14, color = 'currentColor', className =
     strokeLinecap="round"
     strokeLinejoin="round"
     className={`hc-icon hc-icon-chevron-down ${className}`}
-    style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0, ...style }}
+    style={style}
   >
     <path d="M6 9L12 15L18 9" />
   </svg>
@@ -512,7 +493,7 @@ export const ShuffleIcon = ({ size = 14, color = 'currentColor', className = '',
     strokeLinecap="round"
     strokeLinejoin="round"
     className={`hc-icon hc-icon-shuffle ${className}`}
-    style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0, ...style }}
+    style={style}
   >
     <path d="M16 3h5v5" />
     <path d="M4 20L21 3" />
@@ -533,7 +514,7 @@ export const RefreshCwIcon = ({ size = 14, color = 'currentColor', className = '
     strokeLinecap="round"
     strokeLinejoin="round"
     className={`hc-icon hc-icon-refresh-cw ${className}`}
-    style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0, ...style }}
+    style={style}
   >
     <path d="M21 2v6h-6" />
     <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />

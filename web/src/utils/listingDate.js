@@ -2,6 +2,8 @@
 // `FechaIngreso` is the date the ad was published on Crautos, in Spanish: "28 de Mayo del 2026".
 // Falls back to `ScrapedAt` (first time our scraper saw the listing) when it can't be parsed.
 
+import { translate } from '../translations';
+
 const MONTHS_ES = {
   enero: 0, febrero: 1, marzo: 2, abril: 3, mayo: 4, junio: 5, julio: 6,
   agosto: 7, septiembre: 8, setiembre: 8, octubre: 9, noviembre: 10, diciembre: 11,
@@ -41,21 +43,20 @@ export const getListingAgeDays = (car, now = new Date()) => {
 export const formatListingAge = (car, language = 'es', now = new Date()) => {
   const days = getListingAgeDays(car, now);
   if (days === null) return '';
-  const es = language === 'es';
-  if (days === 0) return es ? 'Hoy' : 'Today';
-  if (days === 1) return es ? 'Ayer' : 'Yesterday';
-  if (days < 14) return es ? `Hace ${days} días` : `${days} days ago`;
+  if (days === 0) return translate(language, 'today');
+  if (days === 1) return translate(language, 'yesterday');
+  if (days < 14) return translate(language, 'daysAgo', { days });
   if (days < 60) {
     const weeks = Math.round(days / 7);
-    return es ? `Hace ${weeks} sem.` : `${weeks} wk ago`;
+    return translate(language, 'weeksAgo', { weeks });
   }
   const months = Math.round(days / 30);
-  return es ? `Hace ${months} meses` : `${months} mo ago`;
+  return translate(language, 'monthsAgo', { months });
 };
 
 /** Full date for tooltips, e.g. "28 may 2026". */
 export const formatListingDate = (car, language = 'es') => {
   const date = getListingDate(car);
   if (!date) return '';
-  return date.toLocaleDateString(language === 'es' ? 'es-CR' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+  return date.toLocaleDateString(translate(language, 'locale'), { day: 'numeric', month: 'short', year: 'numeric' });
 };

@@ -177,3 +177,10 @@ export const fetchDetailedStats = async () => {
   if (!res.ok) throw new Error('Failed to fetch detailed stats');
   return res.json();
 };
+
+export const fetchPriceHistory = async (url, signal) => {
+  const params = new URLSearchParams({ url });
+  const res = await fetch(`${BASE_URL}/cars/price-history?${params.toString()}`, { signal });
+  if (!res.ok) throw new Error('Failed to fetch price history');
+  return res.json();
+};

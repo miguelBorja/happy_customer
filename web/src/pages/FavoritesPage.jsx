@@ -9,6 +9,7 @@ import CarCard from '../components/CarCard';
 import MileageBar from '../components/MileageBar';
 import PriceBar from '../components/PriceBar';
 import MarketBadge from '../components/MarketBadge';
+import PriceDropBadge from '../components/PriceDropBadge';
 import { getMarketDeal } from '../utils/marketDeal';
 import { useLanguage } from '../context/LanguageContext';
 import { useTableDensity } from '../hooks/useTableDensity';
@@ -58,43 +59,42 @@ const FavoritesPage = ({ viewMode, setViewMode }) => {
   const soldFavs = displayCars.filter(c => c.IsSold).length;
 
   return (
-    <div style={{ paddingBottom: '4rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '2rem' }}>
+    <div className="favorites-container">
+      <div className="favorites-header">
         <div>
-          <h2 style={{ fontSize: '2rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          <h2 className="favorites-title">
             <StarIcon size={26} color="#fbbf24" />
             <span>{t('myFavoritesTitle')}</span>
           </h2>
-          <p style={{ color: 'var(--text-muted)' }}>
+          <p className="favorites-subtitle">
             {favCount === 1 
               ? t('carsSaved', { count: favCount }) 
               : t('carsSavedPlural', { count: favCount })}
-            {activeFavs > 0 && <span> · <span style={{ color: 'var(--success)' }}>{activeFavs}</span> {t('activeStatus').toLowerCase()}</span>}
-            {soldFavs > 0 && <span> · <span style={{ color: 'var(--danger)' }}>{soldFavs}</span> {t('soldStatus').toLowerCase()}</span>}
+            {activeFavs > 0 && <span> · <span className="favorites-count-active">{activeFavs}</span> {t('activeStatus').toLowerCase()}</span>}
+            {soldFavs > 0 && <span> · <span className="favorites-count-sold">{soldFavs}</span> {t('soldStatus').toLowerCase()}</span>}
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+        <div className="favorites-controls">
           {viewMode === 'table' && (
             <div className="table-density-toggle">
               <button
                 className={`btn-view-toggle ${density === 'photos' ? 'active' : ''}`}
                 onClick={() => setDensity('photos')}
               >
-                {language === 'es' ? 'Con fotos' : 'Photos'}
+                {t('viewWithPhotos')}
               </button>
               <button
                 className={`btn-view-toggle ${density === 'compact' ? 'active' : ''}`}
                 onClick={() => setDensity('compact')}
               >
-                {language === 'es' ? 'Compacta' : 'Compact'}
+                {t('viewCompact')}
               </button>
             </div>
           )}
           <button
             className={`btn-view-mode ${viewMode === 'cards' ? 'active' : ''}`}
             onClick={() => setViewMode('cards')}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
           >
             <CardsGridIcon size={14} color="currentColor" />
             <span>{t('viewCards')}</span>
@@ -102,7 +102,6 @@ const FavoritesPage = ({ viewMode, setViewMode }) => {
           <button
             className={`btn-view-mode ${viewMode === 'table' ? 'active' : ''}`}
             onClick={() => setViewMode('table')}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
           >
             <TableListIcon size={14} color="currentColor" />
             <span>{t('viewTable')}</span>
@@ -113,9 +112,9 @@ const FavoritesPage = ({ viewMode, setViewMode }) => {
       {loading && <ResultsSkeleton viewMode={viewMode} count={4} />}
 
       {!loading && displayCars.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '6rem 2rem', color: 'var(--text-muted)' }}>
-          <div style={{ fontSize: '3rem', marginBottom: '1rem', opacity: 0.3 }}>☆</div>
-          <h3 style={{ marginBottom: '0.5rem' }}>{t('noFavoritesTitle')}</h3>
+        <div className="page-empty-state">
+          <div className="page-empty-icon">☆</div>
+          <h3>{t('noFavoritesTitle')}</h3>
           <p>{t('noFavoritesText')}</p>
         </div>
       )}
@@ -146,7 +145,7 @@ const FavoritesPage = ({ viewMode, setViewMode }) => {
                   <th className="col-price">{t('priceHeader')}</th>
                   <th className="col-km">{t('mileageHeader')}</th>
                   <th className="col-province">{t('province')}</th>
-                  <th className="col-listed">{language === 'es' ? 'Publicado' : 'Listed'}</th>
+                  <th className="col-listed">{t('listedHeader')}</th>
                   <th className="col-status">{t('status')}</th>
                   <th className="text-right col-action">{t('action')}</th>
                 </tr>
@@ -173,7 +172,7 @@ const FavoritesPage = ({ viewMode, setViewMode }) => {
                         <button
                           className="fav-btn-table active"
                           onClick={() => toggleFavorite(car.URL)}
-                          title="Remove from favorites"
+                          title={t('removeFromFavorites')}
                         >
                           ★
                         </button>
@@ -183,8 +182,8 @@ const FavoritesPage = ({ viewMode, setViewMode }) => {
                           <CarThumb car={car} variant="table" hoverPreview />
                         </td>
                       )}
-                    <td className="col-title" style={{ fontWeight: '500' }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', flexWrap: 'wrap' }}>
+                    <td className="col-title">
+                      <span className="col-title-inner">
                         {car.Title}
                         {car.Comment && (
                           <span className="tooltip-container" tabIndex={0}>
@@ -196,9 +195,10 @@ const FavoritesPage = ({ viewMode, setViewMode }) => {
                     </td>
                     <td className="col-year">{car.Year}</td>
                     <td className="col-price">
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'nowrap' }}>
+                      <div className="col-price-badges">
                         <PriceBar price={car.Price} priceText={car.PriceText} deal={getMarketDeal(car)} />
                         <MarketBadge car={car} variant="compact" />
+                        <PriceDropBadge car={car} variant="compact" />
                       </div>
                     </td>
                     <td className="col-km">
@@ -206,25 +206,25 @@ const FavoritesPage = ({ viewMode, setViewMode }) => {
                     </td>
                     <td className="col-province">{car.Provincia}</td>
                     <td className="col-listed">
-                      <span title={formatListingDate(car, language)} style={{ color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                      <span title={formatListingDate(car, language)} className="col-date-text">
                         {formatListingAge(car, language)}
                       </span>
                     </td>
                     <td className="col-status">
                       {car.IsSold
-                        ? <span style={{ color: 'var(--danger)', fontWeight: '600' }}>{t('soldStatus')}</span>
-                        : <span style={{ color: 'var(--success)' }}>{t('activeStatus')}</span>
+                        ? <span className="col-status-sold">{t('soldStatus')}</span>
+                        : <span className="col-status-active">{t('activeStatus')}</span>
                       }
                     </td>
-                    <td className="text-right col-action" style={{ whiteSpace: 'nowrap' }}>
-                      <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                    <td className="text-right col-action">
+                      <div className="col-action-inner">
                         <button
                           type="button"
                           className={`btn-compare-table ${isComparing(car.URL) ? 'active' : ''}`}
                           onClick={() => toggleCompare(car)}
                           title={isComparing(car.URL)
-                            ? (language === 'es' ? 'Quitar del comparador' : 'Remove from comparator')
-                            : (language === 'es' ? 'Comparar' : 'Compare')}
+                            ? t('removeFromComparator')
+                            : t('compareAction')}
                           aria-pressed={isComparing(car.URL)}
                         >
                           ⇄
@@ -235,7 +235,7 @@ const FavoritesPage = ({ viewMode, setViewMode }) => {
                             target="_blank"
                             rel="noreferrer"
                             title={`WhatsApp ${waPhone.display}`}
-                            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#25D366' }}
+                            className="btn-action-icon--whatsapp"
                             onClick={() => trackEvent('contact_whatsapp', 'outbound', car.Title || car.URL)}
                           >
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">

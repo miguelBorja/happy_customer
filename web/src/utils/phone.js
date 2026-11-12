@@ -4,6 +4,8 @@
 // Costa Rica numbers have 8 digits; mobiles start with 6, 7 or 8 (WhatsApp-capable),
 // landlines start with 2 (call only).
 
+import { translate } from '../translations';
+
 const CR_COUNTRY_CODE = '506';
 
 /** Returns [{ digits: '83145866', display: '8314-5866', mobile: true }, ...] (deduplicated). */
@@ -32,9 +34,7 @@ export const getWhatsAppPhone = (raw) => parsePhones(raw).find((p) => p.mobile) 
 export const buildWhatsAppLink = (phone, car, language = 'es') => {
   if (!phone) return null;
   const subject = [car?.Title, car?.Year].filter(Boolean).join(' ');
-  const text = language === 'es'
-    ? `Hola, vi su ${subject} en Crautos (${car?.URL || ''}). ¿Todavía está disponible?`
-    : `Hi, I saw your ${subject} on Crautos (${car?.URL || ''}). Is it still available?`;
+  const text = translate(language, 'whatsappPreFill', { subject, url: car?.URL || '' });
   return `https://wa.me/${CR_COUNTRY_CODE}${phone.digits}?text=${encodeURIComponent(text)}`;
 };
 

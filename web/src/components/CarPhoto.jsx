@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useLanguage } from '../context/LanguageContext';
 import { getThumbUrl, getPhotoUrl, getBodyType, MAX_GALLERY_PHOTOS } from '../utils/carPhotos';
 
 /**
@@ -264,6 +265,7 @@ const ChevronRight = () => (
  * Gallery component with sequential photo discovery, responsive 4:3 box, keyboard nav, and thumbnails strip.
  */
 export const CarGallery = ({ car }) => {
+  const { t } = useLanguage();
   const [prevUrl, setPrevUrl] = useState(car?.URL);
   const [photos, setPhotos] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -381,7 +383,7 @@ export const CarGallery = ({ car }) => {
                   type="button"
                   className="car-gallery-arrow car-gallery-arrow--prev"
                   onClick={() => setCurrentIndex((prev) => (prev > 0 ? prev - 1 : photos.length - 1))}
-                  aria-label="Previous photo"
+                  aria-label={t('prevPhoto')}
                 >
                   <ChevronLeft />
                 </button>
@@ -389,7 +391,7 @@ export const CarGallery = ({ car }) => {
                   type="button"
                   className="car-gallery-arrow car-gallery-arrow--next"
                   onClick={() => setCurrentIndex((prev) => (prev < photos.length - 1 ? prev + 1 : 0))}
-                  aria-label="Next photo"
+                  aria-label={t('nextPhoto')}
                 >
                   <ChevronRight />
                 </button>
@@ -410,7 +412,7 @@ export const CarGallery = ({ car }) => {
               type="button"
               className={`car-gallery-strip-item ${idx === currentIndex ? 'active' : ''}`}
               onClick={() => setCurrentIndex(idx)}
-              aria-label={`View photo ${idx + 1}`}
+              aria-label={t('viewPhotoN', { index: idx + 1 })}
             >
               <img src={photoUrl} alt="" loading="lazy" />
             </button>

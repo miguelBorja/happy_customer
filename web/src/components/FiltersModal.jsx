@@ -187,7 +187,7 @@ const FiltersModal = ({
     <div className="filters-modal-overlay open" onClick={onClose}>
       <div className="filters-modal" onClick={(e) => e.stopPropagation()}>
         <div className="filters-modal-header">
-          <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <h3 className="filters-modal-title">
             <FilterFunnelIcon size={18} color="var(--accent)" />
             <span>{t('filtersHeader')}</span>
           </h3>
@@ -239,8 +239,7 @@ const FiltersModal = ({
               <input
                 type="text"
                 name="sellerName"
-                className="input-field"
-                style={{ marginTop: '0.5rem' }}
+                className="input-field input-field--spaced"
                 placeholder={t('enterSellerName')}
                 value={filters.sellerName || ''}
                 onChange={handleChange}
@@ -250,9 +249,9 @@ const FiltersModal = ({
  
           {/* Year Range Slider */}
           <div className="filter-group">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="slider-header">
               <label>{t('yearRange') || 'Year Range'}</label>
-              <span style={{ fontWeight: '600', color: 'var(--accent)', fontSize: '0.95rem' }}>
+              <span className="slider-value-label">
                 {getYearRangeLabel()}
               </span>
             </div>
@@ -300,9 +299,9 @@ const FiltersModal = ({
  
           {/* Price Range Slider */}
           <div className="filter-group">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="slider-header">
               <label>{t('priceRange') || 'Price Range'}</label>
-              <span style={{ fontWeight: '600', color: 'var(--accent)', fontSize: '0.95rem' }}>
+              <span className="slider-value-label">
                 {getPriceRangeLabel()}
               </span>
             </div>
@@ -376,8 +375,7 @@ const FiltersModal = ({
               <input
                 type="number"
                 name="kmMax"
-                className="input-field"
-                style={{ marginTop: '0.5rem' }}
+                className="input-field input-field--spaced"
                 placeholder={t('enterMaxMileage') || 'Enter max mileage'}
                 value={filters.kmMax || ''}
                 onChange={handleChange}
@@ -435,9 +433,9 @@ const FiltersModal = ({
 
 
           {/* Equipments Checkboxes */}
-          <div className="filter-group full-width" style={{ marginTop: '0.5rem' }}>
+          <div className="filter-group full-width filter-group--equipments">
             <label>{t('equipment')}</label>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '0.75rem', marginTop: '0.25rem' }}>
+            <div className="equipments-grid">
               {commonEquipments.map(eq => (
                 <label key={eq.id} className="checkbox-group">
                   <input 
@@ -453,7 +451,7 @@ const FiltersModal = ({
           </div>
 
           {/* Toggles: Show Sold & Show Favorites */}
-          <div className="filter-group full-width" style={{ display: 'flex', flexDirection: 'row', gap: '2rem', marginTop: '0.5rem', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
+          <div className="filter-group full-width filter-toggles-row">
             <label className="checkbox-group">
               <input type="checkbox" name="isSold" checked={filters.isSold !== 'false'} onChange={handleChange} />
               <span>{t('showSold')}</span>

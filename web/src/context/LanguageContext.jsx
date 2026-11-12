@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useState, useContext, useEffect } from 'react';
-import { translations } from '../translations';
+import { createContext, useState, useContext, useEffect, useCallback } from 'react';
+import { translate } from '../translations';
 
 const LanguageContext = createContext();
 
@@ -15,23 +15,14 @@ export const LanguageProvider = ({ children }) => {
     localStorage.setItem('happy_customer_lang', language);
   }, [language]);
 
-  // Translate function: gets the string from translations map
-  // and dynamically replaces placeholder params like {count}
-  const t = (key, params = {}) => {
-    const langTranslations = translations[language] || translations.es;
-    let text = langTranslations[key] || translations.es[key] || key;
+  const t = useCallback(
+    (key, params = {}) => translate(language, key, params),
+    [language]
+  );
 
-    // Replace dynamic placeholders, e.g. {count} or {visible}
-    Object.entries(params).forEach(([paramKey, paramVal]) => {
-      text = text.replace(`{${paramKey}}`, paramVal);
-    });
-
-    return text;
-  };
-
-  const toggleLanguage = () => {
+  const toggleLanguage = useCallback(() => {
     setLanguage(prev => (prev === 'es' ? 'en' : 'es'));
-  };
+  }, []);
 
   return (
     <LanguageContext.Provider value={{ language, setLanguage, t, toggleLanguage }}>

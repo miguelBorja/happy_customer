@@ -3,7 +3,7 @@ import { fetchDetailedStats } from '../api/client';
 import { useLanguage } from '../context/LanguageContext';
 
 function StatsPage() {
-  const { language, t } = useLanguage();
+  const { t } = useLanguage();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -22,18 +22,18 @@ function StatsPage() {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: '1.5rem' }}>
-        <div className="loader" style={{ width: '48px', height: '48px', borderWidth: '4px' }}></div>
-        <p style={{ color: 'var(--text-muted)', fontSize: '1.1rem' }}>{t('statsLoading')}</p>
+      <div className="stats-loading">
+        <div className="loader stats-loading-spinner"></div>
+        <p className="stats-loading-text">{t('statsLoading')}</p>
       </div>
     );
   }
 
   if (error || !data) {
     return (
-      <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--danger)' }}>
-        <h3>⚠️ {language === 'es' ? 'Error al cargar las estadísticas' : 'Failed to load statistics'}</h3>
-        <p style={{ marginTop: '1rem', color: 'var(--text-muted)' }}>{error || 'No data returned'}</p>
+      <div className="stats-error">
+        <h3>⚠️ {t('statsLoadError')}</h3>
+        <p className="stats-error-msg">{error || 'No data returned'}</p>
       </div>
     );
   }
@@ -45,69 +45,22 @@ function StatsPage() {
 
   // Render Sub Tabs Selector
   const renderTabSelector = () => (
-    <div style={{
-      display: 'flex',
-      gap: '0.75rem',
-      borderBottom: '1px solid var(--border)',
-      paddingBottom: '1rem',
-      marginBottom: '2rem',
-      overflowX: 'auto',
-      whiteSpace: 'nowrap'
-    }}>
+    <div className="stats-subtabs">
       <button
         onClick={() => setActiveSubTab('overview')}
-        style={{
-          background: activeSubTab === 'overview' ? 'var(--bg-hover)' : 'none',
-          border: 'none',
-          color: activeSubTab === 'overview' ? 'var(--text-main)' : 'var(--text-muted)',
-          padding: '0.6rem 1.25rem',
-          borderRadius: 'var(--radius)',
-          cursor: 'pointer',
-          fontWeight: 600,
-          transition: 'var(--transition)',
-          fontSize: '0.95rem',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.5rem'
-        }}
+        className={`stats-subtab${activeSubTab === 'overview' ? ' active' : ''}`}
       >
         📊 {t('statsTabOverview')}
       </button>
       <button
         onClick={() => setActiveSubTab('factors')}
-        style={{
-          background: activeSubTab === 'factors' ? 'var(--bg-hover)' : 'none',
-          border: 'none',
-          color: activeSubTab === 'factors' ? 'var(--text-main)' : 'var(--text-muted)',
-          padding: '0.6rem 1.25rem',
-          borderRadius: 'var(--radius)',
-          cursor: 'pointer',
-          fontWeight: 600,
-          transition: 'var(--transition)',
-          fontSize: '0.95rem',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.5rem'
-        }}
+        className={`stats-subtab${activeSubTab === 'factors' ? ' active' : ''}`}
       >
         ⚡ {t('statsTabFactors')}
       </button>
       <button
         onClick={() => setActiveSubTab('boost')}
-        style={{
-          background: activeSubTab === 'boost' ? 'var(--bg-hover)' : 'none',
-          border: 'none',
-          color: activeSubTab === 'boost' ? 'var(--text-main)' : 'var(--text-muted)',
-          padding: '0.6rem 1.25rem',
-          borderRadius: 'var(--radius)',
-          cursor: 'pointer',
-          fontWeight: 600,
-          transition: 'var(--transition)',
-          fontSize: '0.95rem',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.5rem'
-        }}
+        className={`stats-subtab${activeSubTab === 'boost' ? ' active' : ''}`}
       >
         📈 {t('statsTabBoost')}
       </button>
@@ -116,72 +69,43 @@ function StatsPage() {
 
   // Layout 1: Summary Cards
   const renderSummaryCards = () => (
-    <div style={{
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-      gap: '1.5rem',
-      marginBottom: '2.5rem'
-    }}>
-      <div style={{
-        background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.7))',
-        border: '1px solid var(--border)',
-        borderRadius: '16px',
-        padding: '1.75rem',
-        boxShadow: 'var(--shadow)',
-        position: 'relative',
-        overflow: 'hidden'
-      }}>
-        <div style={{ position: 'absolute', right: '-10px', bottom: '-20px', fontSize: '5rem', opacity: 0.04 }}>📋</div>
-        <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.05em' }}>
+    <div className="stats-kpi-grid">
+      <div className="stats-kpi-card stats-kpi-card--inventory">
+        <div className="stats-kpi-watermark">📋</div>
+        <div className="stats-kpi-label">
           {t('statsTotalInventory')}
         </div>
-        <div style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.5rem' }}>
+        <div className="stats-kpi-number">
           {totalInventory.toLocaleString()}
         </div>
-        <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
-          {language === 'es' ? 'Autos registrados' : 'Vehicles scraped'}
+        <div className="stats-kpi-desc">
+          {t('statsVehiclesScraped')}
         </div>
       </div>
 
-      <div style={{
-        background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(15, 23, 42, 0.7))',
-        border: '1px solid rgba(16, 185, 129, 0.2)',
-        borderRadius: '16px',
-        padding: '1.75rem',
-        boxShadow: 'var(--shadow)',
-        position: 'relative',
-        overflow: 'hidden'
-      }}>
-        <div style={{ position: 'absolute', right: '-10px', bottom: '-20px', fontSize: '5rem', opacity: 0.04 }}>🤝</div>
-        <div style={{ fontSize: '0.875rem', color: '#10b981', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.05em' }}>
-          {language === 'es' ? 'Autos Vendidos' : 'Vehicles Sold'}
+      <div className="stats-kpi-card stats-kpi-card--sold">
+        <div className="stats-kpi-watermark">🤝</div>
+        <div className="stats-kpi-label">
+          {t('statsVehiclesSold')}
         </div>
-        <div style={{ fontSize: '2.5rem', fontWeight: 800, color: '#10b981', marginTop: '0.5rem' }}>
+        <div className="stats-kpi-number">
           {totalSold.toLocaleString()}
         </div>
-        <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
-          {language === 'es' ? 'Confirmados como vendidos' : 'Marked as sold'}
+        <div className="stats-kpi-desc">
+          {t('statsMarkedAsSold')}
         </div>
       </div>
 
-      <div style={{
-        background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(15, 23, 42, 0.7))',
-        border: '1px solid rgba(59, 130, 246, 0.2)',
-        borderRadius: '16px',
-        padding: '1.75rem',
-        boxShadow: 'var(--shadow)',
-        position: 'relative',
-        overflow: 'hidden'
-      }}>
-        <div style={{ position: 'absolute', right: '-10px', bottom: '-20px', fontSize: '5rem', opacity: 0.04 }}>📈</div>
-        <div style={{ fontSize: '0.875rem', color: '#60a5fa', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.05em' }}>
+      <div className="stats-kpi-card stats-kpi-card--rate">
+        <div className="stats-kpi-watermark">📈</div>
+        <div className="stats-kpi-label">
           {t('statsSoldRate')}
         </div>
-        <div style={{ fontSize: '2.5rem', fontWeight: 800, color: '#60a5fa', marginTop: '0.5rem' }}>
+        <div className="stats-kpi-number">
           {overallSoldRate.toFixed(1)}%
         </div>
-        <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
-          {language === 'es' ? 'Tasa general de conversión' : 'Overall conversion rate'}
+        <div className="stats-kpi-desc">
+          {t('statsConversionRate')}
         </div>
       </div>
     </div>
@@ -209,25 +133,19 @@ function StatsPage() {
     const maxYearTotal = Math.max(...yearTrend.map((y) => y.total), 1);
 
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
+      <div className="stats-overview-stack">
         {/* Year Trend SVG Graph */}
-        <div style={{
-          background: 'var(--bg-card)',
-          borderRadius: '16px',
-          border: '1px solid var(--border)',
-          padding: '2rem 1.5rem',
-          boxShadow: 'var(--shadow)'
-        }}>
-          <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div className="stats-chart-card">
+          <h3 className="stats-card-title stats-chart-title">
             📅 {t('statsYearTrend')}
           </h3>
 
           {yearTrend.length === 0 ? (
-            <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '2rem' }}>{t('statsNoData')}</div>
+            <div className="stats-no-data">{t('statsNoData')}</div>
           ) : (
-            <div style={{ overflowX: 'auto', width: '100%' }}>
-              <div style={{ minWidth: '600px', padding: '0.5rem 0' }}>
-                <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} style={{ width: '100%', height: 'auto', overflow: 'visible' }}>
+            <div className="stats-chart-scroll">
+              <div className="stats-chart-inner">
+                <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="stats-chart-svg">
                   {/* Grid Lines */}
                   {[0, 0.25, 0.5, 0.75, 1].map((p, i) => {
                     const yPos = chartHeight - 40 - p * (chartHeight - 70);
@@ -324,14 +242,14 @@ function StatsPage() {
               </div>
 
               {/* Legend */}
-              <div style={{ display: 'flex', gap: '1.5rem', justifyContent: 'center', marginTop: '1.25rem', fontSize: '0.85rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <span style={{ width: '12px', height: '12px', borderRadius: '3px', background: 'rgba(59, 130, 246, 0.25)', border: '1px solid rgba(59, 130, 246, 0.5)' }}></span>
-                  <span style={{ color: 'var(--text-muted)' }}>{language === 'es' ? 'Disponibles' : 'Active'}</span>
+              <div className="stats-chart-legend">
+                <div className="stats-legend-item">
+                  <span className="stats-legend-box stats-legend-box--active"></span>
+                  <span className="stats-legend-text">{t('statsAvailableLegend')}</span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <span style={{ width: '12px', height: '12px', borderRadius: '3px', background: 'var(--success)' }}></span>
-                  <span style={{ color: 'var(--text-muted)' }}>{language === 'es' ? 'Vendidos (Volumen)' : 'Sold (Volume)'}</span>
+                <div className="stats-legend-item">
+                  <span className="stats-legend-box stats-legend-box--sold"></span>
+                  <span className="stats-legend-text">{t('statsSoldVolumeLegend')}</span>
                 </div>
               </div>
             </div>
@@ -339,58 +257,35 @@ function StatsPage() {
         </div>
 
         {/* Dual Grid: Top Brands & Top Models */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-          gap: '2rem'
-        }}>
+        <div className="stats-columns-grid">
           {/* Top Brands Card */}
-          <div style={{
-            background: 'var(--bg-card)',
-            borderRadius: '16px',
-            border: '1px solid var(--border)',
-            padding: '2rem 1.5rem',
-            boxShadow: 'var(--shadow)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '1.25rem'
-          }}>
-            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div className="stats-column-card">
+            <h3 className="stats-card-title">
               🏷️ {t('statsTopBrands')}
             </h3>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+            <div className="stats-rows-list">
               {topBrands.map((item) => {
                 const percentageOfMax = (item.total / maxBrandTotal) * 100;
                 const soldPercentage = item.total > 0 ? (item.sold / item.total) * 100 : 0;
 
                 return (
-                  <div key={item.brand} style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', fontWeight: 600 }}>
-                      <span style={{ color: 'var(--text-main)' }}>{item.brand.toUpperCase()}</span>
-                      <span style={{ color: 'var(--text-muted)' }}>
-                        <span style={{ color: '#10b981' }}>{item.sold}</span> / <span style={{ fontWeight: 'normal' }}>{item.total}</span>
-                        <span style={{ marginLeft: '0.5rem', fontSize: '0.8rem', color: 'var(--accent)' }}>
+                  <div key={item.brand} className="stats-row-item">
+                    <div className="stats-row-header">
+                      <span className="stats-row-name">{item.brand.toUpperCase()}</span>
+                      <span className="stats-row-counts">
+                        <span className="stats-row-sold">{item.sold}</span> / <span className="stats-row-total">{item.total}</span>
+                        <span className="stats-row-pct">
                           ({soldPercentage.toFixed(0)}% sold)
                         </span>
                       </span>
                     </div>
                     {/* Visual Bar */}
-                    <div style={{
-                      width: '100%',
-                      height: '10px',
-                      backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                      borderRadius: '5px',
-                      overflow: 'hidden',
-                      position: 'relative'
-                    }}>
-                      <div style={{
-                        width: `${percentageOfMax}%`,
-                        height: '100%',
-                        background: 'linear-gradient(to right, var(--accent), #60a5fa)',
-                        borderRadius: '5px',
-                        transition: 'width 0.8s ease'
-                      }} />
+                    <div className="stats-bar-track">
+                      <div
+                        className="stats-bar-fill stats-bar-fill--brand"
+                        style={{ width: `${percentageOfMax}%` }}
+                      />
                     </div>
                   </div>
                 );
@@ -399,54 +294,35 @@ function StatsPage() {
           </div>
 
           {/* Top Models Card */}
-          <div style={{
-            background: 'var(--bg-card)',
-            borderRadius: '16px',
-            border: '1px solid var(--border)',
-            padding: '2rem 1.5rem',
-            boxShadow: 'var(--shadow)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '1.25rem'
-          }}>
-            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div className="stats-column-card">
+            <h3 className="stats-card-title">
               🚗 {t('statsTopModels')}
             </h3>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+            <div className="stats-rows-list">
               {topModels.map((item) => {
                 const percentageOfMax = (item.total / maxModelTotal) * 100;
                 const soldPercentage = item.total > 0 ? (item.sold / item.total) * 100 : 0;
 
                 return (
-                  <div key={`${item.brand}-${item.model}`} style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', fontWeight: 600 }}>
-                      <span style={{ color: 'var(--text-main)' }}>
-                        {item.brand.toUpperCase()} <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{item.model}</span>
+                  <div key={`${item.brand}-${item.model}`} className="stats-row-item">
+                    <div className="stats-row-header">
+                      <span className="stats-row-name">
+                        {item.brand.toUpperCase()} <span className="stats-row-model">{item.model}</span>
                       </span>
-                      <span style={{ color: 'var(--text-muted)' }}>
-                        <span style={{ color: '#10b981' }}>{item.sold}</span> / <span style={{ fontWeight: 'normal' }}>{item.total}</span>
-                        <span style={{ marginLeft: '0.5rem', fontSize: '0.8rem', color: 'var(--accent)' }}>
+                      <span className="stats-row-counts">
+                        <span className="stats-row-sold">{item.sold}</span> / <span className="stats-row-total">{item.total}</span>
+                        <span className="stats-row-pct">
                           ({soldPercentage.toFixed(0)}% sold)
                         </span>
                       </span>
                     </div>
                     {/* Visual Bar */}
-                    <div style={{
-                      width: '100%',
-                      height: '10px',
-                      backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                      borderRadius: '5px',
-                      overflow: 'hidden',
-                      position: 'relative'
-                    }}>
-                      <div style={{
-                        width: `${percentageOfMax}%`,
-                        height: '100%',
-                        background: 'linear-gradient(to right, #a78bfa, #8b5cf6)',
-                        borderRadius: '5px',
-                        transition: 'width 0.8s ease'
-                      }} />
+                    <div className="stats-bar-track">
+                      <div
+                        className="stats-bar-fill stats-bar-fill--model"
+                        style={{ width: `${percentageOfMax}%` }}
+                      />
                     </div>
                   </div>
                 );
@@ -461,68 +337,43 @@ function StatsPage() {
   // Tab Content 2: SALES FACTORS (Transmission, Fuel, Style)
   const renderFactorsTab = () => {
     const listFactor = (title, icon, stats) => (
-      <div style={{
-        background: 'var(--bg-card)',
-        borderRadius: '16px',
-        border: '1px solid var(--border)',
-        padding: '2rem 1.5rem',
-        boxShadow: 'var(--shadow)',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '1.5rem',
-        flex: '1 1 300px'
-      }}>
-        <h3 style={{ fontSize: '1.15rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', paddingBottom: '0.75rem' }}>
+      <div className="stats-factor-card">
+        <h3 className="stats-factor-title">
           {icon} {title}
         </h3>
 
         {stats.length === 0 ? (
-          <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', textAlign: 'center', padding: '1rem' }}>{t('statsNoData')}</div>
+          <div className="stats-no-data stats-no-data--compact">{t('statsNoData')}</div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          <div className="stats-factor-list">
             {stats.map((item) => {
               const nameText = t(item.name.toLowerCase()) || item.name;
               const ratePct = item.soldRate * 100;
-              
+
               // Color helper based on sold probability rate
               let progressColor = 'var(--accent)';
               if (ratePct >= 40) progressColor = 'var(--success)';
               else if (ratePct < 20) progressColor = 'var(--danger)';
 
               return (
-                <div key={item.name} style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem' }}>
-                    <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{nameText}</span>
-                    <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                      {item.sold} / {item.total} {language === 'es' ? 'vendidos' : 'sold'}
+                <div key={item.name} className="stats-factor-item">
+                  <div className="stats-factor-item-header">
+                    <span className="stats-factor-item-name">{nameText}</span>
+                    <span className="stats-factor-item-ratio">
+                      {t('statsSoldRatio', { sold: item.sold, total: item.total })}
                     </span>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <div className="stats-factor-bar-row">
                     {/* Bar */}
-                    <div style={{
-                      flex: 1,
-                      height: '8px',
-                      backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                      borderRadius: '4px',
-                      overflow: 'hidden'
-                    }}>
-                      <div style={{
-                        width: `${ratePct}%`,
-                        height: '100%',
-                        backgroundColor: progressColor,
-                        borderRadius: '4px',
-                        transition: 'width 0.6s ease'
-                      }} />
+                    <div className="stats-factor-track">
+                      <div
+                        className="stats-factor-fill"
+                        style={{ width: `${ratePct}%`, backgroundColor: progressColor }}
+                      />
                     </div>
                     {/* Rate Indicator */}
-                    <span style={{
-                      minWidth: '45px',
-                      textAlign: 'right',
-                      fontWeight: 700,
-                      fontSize: '0.85rem',
-                      color: progressColor
-                    }}>
+                    <span className="stats-factor-rate" style={{ color: progressColor }}>
                       {ratePct.toFixed(1)}%
                     </span>
                   </div>
@@ -535,19 +386,19 @@ function StatsPage() {
     );
 
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+      <div className="stats-factors-container">
         {/* Row 1: Transmission & Fuel */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem' }}>
+        <div className="stats-factors-row">
           {listFactor(t('statsTransmissionTitle'), '⚙️', data.transmissionStats)}
           {listFactor(t('statsFuelTitle'), '⛽', data.fuelStats)}
         </div>
 
         {/* Row 2: Age, Mileage, and Price Relative */}
         <div>
-          <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '1rem', color: '#60a5fa' }}>
+          <h3 className="stats-numerical-heading">
             🔢 {t('statsNumericalFactors')}
           </h3>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem' }}>
+          <div className="stats-factors-row">
             {listFactor(t('statsAgeTitle'), '📅', data.ageStats)}
             {listFactor(t('statsMileageTitle'), '🛣️', data.mileageStats)}
             {listFactor(t('statsPriceRelTitle'), '💲', data.priceRelStats)}
@@ -555,7 +406,7 @@ function StatsPage() {
         </div>
 
         {/* Row 3: Styles */}
-        <div style={{ display: 'flex' }}>
+        <div className="stats-factors-single-row">
           {listFactor(t('statsStyleTitle'), '🚙', data.styleStats.slice(0, 10))}
         </div>
       </div>
@@ -575,115 +426,64 @@ function StatsPage() {
     });
 
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      <div className="stats-boost-container">
         {/* Explanation Alert banner */}
-        <div style={{
-          background: 'rgba(59, 130, 246, 0.05)',
-          border: '1px solid rgba(59, 130, 246, 0.15)',
-          borderRadius: '12px',
-          padding: '1.25rem',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '0.5rem',
-          boxShadow: '0 4px 6px rgba(0,0,0,0.05)'
-        }}>
-          <h4 style={{ color: '#60a5fa', margin: 0, fontWeight: 700, fontSize: '1rem' }}>
+        <div className="stats-boost-banner">
+          <h4 className="stats-boost-banner-title">
             {t('statsExplainTitle')}
           </h4>
-          <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: '1.5' }}>
+          <p className="stats-boost-banner-text">
             {t('statsExplainText')}
           </p>
         </div>
 
         {/* Sorting Controller */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '1rem',
-          background: 'rgba(255, 255, 255, 0.02)',
-          padding: '0.85rem 1.25rem',
-          borderRadius: '10px',
-          border: '1px solid var(--border)'
-        }}>
-          <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+        <div className="stats-sort-toolbar">
+          <span className="stats-sort-toolbar-title">
             📊 {t('statsEquipmentTitle')}
           </span>
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-              {language === 'es' ? 'Ordenar por:' : 'Sort by:'}
+          <div className="stats-sort-controls">
+            <span className="stats-sort-label">
+              {t('sortByColon')}
             </span>
             <button
               onClick={() => setBoostSort('boost')}
-              style={{
-                background: boostSort === 'boost' ? 'var(--accent)' : 'rgba(255, 255, 255, 0.05)',
-                color: 'white',
-                border: 'none',
-                padding: '0.4rem 0.85rem',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontWeight: 600,
-                fontSize: '0.8rem',
-                transition: 'var(--transition)'
-              }}
+              className={`stats-sort-btn${boostSort === 'boost' ? ' active' : ''}`}
             >
               📈 Boost
             </button>
             <button
               onClick={() => setBoostSort('usage')}
-              style={{
-                background: boostSort === 'usage' ? 'var(--accent)' : 'rgba(255, 255, 255, 0.05)',
-                color: 'white',
-                border: 'none',
-                padding: '0.4rem 0.85rem',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontWeight: 600,
-                fontSize: '0.8rem',
-                transition: 'var(--transition)'
-              }}
+              className={`stats-sort-btn${boostSort === 'usage' ? ' active' : ''}`}
             >
-              🏷️ {language === 'es' ? 'Uso/Frecuencia' : 'Usage Frequency'}
+              {t('statsSortFrequency')}
             </button>
           </div>
         </div>
 
         {/* Equipment Boost Analytical Data Table */}
-        <div className="table-container" style={{ marginTop: '0.5rem', boxShadow: 'var(--shadow)' }}>
-          <table className="data-table">
+        <div className="table-container stats-boost-table-wrap">
+          <table className="data-table stats-boost-table">
             <thead>
               <tr>
-                <th style={{ textAlign: 'left', padding: '1.25rem 1.5rem' }}>
+                <th className="stats-boost-th-left">
                   {t('statsTableFeature')}
                 </th>
-                <th style={{ textAlign: 'center', padding: '1.25rem 1.5rem' }}>
+                <th className="stats-boost-th-center">
                   {t('statsTableBase')}
                 </th>
-                <th style={{ textAlign: 'center', padding: '1.25rem 1.5rem' }}>
+                <th className="stats-boost-th-center">
                   {t('statsTableWithOption')}
                 </th>
-                <th 
-                  className="sortable"
+                <th
+                  className={`sortable stats-boost-th-center stats-boost-th-sort${boostSort === 'boost' ? ' active' : ''}`}
                   onClick={() => setBoostSort('boost')}
-                  style={{ 
-                    textAlign: 'center', 
-                    padding: '1.25rem 1.5rem',
-                    color: boostSort === 'boost' ? 'var(--success)' : 'var(--text-muted)',
-                    fontWeight: boostSort === 'boost' ? 700 : 600
-                  }}
                 >
                   {t('statsTableBoost')}{boostSort === 'boost' ? ' ↑' : ''}
                 </th>
-                <th 
-                  className="sortable"
+                <th
+                  className={`sortable stats-boost-th-right stats-boost-th-sort${boostSort === 'usage' ? ' active' : ''}`}
                   onClick={() => setBoostSort('usage')}
-                  style={{ 
-                    textAlign: 'right', 
-                    padding: '1.25rem 1.5rem',
-                    color: boostSort === 'usage' ? 'var(--success)' : 'var(--text-muted)',
-                    fontWeight: boostSort === 'usage' ? 700 : 600
-                  }}
                 >
                   {t('statsTableSample')}{boostSort === 'usage' ? ' ↑' : ''}
                 </th>
@@ -694,7 +494,7 @@ function StatsPage() {
                 const boostPct = item.difference * 100;
                 const hasRatePct = item.hasFeatureSoldRate * 100;
                 const noRatePct = item.noFeatureSoldRate * 100;
-                
+
                 const isPositive = boostPct > 0;
                 const isNegative = boostPct < 0;
 
@@ -708,22 +508,22 @@ function StatsPage() {
 
                 return (
                   <tr key={item.featureName}>
-                    <td style={{ textAlign: 'left', padding: '1.25rem 1.5rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                    <td className="stats-boost-td-feature">
                       {t(item.featureName) || item.featureName}
                     </td>
-                    <td style={{ textAlign: 'center', padding: '1.25rem 1.5rem', fontWeight: 500 }}>
+                    <td className="stats-boost-td-center">
                       {noRatePct.toFixed(1)}%
                     </td>
-                    <td style={{ textAlign: 'center', padding: '1.25rem 1.5rem', fontWeight: 500 }}>
+                    <td className="stats-boost-td-center">
                       {hasRatePct.toFixed(1)}%
                     </td>
-                    <td style={{ textAlign: 'center', padding: '1.25rem 1.5rem', fontWeight: 800, color: boostColor }}>
+                    <td className="stats-boost-td-delta" style={{ color: boostColor }}>
                       {boostPct >= 0 ? '+' : ''}{boostPct.toFixed(1)}%
                     </td>
-                    <td style={{ textAlign: 'right', padding: '1.25rem 1.5rem' }}>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.15rem' }}>
-                        <span>{t('statsTableCon')}: <strong style={{ color: 'var(--text-main)' }}>{item.totalWith.toLocaleString()}</strong></span>
-                        <span>{t('statsTableSin')}: <strong style={{ color: 'var(--text-muted)' }}>{item.totalWithout.toLocaleString()}</strong></span>
+                    <td className="stats-boost-td-right">
+                      <div className="stats-boost-sample">
+                        <span>{t('statsTableCon')}: <strong className="stats-boost-sample-with">{item.totalWith.toLocaleString()}</strong></span>
+                        <span>{t('statsTableSin')}: <strong className="stats-boost-sample-without">{item.totalWithout.toLocaleString()}</strong></span>
                       </div>
                     </td>
                   </tr>
@@ -737,20 +537,13 @@ function StatsPage() {
   };
 
   return (
-    <div className="stats-page" style={{ maxWidth: '1200px', margin: '0 auto', padding: '1rem 0 3rem' }}>
+    <div className="stats-page">
       {/* Header section */}
-      <div style={{ marginBottom: '2rem' }}>
-        <h1 style={{
-          fontSize: '2rem',
-          fontWeight: 800,
-          background: 'linear-gradient(to right, #60a5fa, #a78bfa)',
-          WebkitBackgroundClip: 'text',
-          color: 'transparent',
-          marginBottom: '0.5rem'
-        }}>
+      <div className="stats-page-header">
+        <h1 className="stats-page-title">
           {t('statsTitle')}
         </h1>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.975rem' }}>
+        <p className="stats-page-subtitle">
           {t('statsSubtitle')}
         </p>
       </div>

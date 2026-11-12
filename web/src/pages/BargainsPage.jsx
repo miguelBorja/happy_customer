@@ -3,6 +3,7 @@ import { fetchBargains } from '../api/client';
 import CarCard from '../components/CarCard';
 import MileageBar from '../components/MileageBar';
 import PriceBar from '../components/PriceBar';
+import PriceDropBadge from '../components/PriceDropBadge';
 import { CarThumb } from '../components/CarPhoto';
 import CarDetailsModal from '../components/CarDetailsModal';
 import { useTableDensity } from '../hooks/useTableDensity';
@@ -35,7 +36,7 @@ const BargainsPage = ({ viewMode, setViewMode }) => {
   const [loading, setLoading] = useState(true);
   const [selectedCar, setSelectedCar] = useState(null);
   const { density, setDensity, showPhotos } = useTableDensity();
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const { isFavorite, toggleFavorite } = useFavorites();
   const { isComparing, toggleCompare } = useCompare();
   const { isNew } = useSeenCars();
@@ -71,36 +72,33 @@ const BargainsPage = ({ viewMode, setViewMode }) => {
   }, [bargains, sortBy]);
 
   return (
-    <div style={{ paddingBottom: '4rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '2rem' }}>
+    <div className="bargains-container">
+      <div className="bargains-header">
           <div>
-            <h2 style={{ fontSize: '2rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+            <h2 className="bargains-title">
               <TagIcon size={26} color="#fbbf24" />
-              <span>{language === 'es' ? '¡Una Ganga!' : 'A Bargain!'}</span>
+              <span>{t('bargainsTitle')}</span>
             </h2>
-            <p style={{ color: 'var(--text-muted)' }}>
-              {language === 'es' 
-                ? `Autos publicados con "Gran precio": al menos ${GREAT_DISCOUNT}% bajo la mediana de su marca, modelo y año (activos y vendidos), ajustada por kilometraje.`
-                : `Active listings with a "Great price" badge: at least ${GREAT_DISCOUNT}% below the median for their make, model and year (active and sold), adjusted for mileage.`}
+            <p className="bargains-subtitle">
+              {t('bargainsSubtitle', { pct: GREAT_DISCOUNT })}
             </p>
           </div>
           
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>
-                {language === 'es' ? 'Ordenar por:' : 'Sort by:'}
+          <div className="bargains-controls">
+            <div className="bargains-threshold">
+              <span className="bargains-threshold-label">
+                {t('sortByColon')}
               </span>
-              <select 
-                value={sortBy} 
-                onChange={(e) => setSortBy(e.target.value)} 
-                className="select-field" 
-                style={{ width: 'auto', padding: '0.4rem 2rem 0.4rem 1rem', fontSize: '0.9rem', borderRadius: '8px', minWidth: '150px' }}
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="select-field bargains-threshold-select"
               >
-                <option value="discount">{language === 'es' ? 'Descuento' : 'Discount'}</option>
-                <option value="title">{language === 'es' ? 'Título' : 'Title'}</option>
-                <option value="year">{language === 'es' ? 'Año' : 'Year'}</option>
-                <option value="price">{language === 'es' ? 'Precio Oferta' : 'Deal Price'}</option>
-                <option value="mileage">{language === 'es' ? 'Kilometraje' : 'Mileage'}</option>
+                <option value="discount">{t('discountLabel')}</option>
+                <option value="title">{t('title')}</option>
+                <option value="year">{t('year')}</option>
+                <option value="price">{t('dealPriceHeader')}</option>
+                <option value="mileage">{t('mileageLabel')}</option>
               </select>
             </div>
 
@@ -110,33 +108,31 @@ const BargainsPage = ({ viewMode, setViewMode }) => {
                   className={`btn-view-toggle ${density === 'photos' ? 'active' : ''}`}
                   onClick={() => setDensity('photos')}
                 >
-                  {language === 'es' ? 'Con fotos' : 'Photos'}
+                  {t('viewWithPhotos')}
                 </button>
                 <button
                   className={`btn-view-toggle ${density === 'compact' ? 'active' : ''}`}
                   onClick={() => setDensity('compact')}
                 >
-                  {language === 'es' ? 'Compacta' : 'Compact'}
+                  {t('viewCompact')}
                 </button>
               </div>
             )}
 
             <div className="view-mode-toggle">
-              <button 
+              <button
                 className={`btn-view-toggle ${viewMode === 'cards' ? 'active' : ''}`}
                 onClick={() => setViewMode('cards')}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
               >
                 <CardsGridIcon size={14} color="currentColor" />
-                <span>{language === 'es' ? 'Tarjetas' : 'Cards'}</span>
+                <span>{t('viewCards')}</span>
               </button>
-              <button 
+              <button
                 className={`btn-view-toggle ${viewMode === 'table' ? 'active' : ''}`}
                 onClick={() => setViewMode('table')}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
               >
                 <TableListIcon size={14} color="currentColor" />
-                <span>{language === 'es' ? 'Tabla' : 'Table'}</span>
+                <span>{t('viewTable')}</span>
               </button>
             </div>
           </div>
@@ -146,41 +142,24 @@ const BargainsPage = ({ viewMode, setViewMode }) => {
       {loading ? (
         <ResultsSkeleton viewMode={viewMode} count={6} />
       ) : bargains.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '6rem 2rem', color: 'var(--text-muted)' }}>
-          <div style={{ fontSize: '3rem', marginBottom: '1rem', opacity: 0.3 }}>🤷‍♂️</div>
-          <h3 style={{ marginBottom: '0.5rem' }}>
-            {language === 'es' ? 'No se encontraron gangas' : 'No bargains found'}
+        <div className="page-empty-state">
+          <div className="page-empty-icon">🤷‍♂️</div>
+          <h3>
+            {t('noBargainsTitle')}
           </h3>
           <p>
-            {language === 'es' 
-              ? `Ahora mismo no hay autos publicados con ${GREAT_DISCOUNT}% o más bajo su precio de mercado.`
-              : `There are no active listings ${GREAT_DISCOUNT}% or more below their market price right now.`}
+            {t('noBargainsText', { pct: GREAT_DISCOUNT })}
           </p>
         </div>
       ) : viewMode === 'cards' ? (
         <div className="results-grid fav-cards-container active-view">
           {sortedBargains.map(b => (
-            <div key={b.car.URL} style={{ position: 'relative', display: 'flex', flexDirection: 'column' }}>
-              <div 
-                style={{
-                  position: 'absolute',
-                  top: '-12px',
-                  right: '-12px',
-                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                  color: 'white',
-                  padding: '8px 12px',
-                  borderRadius: '20px',
-                  fontWeight: 'bold',
-                  fontSize: '0.9rem',
-                  zIndex: 10,
-                  boxShadow: '0 4px 6px rgba(0,0,0,0.3)',
-                  border: '2px solid var(--bg-card)'
-                }}
-              >
-                {Math.round(b.discountPercent)}% {language === 'es' ? 'DESCUENTO' : 'OFF'}
+            <div key={b.car.URL} className="bargain-card-wrapper">
+              <div className="bargain-discount-badge">
+                {t('discountBadgeOff', { pct: Math.round(b.discountPercent) })}
               </div>
               
-              <div style={{ flexGrow: 1 }} draggable={true} onDragStart={(e) => { e.dataTransfer.setData('application/json', JSON.stringify(b.car)); }}>
+              <div className="bargain-card-drag" draggable={true} onDragStart={(e) => { e.dataTransfer.setData('application/json', JSON.stringify(b.car)); }}>
                 <CarCard 
                   car={b.car} 
                   isNew={isNew(b.car)}
@@ -192,24 +171,12 @@ const BargainsPage = ({ viewMode, setViewMode }) => {
               
               <div
                 title={b.deal ? dealTooltip(b.car, b.deal, language) : undefined}
-                style={{ 
-                marginTop: '12px', 
-                padding: '10px 14px', 
-                background: 'rgba(16, 185, 129, 0.08)', 
-                border: '1px solid rgba(16, 185, 129, 0.3)',
-                borderRadius: '10px',
-                fontSize: '0.9rem',
-                color: '#34d399',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: '0.5rem'
-              }}>
+                className="bargain-deal-info"
+              >
                 <span>
                   {b.deal?.kmAdjusted
-                    ? (language === 'es' ? 'Precio de mercado (ajustado por km):' : 'Market price (mileage-adjusted):')
-                    : (language === 'es' ? 'Precio de mercado:' : 'Market price:')}
+                    ? t('marketPriceKmColon')
+                    : t('marketPriceColon')}
                 </span>
                 <strong>{formatUSD(b.marketPrice)}</strong>
               </div>
@@ -223,14 +190,14 @@ const BargainsPage = ({ viewMode, setViewMode }) => {
               <tr>
                 <th className="col-fav"></th>
                 {showPhotos && <th className="col-photo"></th>}
-                <th className="col-discount">{language === 'es' ? 'Descuento' : 'Discount'}</th>
-                <th className="col-title">{language === 'es' ? 'Título' : 'Title'}</th>
-                <th className="col-year">{language === 'es' ? 'Año' : 'Year'}</th>
-                <th className="col-price">{language === 'es' ? 'Precio Oferta' : 'Deal Price'}</th>
-                <th className="col-market-price">{language === 'es' ? 'Precio de mercado' : 'Market price'}</th>
-                <th className="col-km">{language === 'es' ? 'Kilometraje' : 'Mileage'}</th>
-                <th className="col-province">{language === 'es' ? 'Provincia' : 'Province'}</th>
-                <th className="text-right col-action">{language === 'es' ? 'Acción' : 'Action'}</th>
+                <th className="col-discount">{t('discountLabel')}</th>
+                <th className="col-title">{t('title')}</th>
+                <th className="col-year">{t('year')}</th>
+                <th className="col-price">{t('dealPriceHeader')}</th>
+                <th className="col-market-price">{t('marketPriceLabel')}</th>
+                <th className="col-km">{t('mileageLabel')}</th>
+                <th className="col-province">{t('province')}</th>
+                <th className="text-right col-action">{t('action')}</th>
               </tr>
             </thead>
             <tbody>
@@ -266,20 +233,23 @@ const BargainsPage = ({ viewMode, setViewMode }) => {
                         <CarThumb car={car} variant="table" hoverPreview />
                       </td>
                     )}
-                    <td className="col-discount" style={{ fontWeight: 'bold', color: '#10b981' }}>
+                    <td className="col-discount">
                       {Math.round(b.discountPercent)}%
                     </td>
-                    <td className="col-title" style={{ fontWeight: '500' }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', flexWrap: 'wrap' }}>
+                    <td className="col-title">
+                      <span className="col-title-inner">
                         {car.Title}
-                        {carIsNew && <span className="new-badge-inline">{language === 'es' ? 'NUEVO' : 'NEW'}</span>}
+                        {carIsNew && <span className="new-badge-inline">{t('newBadge')}</span>}
                       </span>
                     </td>
                     <td className="col-year">{car.Year}</td>
                     <td className="col-price">
-                      <PriceBar price={car.Price} maxPrice={0} priceText={car.PriceText} deal={b.deal} />
+                      <div className="col-price-badges">
+                        <PriceBar price={car.Price} maxPrice={0} priceText={car.PriceText} deal={b.deal} />
+                        <PriceDropBadge car={car} variant="compact" />
+                      </div>
                     </td>
-                    <td className="col-market-price" style={{ color: '#10b981', fontWeight: 'bold' }} title={b.deal ? dealTooltip(car, b.deal, language) : undefined}>
+                    <td className="col-market-price" title={b.deal ? dealTooltip(car, b.deal, language) : undefined}>
                       {formatUSD(b.marketPrice)}
                     </td>
                     <td className="col-km">
@@ -287,14 +257,14 @@ const BargainsPage = ({ viewMode, setViewMode }) => {
                     </td>
                     <td className="col-province">{car.Provincia}</td>
                     <td className="text-right col-action">
-                      <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.45rem' }}>
+                      <div className="col-action-inner col-action-inner--compact">
                         <button
                           type="button"
                           className={`btn-compare-table ${isComparing(car.URL) ? 'active' : ''}`}
                           onClick={() => toggleCompare(car)}
                           title={isComparing(car.URL)
-                            ? (language === 'es' ? 'Quitar del comparador' : 'Remove from comparator')
-                            : (language === 'es' ? 'Comparar' : 'Compare')}
+                            ? t('removeFromComparator')
+                            : t('compareAction')}
                           aria-pressed={isComparing(car.URL)}
                         >
                           ⇄
@@ -305,7 +275,7 @@ const BargainsPage = ({ viewMode, setViewMode }) => {
                           rel="noreferrer" 
                           className="btn-table-action"
                         >
-                          {language === 'es' ? 'Ver' : 'View'}
+                          {t('view')}
                         </a>
                       </div>
                     </td>

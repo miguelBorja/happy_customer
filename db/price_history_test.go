@@ -43,4 +43,79 @@ func TestPriceHistoryRecordsOnlyChanges(t *testing.T) {
 	if len(hb) != 1 || hb[0].Price != 15000 {
 		t.Fatalf("history b = %+v, want [15000]", hb)
 	}
+
+	changed, err := database.GetChangedPriceHistories()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(changed) != 1 || len(changed[a]) != 2 || changed[a][0].Price != 20000 || changed[a][1].Price != 18500 {
+		t.Fatalf("GetChangedPriceHistories = %+v, want only %q with [20000 18500]", changed, a)
+	}
+	if _, ok := changed[b]; ok {
+		t.Fatalf("GetChangedPriceHistories unexpectedly included single-price %q", b)
+	}
+}
+
+func TestCleanAndSummarizePriceHistory(t *testing.T) {
+	t0 := time.Date(2026, 11, 1, 10, 0, 0, 0, time.UTC)
+	t1 := t0.Add(24 * time.Hour)
+	t2 := t0.Add(48 * time.Hour)
+
+	if pc, ok := SummarizePriceHistory([]PricePoint{{Price: 20000, SeenAt: t0}}, 0); ok {
+		t.Fatalf("single point should not summarize: %+v", pc)
+	}
+
+	pc, ok := SummarizePriceHistory([]PricePoint{
+		{Price: 20000, SeenAt: t0},
+		{Price: 18500, SeenAt: t1},
+	}, 0)
+	if !ok || pc.InitialPrice != 20000 || pc.PreviousPrice != 20000 || pc.CurrentPrice != 18500 || pc.Changes != 1 || !pc.ChangedAt.Equal(t1) {
+		t.Fatalf("2-point drop = %+v, ok=%v", pc, ok)
+	}
+
+	pc, ok = SummarizePriceHistory([]PricePoint{
+		{Price: 22000, SeenAt: t0},
+		{Price: 20000, SeenAt: t1},
+		{Price: 18500, SeenAt: t2},
+	}, 0)
+	if !ok || pc.InitialPrice != 22000 || pc.PreviousPrice != 20000 || pc.CurrentPrice != 18500 || pc.Changes != 2 || !pc.ChangedAt.Equal(t2) {
+		t.Fatalf("multi-step drop = %+v, ok=%v", pc, ok)
+	}
+
+	// 2-point extra-zero typo fix should be ignored both with and without expected price.
+	for _, exp := range []int{21000, 0} {
+		if pc, ok := SummarizePriceHistory([]PricePoint{
+			{Price: 200000, SeenAt: t0},
+			{Price: 20000, SeenAt: t1},
+		}, exp); ok {
+			t.Fatalf("2-point typo (expected=%d) should not summarize: %+v", exp, pc)
+		}
+	}
+
+	// 3-point typo-then-real-drop without market expected strips 200000 via median anchor.
+	pc, ok = SummarizePriceHistory([]PricePoint{
+		{Price: 200000, SeenAt: t0},
+		{Price: 20000, SeenAt: t1},
+		{Price: 18500, SeenAt: t2},
+	}, 0)
+	if !ok || pc.InitialPrice != 20000 || pc.PreviousPrice != 20000 || pc.CurrentPrice != 18500 || pc.Changes != 1 {
+		t.Fatalf("3-point typo+drop = %+v, ok=%v", pc, ok)
+	}
+
+	// Bounce back across a typo collapses to single earliest point.
+	bounce := CleanPriceHistory([]PricePoint{
+		{Price: 20000, SeenAt: t0},
+		{Price: 200000, SeenAt: t1},
+		{Price: 20000, SeenAt: t2},
+	}, 0)
+	if len(bounce) != 1 || bounce[0].Price != 20000 || !bounce[0].SeenAt.Equal(t0) {
+		t.Fatalf("bounce CleanPriceHistory = %+v, want single point at t0", bounce)
+	}
+	if pc, ok := SummarizePriceHistory([]PricePoint{
+		{Price: 20000, SeenAt: t0},
+		{Price: 200000, SeenAt: t1},
+		{Price: 20000, SeenAt: t2},
+	}, 0); ok {
+		t.Fatalf("bounce should not summarize: %+v", pc)
+	}
 }

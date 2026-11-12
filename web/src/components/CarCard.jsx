@@ -12,6 +12,7 @@ import {
 import { CarThumb } from './CarPhoto';
 import CarDetailsModal from './CarDetailsModal';
 import MarketBadge from './MarketBadge';
+import PriceDropBadge from './PriceDropBadge';
 import { getMarketDeal } from '../utils/marketDeal';
 import { useCompare } from '../hooks/useCompare';
 
@@ -27,16 +28,16 @@ const formatPrice = (price, text) => {
 
 // Generic Fuel (Fuel Pump) Icon SVG
 const FuelPumpIcon = () => (
-  <svg 
-    viewBox="0 0 24 24" 
-    width="14" 
-    height="14" 
-    stroke="currentColor" 
-    strokeWidth="2.5" 
-    fill="none" 
-    strokeLinecap="round" 
-    strokeLinejoin="round" 
-    style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: '4px', opacity: 0.8 }}
+  <svg
+    viewBox="0 0 24 24"
+    width="14"
+    height="14"
+    stroke="currentColor"
+    strokeWidth="2.5"
+    fill="none"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className="icon-agency-fuel"
   >
     <line x1="3" y1="22" x2="21" y2="22"></line>
     <path d="M4 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18"></path>
@@ -97,21 +98,15 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage, onOpenD
         e.dataTransfer.effectAllowed = 'copy';
       }}
     >
-      <div 
-        className="car-card-photo" 
-        style={{ margin: '0 0 0.5rem 0' }}
-      >
+      <div className="car-card-photo">
         <CarThumb car={car} variant="card" badge={isNew ? <NewBadgeIcon size={18} /> : null} />
       </div>
 
       <button
         type="button"
         className={`compare-btn-card ${inCompare ? 'active' : ''}`}
-        style={{ zIndex: 5 }}
         onClick={(e) => { e.stopPropagation(); toggleCompare(car); }}
-        title={inCompare
-          ? (language === 'es' ? 'Quitar del comparador' : 'Remove from comparator')
-          : (language === 'es' ? 'Comparar lado a lado' : 'Compare side by side')}
+        title={inCompare ? t('removeFromComparator') : t('compareSideBySide')}
         aria-pressed={inCompare}
       >
         ⇄
@@ -119,59 +114,42 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage, onOpenD
 
       <button
         className={`fav-btn-card ${isFav ? 'active' : ''}`}
-        style={{ zIndex: 5 }}
         onClick={(e) => { e.stopPropagation(); onToggleFav && onToggleFav(car.URL); }}
-        title={isFav ? 'Remove from favorites' : 'Add to favorites'}
+        title={isFav ? t('removeFromFavorites') : t('addToFavorites')}
       >
         <StarIcon size={16} color="#fbbf24" filled={isFav} />
       </button>
 
       <div className="car-card-body">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'space-between' }}>
-          <h3 className="car-title" style={{ margin: 0, flex: 1 }}>{car.Title}</h3>
+        <div className="car-card-header">
+          <h3 className="car-title">{car.Title}</h3>
         </div>
         
         {/* Visual hierarchy: Price and Mileage are progress-filled pills; Year and Province are smaller/muted */}
-        <div className="car-specs-block" style={{ margin: '0.25rem 0 0.75rem 0', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center' }}>
+        <div className="car-specs-block">
+          <div className="car-pills-row">
             {/* Price Pill */}
-            <div 
+            <div
+              className="car-pill"
               style={{
-                position: 'relative',
-                overflow: 'hidden',
-                padding: '0.35rem 0.75rem',
-                borderRadius: '8px',
                 border: `1px solid ${deal ? deal.border : priceColors.border}`,
                 background: deal ? deal.bg : priceColors.bg,
-                display: 'inline-flex',
-                alignItems: 'center',
-                flexShrink: 0
               }}
             >
               {/* Background Progress Fill */}
               {!deal && (
-                <div 
+                <div
+                  className="car-pill-fill"
                   style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    height: '100%',
                     width: `${pricePercent}%`,
                     background: priceColors.fill,
-                    zIndex: 1,
-                    transition: 'width 0.6s ease'
                   }}
                 />
               )}
               {/* Text */}
-              <span 
-                style={{
-                  fontSize: '1.05rem',
-                  fontWeight: '800',
-                  color: deal ? deal.color : priceColors.text,
-                  zIndex: 2,
-                  position: 'relative'
-                }}
+              <span
+                className="car-pill-text car-pill-text--price"
+                style={{ color: deal ? deal.color : priceColors.text }}
               >
                 {formatPrice(car.Price, car.PriceText)}
               </span>
@@ -179,41 +157,25 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage, onOpenD
 
             {/* Mileage Pill */}
             {car.Kilometraje > 0 && (
-              <div 
+              <div
+                className="car-pill"
                 style={{
-                  position: 'relative',
-                  overflow: 'hidden',
-                  padding: '0.35rem 0.75rem',
-                  borderRadius: '8px',
                   border: `1px solid ${mileageColors.border}`,
                   background: mileageColors.bg,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  flexShrink: 0
                 }}
               >
                 {/* Background Progress Fill */}
-                <div 
+                <div
+                  className="car-pill-fill"
                   style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    height: '100%',
                     width: `${mileagePercent}%`,
                     background: mileageColors.fill,
-                    zIndex: 1,
-                    transition: 'width 0.6s ease'
                   }}
                 />
                 {/* Text */}
-                <span 
-                  style={{
-                    fontSize: '0.85rem',
-                    fontWeight: '700',
-                    color: mileageColors.text,
-                    zIndex: 2,
-                    position: 'relative'
-                  }}
+                <span
+                  className="car-pill-text car-pill-text--mileage"
+                  style={{ color: mileageColors.text }}
                 >
                   {car.Kilometraje.toLocaleString()} km
                 </span>
@@ -221,14 +183,17 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage, onOpenD
             )}
           </div>
 
-          <MarketBadge car={car} style={{ alignSelf: 'flex-start', maxWidth: '100%', whiteSpace: 'normal' }} />
+          <div className="car-badges-row">
+            <MarketBadge car={car} />
+            <PriceDropBadge car={car} />
+          </div>
 
-          <div className="car-secondary-specs" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center', fontSize: '0.8rem', color: 'var(--text-muted)', paddingLeft: '0.1rem' }}>
+          <div className="car-secondary-specs">
             <span className="spec-year">{car.Year}</span>
             {car.Provincia && (
               <>
-                <span style={{ color: 'rgba(255, 255, 255, 0.15)' }}>•</span>
-                <span className="spec-province" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                <span className="car-spec-dot">•</span>
+                <span className="spec-province">
                   <LocationPinIcon size={13} color="#94a3b8" />
                   <span>{car.Provincia}</span>
                 </span>
@@ -236,7 +201,7 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage, onOpenD
             )}
             {listingAge && (
               <>
-                <span style={{ color: 'rgba(255, 255, 255, 0.15)' }}>•</span>
+                <span className="car-spec-dot">•</span>
                 <span className="spec-age" title={listingDate || undefined}>
                   {listingAge}
                 </span>
@@ -248,13 +213,13 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage, onOpenD
         {/* Transmission & Fuel details using standard inline SVGs */}
         <div className="car-extra-details">
           {car.Transmision && (
-            <span className="detail-item" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+            <span className="detail-item">
               <AutoTransmissionIcon size={16} color="#fbbf24" />
               <span>{car.Transmision}</span>
             </span>
           )}
           {car.Combustible && (
-            <span className="detail-item" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+            <span className="detail-item">
               {String(car.Combustible).toLowerCase().includes('eléctrico') || 
                String(car.Combustible).toLowerCase().includes('electrico') || 
                String(car.Combustible).toLowerCase().includes('electric') ? (
@@ -269,23 +234,9 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage, onOpenD
 
         {/* Description/Comment: Strict 2-line clamp, secondary text color, triggers modal overlay on click */}
         {car.Comment && car.Comment.trim() !== '-' && (
-          <div 
-            style={{
-              marginTop: '0.75rem',
-              padding: '0.45rem 0.6rem',
-              background: 'rgba(255, 255, 255, 0.03)', 
-              borderLeft: '3px solid var(--accent)', 
-              borderRadius: '4px',
-              fontSize: '0.85rem',
-              fontStyle: 'italic',
-              color: 'var(--text-muted)',
-              lineHeight: '1.4',
-              display: '-webkit-box',
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: 'vertical',
-              overflow: 'hidden'
-            }}
-            title={language === 'es' ? 'Clic para ver más detalles' : 'Click to view details'}
+          <div
+            className="car-card-comment"
+            title={t('clickToViewDetails')}
           >
             {`"${car.Comment}"`}
           </div>
@@ -298,7 +249,7 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage, onOpenD
               <span key={eq} className={`equip-badge ${isFeaturedEquipment(eq) ? 'equip-badge--featured' : ''}`}>{t(eq)}</span>
             ))}
             {sortedEquips.length > 3 && (
-              <span className="equip-badge" style={{ opacity: 0.75, borderStyle: 'dashed' }}>
+              <span className="equip-badge equip-badge--more">
                 +{sortedEquips.length - 3} {t('more')}
               </span>
             )}

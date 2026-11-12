@@ -18,41 +18,18 @@ const MileageBar = ({ km, maxMileage }) => {
   const colors = getDynamicColors(pct);
 
   return (
-    <div 
+    <div
+      className="car-pill"
       title={`${km?.toLocaleString() || 0} / ${limit.toLocaleString()} km`}
-      style={{
-        position: 'relative',
-        overflow: 'hidden',
-        padding: '0.35rem 0.75rem',
-        borderRadius: '8px',
-        border: `1px solid ${colors.border}`,
-        background: colors.bg,
-        display: 'inline-flex',
-        alignItems: 'center',
-        flexShrink: 0
-      }}
+      style={{ border: `1px solid ${colors.border}`, background: colors.bg }}
     >
-      <div 
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          height: '100%',
-          width: `${pct}%`,
-          background: colors.fill,
-          zIndex: 1,
-          transition: 'width 0.6s ease'
-        }}
+      <div
+        className="car-pill-fill"
+        style={{ width: `${pct}%`, background: colors.fill }}
       />
-      <span 
-        style={{
-          fontSize: '0.85rem',
-          fontWeight: '700',
-          color: colors.text,
-          zIndex: 2,
-          position: 'relative',
-          whiteSpace: 'nowrap'
-        }}
+      <span
+        className="car-pill-text car-pill-text--mileage"
+        style={{ color: colors.text }}
       >
         {displayVal}
       </span>

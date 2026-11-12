@@ -5,17 +5,17 @@ export const ResultsSkeleton = ({ viewMode = 'cards', count = 6 }) => {
         {Array.from({ length: count }, (_, i) => (
           <div key={i} className="car-card skeleton-card">
             <div className="skeleton-photo skeleton-shimmer" />
-            <div className="car-card-body" style={{ paddingTop: '1rem', gap: '0.75rem' }}>
-              <div className="skeleton-line skeleton-shimmer" style={{ width: '78%', height: '1.2rem' }} />
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <div className="skeleton-pill skeleton-shimmer" style={{ width: '96px', height: '32px' }} />
-                <div className="skeleton-pill skeleton-shimmer" style={{ width: '88px', height: '32px' }} />
+            <div className="car-card-body skeleton-card-body">
+              <div className="skeleton-line skeleton-shimmer skeleton-title-line" />
+              <div className="skeleton-pills-row">
+                <div className="skeleton-pill skeleton-shimmer skeleton-pill--price" />
+                <div className="skeleton-pill skeleton-shimmer skeleton-pill--km" />
               </div>
-              <div className="skeleton-line skeleton-shimmer" style={{ width: '55%', height: '0.85rem' }} />
-              <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.25rem' }}>
-                <div className="skeleton-pill skeleton-shimmer" style={{ width: '72px', height: '22px' }} />
-                <div className="skeleton-pill skeleton-shimmer" style={{ width: '84px', height: '22px' }} />
-                <div className="skeleton-pill skeleton-shimmer" style={{ width: '64px', height: '22px' }} />
+              <div className="skeleton-line skeleton-shimmer skeleton-line--sub" />
+              <div className="skeleton-badges-row">
+                <div className="skeleton-pill skeleton-shimmer skeleton-badge-md" />
+                <div className="skeleton-pill skeleton-shimmer skeleton-badge-lg" />
+                <div className="skeleton-pill skeleton-shimmer skeleton-badge-sm" />
               </div>
             </div>
           </div>
@@ -31,25 +31,25 @@ export const ResultsSkeleton = ({ viewMode = 'cards', count = 6 }) => {
           {Array.from({ length: count }, (_, i) => (
             <tr key={i} className="skeleton-row">
               <td>
-                <div className="skeleton-circle skeleton-shimmer" style={{ width: '20px', height: '20px', borderRadius: '50%' }} />
+                <div className="skeleton-circle skeleton-shimmer skeleton-fav-circle" />
               </td>
               <td>
-                <div className="skeleton-rect skeleton-shimmer" style={{ width: '64px', height: '48px', borderRadius: '6px' }} />
+                <div className="skeleton-rect skeleton-shimmer skeleton-thumb" />
               </td>
               <td>
-                <div className="skeleton-line skeleton-shimmer" style={{ width: '70%', height: '0.9rem' }} />
+                <div className="skeleton-line skeleton-shimmer skeleton-table-title" />
               </td>
               <td>
-                <div className="skeleton-line skeleton-shimmer" style={{ width: '42px', height: '0.9rem' }} />
+                <div className="skeleton-line skeleton-shimmer skeleton-table-year" />
               </td>
               <td>
-                <div className="skeleton-pill skeleton-shimmer" style={{ width: '90px', height: '22px' }} />
+                <div className="skeleton-pill skeleton-shimmer skeleton-table-pill-lg" />
               </td>
               <td>
-                <div className="skeleton-pill skeleton-shimmer" style={{ width: '80px', height: '22px' }} />
+                <div className="skeleton-pill skeleton-shimmer skeleton-table-pill-md" />
               </td>
               <td className="text-right">
-                <div className="skeleton-pill skeleton-shimmer" style={{ width: '56px', height: '22px', marginLeft: 'auto' }} />
+                <div className="skeleton-pill skeleton-shimmer skeleton-table-action" />
               </td>
             </tr>
           ))}
@@ -59,13 +59,13 @@ export const ResultsSkeleton = ({ viewMode = 'cards', count = 6 }) => {
       <div className="top-car-mobile-list">
         {Array.from({ length: Math.min(count, 4) }, (_, i) => (
           <div key={i} className="top-car-mobile-card with-photo skeleton-card">
-            <div className="skeleton-photo skeleton-shimmer" style={{ width: '96px', height: '72px', borderRadius: '8px' }} />
-            <div className="car-card-body" style={{ gap: '0.5rem', flex: 1 }}>
-              <div className="skeleton-line skeleton-shimmer" style={{ width: '80%', height: '0.9rem' }} />
-              <div className="skeleton-line skeleton-shimmer" style={{ width: '50%', height: '0.8rem' }} />
-              <div style={{ display: 'flex', gap: '0.4rem' }}>
-                <div className="skeleton-pill skeleton-shimmer" style={{ width: '72px', height: '20px' }} />
-                <div className="skeleton-pill skeleton-shimmer" style={{ width: '64px', height: '20px' }} />
+            <div className="skeleton-photo skeleton-shimmer skeleton-mobile-thumb" />
+            <div className="car-card-body skeleton-mobile-body">
+              <div className="skeleton-line skeleton-shimmer skeleton-mobile-title" />
+              <div className="skeleton-line skeleton-shimmer skeleton-mobile-sub" />
+              <div className="skeleton-mobile-pills">
+                <div className="skeleton-pill skeleton-shimmer skeleton-mobile-pill-md" />
+                <div className="skeleton-pill skeleton-shimmer skeleton-mobile-pill-sm" />
               </div>
             </div>
           </div>
