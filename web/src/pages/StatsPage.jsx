@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { fetchDetailedStats } from '../api/client';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -11,7 +11,6 @@ function StatsPage() {
   const [boostSort, setBoostSort] = useState('boost'); // 'boost', 'usage'
 
   useEffect(() => {
-    setLoading(true);
     fetchDetailedStats()
       .then(setData)
       .catch((err) => {

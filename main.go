@@ -53,7 +53,7 @@ func main() {
 		}
 
 		log.Printf("Retrieved %d cars from SQLite. Migrating to Supabase...", len(cars))
-		
+
 		// Configure a concurrent worker pool
 		numWorkers := 50
 		jobs := make(chan db.Car, len(cars))
@@ -141,7 +141,7 @@ func main() {
 
 	if *serveFlag {
 		server := &api.Server{DB: database}
-		
+
 		mux := http.NewServeMux()
 		mux.HandleFunc("/api/cars", server.HandleCars)
 		mux.HandleFunc("/api/cars/favorites", server.HandleCarsByURLs)

@@ -51,6 +51,10 @@ steps:
       - '0'
       - '--max-instances'
       - '3'
+      - '--remove-env-vars'
+      - 'DATABASE_URL,OPENROUTER_API_KEY'
+      - '--set-secrets'
+      - 'DATABASE_URL=crautosdb-database-url:latest,OPENROUTER_API_KEY=crautosdb-openrouter-api-key:latest'
 
 images:
   - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$COMMIT_SHA'

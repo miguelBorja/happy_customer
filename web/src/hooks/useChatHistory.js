@@ -60,10 +60,10 @@ export const useChatHistory = () => {
   });
 
   const activeSessionRef = useRef(activeSessionId);
-  activeSessionRef.current = activeSessionId;
 
-  // Sync activeSessionId to localStorage
+  // Sync activeSessionId to ref and localStorage
   useEffect(() => {
+    activeSessionRef.current = activeSessionId;
     if (activeSessionId) {
       localStorage.setItem(ACTIVE_SESSION_KEY, activeSessionId);
     }

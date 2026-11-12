@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState } from 'react';
 import { useLanguage } from '../context/LanguageContext';
 import { FilterFunnelIcon } from './icons/AppIcons';
 import ExcelMultiSelect from './ExcelMultiSelect';
@@ -79,14 +79,17 @@ const FiltersModal = ({
   const [localMaxPrice, setLocalMaxPrice] = useState(Number(filters.priceMax) || 100000);
 
   // Synchronize local states when filters change (e.g. on load, reset, or tag close)
-  useEffect(() => {
+  const syncKey = `${isOpen}|${filters.yearMin}|${filters.yearMax}|${filters.priceMin}|${filters.priceMax}`;
+  const [prevSyncKey, setPrevSyncKey] = useState(syncKey);
+  if (prevSyncKey !== syncKey) {
+    setPrevSyncKey(syncKey);
     if (isOpen) {
       setLocalMinYear(Number(filters.yearMin) || 2010);
       setLocalMaxYear(Number(filters.yearMax) || 2027);
       setLocalMinPrice(Number(filters.priceMin) || 0);
       setLocalMaxPrice(Number(filters.priceMax) || 100000);
     }
-  }, [isOpen, filters.yearMin, filters.yearMax, filters.priceMin, filters.priceMax]);
+  }
 
   const getPriceRangeLabel = () => {
     const minVal = localMinPrice;
@@ -477,4 +480,3 @@ const FiltersModal = ({
 };
 
 export default FiltersModal;
-export { commonEquipments };

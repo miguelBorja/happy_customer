@@ -1,5 +1,3 @@
-import React from 'react';
-
 const MAX_KM = 150000;
 
 const getDynamicColors = (percent) => {

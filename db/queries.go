@@ -9,38 +9,38 @@ import (
 )
 
 type Car struct {
-	URL                 string
-	Title               string
-	Brand               string
-	Model               string
-	Year                int
-	Price               int
-	PriceText           string
-	Pasajeros           string
-	Puertas             string
-	Cilindrada          string
-	ColorExterior       string
-	ColorInterior       string
-	Combustible         string
-	Estado              string
-	Estilo              string
-	FechaIngreso        string
-	Kilometraje         int
-	Placa               string
-	PrecioNegociable    string
-	Provincia           string
-	SeRecibe            string
-	Transmision         string
-	PagoImpuestos       string
-	SellerName          string
-	SellerPhone         string
-	SellerAddress       string
-	Comment             string
-	Equipments          map[string]bool
-	IsSold              bool
-	ScrapedAt           time.Time
-	LastSeenAt          time.Time
-	SoldAt              *time.Time
+	URL              string
+	Title            string
+	Brand            string
+	Model            string
+	Year             int
+	Price            int
+	PriceText        string
+	Pasajeros        string
+	Puertas          string
+	Cilindrada       string
+	ColorExterior    string
+	ColorInterior    string
+	Combustible      string
+	Estado           string
+	Estilo           string
+	FechaIngreso     string
+	Kilometraje      int
+	Placa            string
+	PrecioNegociable string
+	Provincia        string
+	SeRecibe         string
+	Transmision      string
+	PagoImpuestos    string
+	SellerName       string
+	SellerPhone      string
+	SellerAddress    string
+	Comment          string
+	Equipments       map[string]bool
+	IsSold           bool
+	ScrapedAt        time.Time
+	LastSeenAt       time.Time
+	SoldAt           *time.Time
 }
 
 const carColumns = `
@@ -244,14 +244,13 @@ func (d *DB) GetPriceHistory(url string) ([]PricePoint, error) {
 	return points, rows.Err()
 }
 
-
 func (d *DB) MarkSold(urls []string) error {
 	if len(urls) == 0 {
 		return nil
 	}
-	
+
 	now := time.Now()
-	
+
 	// Create placeholders ?, ?, ?
 	placeholders := make([]string, len(urls))
 	args := make([]interface{}, len(urls)+1)
@@ -260,7 +259,7 @@ func (d *DB) MarkSold(urls []string) error {
 		placeholders[i] = "?"
 		args[i+1] = u
 	}
-	
+
 	q := fmt.Sprintf(`UPDATE cars SET is_sold=1, sold_at=? WHERE url IN (%s)`, strings.Join(placeholders, ","))
 	_, err := d.Exec(d.queryFormat(q), args...)
 	return err
@@ -278,7 +277,7 @@ func (d *DB) GetActiveURLs(brand string) ([]string, error) {
 		return nil, err
 	}
 	defer rows.Close()
-	
+
 	var urls []string
 	for rows.Next() {
 		var u string
@@ -392,7 +391,6 @@ func (d *DB) GetURLsWithoutComment() ([]string, error) {
 	return urls, nil
 }
 
-
 func (d *DB) UpdateSeller(url, name, phone, address string) error {
 	q := `UPDATE cars SET seller_name=?, seller_phone=?, seller_address=? WHERE url=?`
 	_, err := d.Exec(d.queryFormat(q), name, phone, address, url)
@@ -407,33 +405,33 @@ func (d *DB) UpdateComment(url, comment string) error {
 }
 
 type FilterParams struct {
-	Brand        string
-	Brands       []string
-	YearMin      int
-	YearMax      int
-	KmMin        int
-	KmMax        int
-	PriceMin     int
-	PriceMax     int
-	Estilo       string
-	Transmision  string
-	Combustible  string
-	Provincia    string
-	IsSold       *bool
-	Equipments   []string
-	Limit        int
-	Offset       int
-	SortBy       string
-	SortDesc     bool
-	SortTitle    string
-	SortYear     string
-	SortPrice    string
-	SortKm       string
-	TitleQuery   string
-	ScrapedFrom  string
-	ScrapedTo    string
-	SellerName   string
-	ExcludeURLs  []string
+	Brand       string
+	Brands      []string
+	YearMin     int
+	YearMax     int
+	KmMin       int
+	KmMax       int
+	PriceMin    int
+	PriceMax    int
+	Estilo      string
+	Transmision string
+	Combustible string
+	Provincia   string
+	IsSold      *bool
+	Equipments  []string
+	Limit       int
+	Offset      int
+	SortBy      string
+	SortDesc    bool
+	SortTitle   string
+	SortYear    string
+	SortPrice   string
+	SortKm      string
+	TitleQuery  string
+	ScrapedFrom string
+	ScrapedTo   string
+	SellerName  string
+	ExcludeURLs []string
 }
 
 func appendCombustibleFilter(q string, args []interface{}, combustible string) (string, []interface{}) {
@@ -478,23 +476,23 @@ func appendTransmisionFilter(q string, args []interface{}, transmision string) (
 func buildCarFilters(f FilterParams) (string, []interface{}) {
 	q := ""
 	var args []interface{}
-	
+
 	if f.TitleQuery != "" {
 		q += " AND (LOWER(title) LIKE ? OR LOWER(brand) LIKE ?)"
-		
+
 		// Convert * to % and ? to _
 		query := strings.ReplaceAll(f.TitleQuery, "*", "%")
 		query = strings.ReplaceAll(query, "?", "_")
-		
+
 		// If no wildcards are provided, default to a "contains" search
 		if !strings.Contains(query, "%") && !strings.Contains(query, "_") {
 			query = "%" + query + "%"
 		}
-		
+
 		query = strings.ToLower(query)
 		args = append(args, query, query)
 	}
-	
+
 	if len(f.Brands) > 0 {
 		var validBrands []string
 		for _, b := range f.Brands {
@@ -593,48 +591,48 @@ func buildCarFilters(f FilterParams) (string, []interface{}) {
 		q += " AND LOWER(seller_name) LIKE ?"
 		args = append(args, "%"+strings.ToLower(f.SellerName)+"%")
 	}
-	
+
 	// Handle equipments map mapping to DB column
 	equipMap := map[string]string{
-		"Aire acondicionado": "equip_aire_ac",
-		"Aire acondicionado climatizado": "equip_aire_climatizado",
-		"Alarma": "equip_alarma",
-		"Android Auto": "equip_android_auto",
-		"Apple CarPlay": "equip_apple_carplay",
-		"Aros de lujo": "equip_aros_lujo",
-		"Asiento con memoria": "equip_asiento_memoria",
-		"Asientos eléctricos": "equip_asientos_electricos",
-		"Bluetooth": "equip_bluetooth",
-		"Bolsa de aire": "equip_bolsa_aire",
-		"Caja de cambios dual": "equip_caja_dual",
-		"Cierre central": "equip_cierre_central",
-		"Computadora de viaje": "equip_computadora",
-		"Control crucero": "equip_control_crucero",
-		"Control de descenso": "equip_control_descenso",
-		"Control de radio en el volante": "equip_radio_volante",
-		"Control electrónico de estabilidad": "equip_estabilidad",
-		"Cámara 360": "equip_camara_360",
-		"Cámara de retroceso": "equip_camara_retroceso",
-		"Desempañador Trasero": "equip_desempanador",
+		"Aire acondicionado":                   "equip_aire_ac",
+		"Aire acondicionado climatizado":       "equip_aire_climatizado",
+		"Alarma":                               "equip_alarma",
+		"Android Auto":                         "equip_android_auto",
+		"Apple CarPlay":                        "equip_apple_carplay",
+		"Aros de lujo":                         "equip_aros_lujo",
+		"Asiento con memoria":                  "equip_asiento_memoria",
+		"Asientos eléctricos":                  "equip_asientos_electricos",
+		"Bluetooth":                            "equip_bluetooth",
+		"Bolsa de aire":                        "equip_bolsa_aire",
+		"Caja de cambios dual":                 "equip_caja_dual",
+		"Cierre central":                       "equip_cierre_central",
+		"Computadora de viaje":                 "equip_computadora",
+		"Control crucero":                      "equip_control_crucero",
+		"Control de descenso":                  "equip_control_descenso",
+		"Control de radio en el volante":       "equip_radio_volante",
+		"Control electrónico de estabilidad":   "equip_estabilidad",
+		"Cámara 360":                           "equip_camara_360",
+		"Cámara de retroceso":                  "equip_camara_retroceso",
+		"Desempañador Trasero":                 "equip_desempanador",
 		"Dirección Hidráulica/Electroasistida": "equip_direccion",
-		"Espejos eléctricos": "equip_espejos_electricos",
-		"Frenos ABS": "equip_frenos_abs",
-		"Halógenos": "equip_halogenos",
-		"Llave inteligente/botón de arranque": "equip_llave_inteligente",
-		"Luces de Xenón/Bixenón": "equip_xenon",
-		"Radio con USB/AUX": "equip_radio_usb",
-		"Retrovisores auto-retractibles": "equip_retrovisores",
-		"Revisión Técnica al día": "equip_revision_tecnica",
-		"Sensor de lluvia": "equip_sensor_lluvia",
-		"Sensores de retroceso": "equip_sensores_retroceso",
-		"Sensores frontales": "equip_sensores_frontales",
-		"Sunroof/techo panorámico": "equip_sunroof",
-		"Tapicería de cuero": "equip_tapiceria_cuero",
-		"Turbo": "equip_turbo",
-		"Vidrios eléctricos": "equip_vidrios_electricos",
-		"Vidrios tintados": "equip_vidrios_tintados",
-		"Volante ajustable": "equip_volante_ajustable",
-		"Volante multifuncional": "equip_volante_multifuncional",
+		"Espejos eléctricos":                   "equip_espejos_electricos",
+		"Frenos ABS":                           "equip_frenos_abs",
+		"Halógenos":                            "equip_halogenos",
+		"Llave inteligente/botón de arranque":  "equip_llave_inteligente",
+		"Luces de Xenón/Bixenón":               "equip_xenon",
+		"Radio con USB/AUX":                    "equip_radio_usb",
+		"Retrovisores auto-retractibles":       "equip_retrovisores",
+		"Revisión Técnica al día":              "equip_revision_tecnica",
+		"Sensor de lluvia":                     "equip_sensor_lluvia",
+		"Sensores de retroceso":                "equip_sensores_retroceso",
+		"Sensores frontales":                   "equip_sensores_frontales",
+		"Sunroof/techo panorámico":             "equip_sunroof",
+		"Tapicería de cuero":                   "equip_tapiceria_cuero",
+		"Turbo":                                "equip_turbo",
+		"Vidrios eléctricos":                   "equip_vidrios_electricos",
+		"Vidrios tintados":                     "equip_vidrios_tintados",
+		"Volante ajustable":                    "equip_volante_ajustable",
+		"Volante multifuncional":               "equip_volante_multifuncional",
 	}
 
 	for _, eq := range f.Equipments {
@@ -725,10 +723,14 @@ func (d *DB) GetCars(f FilterParams) ([]Car, error) {
 	if f.SortTitle == "" && f.SortYear == "" && f.SortPrice == "" && f.SortKm == "" {
 		sortCol := "scraped_at"
 		switch f.SortBy {
-		case "year": sortCol = "year"
-		case "price": sortCol = "price"
-		case "kilometraje": sortCol = "kilometraje"
-		case "brand": sortCol = "brand"
+		case "year":
+			sortCol = "year"
+		case "price":
+			sortCol = "price"
+		case "kilometraje":
+			sortCol = "kilometraje"
+		case "brand":
+			sortCol = "brand"
 		}
 
 		dir := "DESC"
@@ -754,7 +756,7 @@ func (d *DB) GetCars(f FilterParams) ([]Car, error) {
 			q += " ORDER BY " + strings.Join(sortParts, ", ")
 		}
 	}
-	
+
 	if f.Limit > 0 {
 		q += " LIMIT ?"
 		args = append(args, f.Limit)
@@ -776,10 +778,10 @@ func (d *DB) GetCars(f FilterParams) ([]Car, error) {
 		var c Car
 		var isSold int
 		var scrapedAtStr, lastSeenStr, soldAtStr sql.NullString
-		
+
 		eMap := make(map[string]bool)
 		var e_aire_ac, e_aire_climatizado, e_alarma, e_android_auto, e_apple_carplay, e_aros_lujo, e_asiento_memoria, e_asientos_electricos, e_bluetooth, e_bolsa_aire, e_caja_dual, e_cierre_central, e_computadora, e_control_crucero, e_control_descenso, e_radio_volante, e_estabilidad, e_camara_360, e_camara_retroceso, e_desempanador, e_direccion, e_espejos_electricos, e_frenos_abs, e_halogenos, e_llave_inteligente, e_xenon, e_radio_usb, e_retrovisores, e_revision_tecnica, e_sensor_lluvia, e_sensores_retroceso, e_sensores_frontales, e_sunroof, e_tapiceria_cuero, e_turbo, e_vidrios_electricos, e_vidrios_tintados, e_volante_ajustable, e_volante_multifuncional int
-		
+
 		if err := rows.Scan(
 			&c.URL, &c.Title, &c.Brand, &c.Model, &c.Year, &c.Price, &c.PriceText, &c.Pasajeros, &c.Puertas, &c.Cilindrada,
 			&c.ColorExterior, &c.ColorInterior, &c.Combustible, &c.Estado, &c.Estilo, &c.FechaIngreso,
@@ -790,7 +792,7 @@ func (d *DB) GetCars(f FilterParams) ([]Car, error) {
 		); err != nil {
 			return nil, err
 		}
-		
+
 		c.IsSold = isSold == 1
 		c.ScrapedAt = parseTimeHelper(scrapedAtStr)
 		c.LastSeenAt = parseTimeHelper(lastSeenStr)
@@ -801,46 +803,124 @@ func (d *DB) GetCars(f FilterParams) ([]Car, error) {
 		if c.Comment == "-" {
 			c.Comment = ""
 		}
-		
-		if e_aire_ac == 1 { eMap["Aire acondicionado"] = true }
-		if e_aire_climatizado == 1 { eMap["Aire acondicionado climatizado"] = true }
-		if e_alarma == 1 { eMap["Alarma"] = true }
-		if e_android_auto == 1 { eMap["Android Auto"] = true }
-		if e_apple_carplay == 1 { eMap["Apple CarPlay"] = true }
-		if e_aros_lujo == 1 { eMap["Aros de lujo"] = true }
-		if e_asiento_memoria == 1 { eMap["Asiento con memoria"] = true }
-		if e_asientos_electricos == 1 { eMap["Asientos eléctricos"] = true }
-		if e_bluetooth == 1 { eMap["Bluetooth"] = true }
-		if e_bolsa_aire == 1 { eMap["Bolsa de aire"] = true }
-		if e_caja_dual == 1 { eMap["Caja de cambios dual"] = true }
-		if e_cierre_central == 1 { eMap["Cierre central"] = true }
-		if e_computadora == 1 { eMap["Computadora de viaje"] = true }
-		if e_control_crucero == 1 { eMap["Control crucero"] = true }
-		if e_control_descenso == 1 { eMap["Control de descenso"] = true }
-		if e_radio_volante == 1 { eMap["Control de radio en el volante"] = true }
-		if e_estabilidad == 1 { eMap["Control electrónico de estabilidad"] = true }
-		if e_camara_360 == 1 { eMap["Cámara 360"] = true }
-		if e_camara_retroceso == 1 { eMap["Cámara de retroceso"] = true }
-		if e_desempanador == 1 { eMap["Desempañador Trasero"] = true }
-		if e_direccion == 1 { eMap["Dirección Hidráulica/Electroasistida"] = true }
-		if e_espejos_electricos == 1 { eMap["Espejos eléctricos"] = true }
-		if e_frenos_abs == 1 { eMap["Frenos ABS"] = true }
-		if e_halogenos == 1 { eMap["Halógenos"] = true }
-		if e_llave_inteligente == 1 { eMap["Llave inteligente/botón de arranque"] = true }
-		if e_xenon == 1 { eMap["Luces de Xenón/Bixenón"] = true }
-		if e_radio_usb == 1 { eMap["Radio con USB/AUX"] = true }
-		if e_retrovisores == 1 { eMap["Retrovisores auto-retractibles"] = true }
-		if e_revision_tecnica == 1 { eMap["Revisión Técnica al día"] = true }
-		if e_sensor_lluvia == 1 { eMap["Sensor de lluvia"] = true }
-		if e_sensores_retroceso == 1 { eMap["Sensores de retroceso"] = true }
-		if e_sensores_frontales == 1 { eMap["Sensores frontales"] = true }
-		if e_sunroof == 1 { eMap["Sunroof/techo panorámico"] = true }
-		if e_tapiceria_cuero == 1 { eMap["Tapicería de cuero"] = true }
-		if e_turbo == 1 { eMap["Turbo"] = true }
-		if e_vidrios_electricos == 1 { eMap["Vidrios eléctricos"] = true }
-		if e_vidrios_tintados == 1 { eMap["Vidrios tintados"] = true }
-		if e_volante_ajustable == 1 { eMap["Volante ajustable"] = true }
-		if e_volante_multifuncional == 1 { eMap["Volante multifuncional"] = true }
+
+		if e_aire_ac == 1 {
+			eMap["Aire acondicionado"] = true
+		}
+		if e_aire_climatizado == 1 {
+			eMap["Aire acondicionado climatizado"] = true
+		}
+		if e_alarma == 1 {
+			eMap["Alarma"] = true
+		}
+		if e_android_auto == 1 {
+			eMap["Android Auto"] = true
+		}
+		if e_apple_carplay == 1 {
+			eMap["Apple CarPlay"] = true
+		}
+		if e_aros_lujo == 1 {
+			eMap["Aros de lujo"] = true
+		}
+		if e_asiento_memoria == 1 {
+			eMap["Asiento con memoria"] = true
+		}
+		if e_asientos_electricos == 1 {
+			eMap["Asientos eléctricos"] = true
+		}
+		if e_bluetooth == 1 {
+			eMap["Bluetooth"] = true
+		}
+		if e_bolsa_aire == 1 {
+			eMap["Bolsa de aire"] = true
+		}
+		if e_caja_dual == 1 {
+			eMap["Caja de cambios dual"] = true
+		}
+		if e_cierre_central == 1 {
+			eMap["Cierre central"] = true
+		}
+		if e_computadora == 1 {
+			eMap["Computadora de viaje"] = true
+		}
+		if e_control_crucero == 1 {
+			eMap["Control crucero"] = true
+		}
+		if e_control_descenso == 1 {
+			eMap["Control de descenso"] = true
+		}
+		if e_radio_volante == 1 {
+			eMap["Control de radio en el volante"] = true
+		}
+		if e_estabilidad == 1 {
+			eMap["Control electrónico de estabilidad"] = true
+		}
+		if e_camara_360 == 1 {
+			eMap["Cámara 360"] = true
+		}
+		if e_camara_retroceso == 1 {
+			eMap["Cámara de retroceso"] = true
+		}
+		if e_desempanador == 1 {
+			eMap["Desempañador Trasero"] = true
+		}
+		if e_direccion == 1 {
+			eMap["Dirección Hidráulica/Electroasistida"] = true
+		}
+		if e_espejos_electricos == 1 {
+			eMap["Espejos eléctricos"] = true
+		}
+		if e_frenos_abs == 1 {
+			eMap["Frenos ABS"] = true
+		}
+		if e_halogenos == 1 {
+			eMap["Halógenos"] = true
+		}
+		if e_llave_inteligente == 1 {
+			eMap["Llave inteligente/botón de arranque"] = true
+		}
+		if e_xenon == 1 {
+			eMap["Luces de Xenón/Bixenón"] = true
+		}
+		if e_radio_usb == 1 {
+			eMap["Radio con USB/AUX"] = true
+		}
+		if e_retrovisores == 1 {
+			eMap["Retrovisores auto-retractibles"] = true
+		}
+		if e_revision_tecnica == 1 {
+			eMap["Revisión Técnica al día"] = true
+		}
+		if e_sensor_lluvia == 1 {
+			eMap["Sensor de lluvia"] = true
+		}
+		if e_sensores_retroceso == 1 {
+			eMap["Sensores de retroceso"] = true
+		}
+		if e_sensores_frontales == 1 {
+			eMap["Sensores frontales"] = true
+		}
+		if e_sunroof == 1 {
+			eMap["Sunroof/techo panorámico"] = true
+		}
+		if e_tapiceria_cuero == 1 {
+			eMap["Tapicería de cuero"] = true
+		}
+		if e_turbo == 1 {
+			eMap["Turbo"] = true
+		}
+		if e_vidrios_electricos == 1 {
+			eMap["Vidrios eléctricos"] = true
+		}
+		if e_vidrios_tintados == 1 {
+			eMap["Vidrios tintados"] = true
+		}
+		if e_volante_ajustable == 1 {
+			eMap["Volante ajustable"] = true
+		}
+		if e_volante_multifuncional == 1 {
+			eMap["Volante multifuncional"] = true
+		}
 
 		c.Equipments = eMap
 		cars = append(cars, c)
@@ -920,45 +1000,45 @@ func (d *DB) GetFilteredBrands(f FilterParams) ([]string, error) {
 
 	// Handle equipments map mapping to DB column
 	equipMap := map[string]string{
-		"Aire acondicionado": "equip_aire_ac",
-		"Aire acondicionado climatizado": "equip_aire_climatizado",
-		"Alarma": "equip_alarma",
-		"Android Auto": "equip_android_auto",
-		"Apple CarPlay": "equip_apple_carplay",
-		"Aros de lujo": "equip_aros_lujo",
-		"Asiento con memoria": "equip_asiento_memoria",
-		"Asientos eléctricos": "equip_asientos_electricos",
-		"Bluetooth": "equip_bluetooth",
-		"Bolsa de aire": "equip_bolsa_aire",
-		"Caja de cambios dual": "equip_caja_dual",
-		"Cierre central": "equip_cierre_central",
-		"Computadora de viaje": "equip_computadora",
-		"Control crucero": "equip_control_crucero",
-		"Control de descenso": "equip_control_descenso",
-		"Control de radio en el volante": "equip_radio_volante",
-		"Control electrónico de estabilidad": "equip_estabilidad",
-		"Cámara 360": "equip_camara_360",
-		"Cámara de retroceso": "equip_camara_retroceso",
-		"Desempañador Trasero": "equip_desempanador",
+		"Aire acondicionado":                   "equip_aire_ac",
+		"Aire acondicionado climatizado":       "equip_aire_climatizado",
+		"Alarma":                               "equip_alarma",
+		"Android Auto":                         "equip_android_auto",
+		"Apple CarPlay":                        "equip_apple_carplay",
+		"Aros de lujo":                         "equip_aros_lujo",
+		"Asiento con memoria":                  "equip_asiento_memoria",
+		"Asientos eléctricos":                  "equip_asientos_electricos",
+		"Bluetooth":                            "equip_bluetooth",
+		"Bolsa de aire":                        "equip_bolsa_aire",
+		"Caja de cambios dual":                 "equip_caja_dual",
+		"Cierre central":                       "equip_cierre_central",
+		"Computadora de viaje":                 "equip_computadora",
+		"Control crucero":                      "equip_control_crucero",
+		"Control de descenso":                  "equip_control_descenso",
+		"Control de radio en el volante":       "equip_radio_volante",
+		"Control electrónico de estabilidad":   "equip_estabilidad",
+		"Cámara 360":                           "equip_camara_360",
+		"Cámara de retroceso":                  "equip_camara_retroceso",
+		"Desempañador Trasero":                 "equip_desempanador",
 		"Dirección Hidráulica/Electroasistida": "equip_direccion",
-		"Espejos eléctricos": "equip_espejos_electricos",
-		"Frenos ABS": "equip_frenos_abs",
-		"Halógenos": "equip_halogenos",
-		"Llave inteligente/botón de arranque": "equip_llave_inteligente",
-		"Luces de Xenón/Bixenón": "equip_xenon",
-		"Radio con USB/AUX": "equip_radio_usb",
-		"Retrovisores auto-retractibles": "equip_retrovisores",
-		"Revisión Técnica al día": "equip_revision_tecnica",
-		"Sensor de lluvia": "equip_sensor_lluvia",
-		"Sensores de retroceso": "equip_sensores_retroceso",
-		"Sensores frontales": "equip_sensores_frontales",
-		"Sunroof/techo panorámico": "equip_sunroof",
-		"Tapicería de cuero": "equip_tapiceria_cuero",
-		"Turbo": "equip_turbo",
-		"Vidrios eléctricos": "equip_vidrios_electricos",
-		"Vidrios tintados": "equip_vidrios_tintados",
-		"Volante ajustable": "equip_volante_ajustable",
-		"Volante multifuncional": "equip_volante_multifuncional",
+		"Espejos eléctricos":                   "equip_espejos_electricos",
+		"Frenos ABS":                           "equip_frenos_abs",
+		"Halógenos":                            "equip_halogenos",
+		"Llave inteligente/botón de arranque":  "equip_llave_inteligente",
+		"Luces de Xenón/Bixenón":               "equip_xenon",
+		"Radio con USB/AUX":                    "equip_radio_usb",
+		"Retrovisores auto-retractibles":       "equip_retrovisores",
+		"Revisión Técnica al día":              "equip_revision_tecnica",
+		"Sensor de lluvia":                     "equip_sensor_lluvia",
+		"Sensores de retroceso":                "equip_sensores_retroceso",
+		"Sensores frontales":                   "equip_sensores_frontales",
+		"Sunroof/techo panorámico":             "equip_sunroof",
+		"Tapicería de cuero":                   "equip_tapiceria_cuero",
+		"Turbo":                                "equip_turbo",
+		"Vidrios eléctricos":                   "equip_vidrios_electricos",
+		"Vidrios tintados":                     "equip_vidrios_tintados",
+		"Volante ajustable":                    "equip_volante_ajustable",
+		"Volante multifuncional":               "equip_volante_multifuncional",
 	}
 
 	for _, eq := range f.Equipments {
@@ -1050,45 +1130,123 @@ func (d *DB) GetCarsByURLs(urls []string) ([]Car, error) {
 			c.Comment = ""
 		}
 
-		if e_aire_ac == 1 { eMap["Aire acondicionado"] = true }
-		if e_aire_climatizado == 1 { eMap["Aire acondicionado climatizado"] = true }
-		if e_alarma == 1 { eMap["Alarma"] = true }
-		if e_android_auto == 1 { eMap["Android Auto"] = true }
-		if e_apple_carplay == 1 { eMap["Apple CarPlay"] = true }
-		if e_aros_lujo == 1 { eMap["Aros de lujo"] = true }
-		if e_asiento_memoria == 1 { eMap["Asiento con memoria"] = true }
-		if e_asientos_electricos == 1 { eMap["Asientos eléctricos"] = true }
-		if e_bluetooth == 1 { eMap["Bluetooth"] = true }
-		if e_bolsa_aire == 1 { eMap["Bolsa de aire"] = true }
-		if e_caja_dual == 1 { eMap["Caja de cambios dual"] = true }
-		if e_cierre_central == 1 { eMap["Cierre central"] = true }
-		if e_computadora == 1 { eMap["Computadora de viaje"] = true }
-		if e_control_crucero == 1 { eMap["Control crucero"] = true }
-		if e_control_descenso == 1 { eMap["Control de descenso"] = true }
-		if e_radio_volante == 1 { eMap["Control de radio en el volante"] = true }
-		if e_estabilidad == 1 { eMap["Control electrónico de estabilidad"] = true }
-		if e_camara_360 == 1 { eMap["Cámara 360"] = true }
-		if e_camara_retroceso == 1 { eMap["Cámara de retroceso"] = true }
-		if e_desempanador == 1 { eMap["Desempañador Trasero"] = true }
-		if e_direccion == 1 { eMap["Dirección Hidráulica/Electroasistida"] = true }
-		if e_espejos_electricos == 1 { eMap["Espejos eléctricos"] = true }
-		if e_frenos_abs == 1 { eMap["Frenos ABS"] = true }
-		if e_halogenos == 1 { eMap["Halógenos"] = true }
-		if e_llave_inteligente == 1 { eMap["Llave inteligente/botón de arranque"] = true }
-		if e_xenon == 1 { eMap["Luces de Xenón/Bixenón"] = true }
-		if e_radio_usb == 1 { eMap["Radio con USB/AUX"] = true }
-		if e_retrovisores == 1 { eMap["Retrovisores auto-retractibles"] = true }
-		if e_revision_tecnica == 1 { eMap["Revisión Técnica al día"] = true }
-		if e_sensor_lluvia == 1 { eMap["Sensor de lluvia"] = true }
-		if e_sensores_retroceso == 1 { eMap["Sensores de retroceso"] = true }
-		if e_sensores_frontales == 1 { eMap["Sensores frontales"] = true }
-		if e_sunroof == 1 { eMap["Sunroof/techo panorámico"] = true }
-		if e_tapiceria_cuero == 1 { eMap["Tapicería de cuero"] = true }
-		if e_turbo == 1 { eMap["Turbo"] = true }
-		if e_vidrios_electricos == 1 { eMap["Vidrios eléctricos"] = true }
-		if e_vidrios_tintados == 1 { eMap["Vidrios tintados"] = true }
-		if e_volante_ajustable == 1 { eMap["Volante ajustable"] = true }
-		if e_volante_multifuncional == 1 { eMap["Volante multifuncional"] = true }
+		if e_aire_ac == 1 {
+			eMap["Aire acondicionado"] = true
+		}
+		if e_aire_climatizado == 1 {
+			eMap["Aire acondicionado climatizado"] = true
+		}
+		if e_alarma == 1 {
+			eMap["Alarma"] = true
+		}
+		if e_android_auto == 1 {
+			eMap["Android Auto"] = true
+		}
+		if e_apple_carplay == 1 {
+			eMap["Apple CarPlay"] = true
+		}
+		if e_aros_lujo == 1 {
+			eMap["Aros de lujo"] = true
+		}
+		if e_asiento_memoria == 1 {
+			eMap["Asiento con memoria"] = true
+		}
+		if e_asientos_electricos == 1 {
+			eMap["Asientos eléctricos"] = true
+		}
+		if e_bluetooth == 1 {
+			eMap["Bluetooth"] = true
+		}
+		if e_bolsa_aire == 1 {
+			eMap["Bolsa de aire"] = true
+		}
+		if e_caja_dual == 1 {
+			eMap["Caja de cambios dual"] = true
+		}
+		if e_cierre_central == 1 {
+			eMap["Cierre central"] = true
+		}
+		if e_computadora == 1 {
+			eMap["Computadora de viaje"] = true
+		}
+		if e_control_crucero == 1 {
+			eMap["Control crucero"] = true
+		}
+		if e_control_descenso == 1 {
+			eMap["Control de descenso"] = true
+		}
+		if e_radio_volante == 1 {
+			eMap["Control de radio en el volante"] = true
+		}
+		if e_estabilidad == 1 {
+			eMap["Control electrónico de estabilidad"] = true
+		}
+		if e_camara_360 == 1 {
+			eMap["Cámara 360"] = true
+		}
+		if e_camara_retroceso == 1 {
+			eMap["Cámara de retroceso"] = true
+		}
+		if e_desempanador == 1 {
+			eMap["Desempañador Trasero"] = true
+		}
+		if e_direccion == 1 {
+			eMap["Dirección Hidráulica/Electroasistida"] = true
+		}
+		if e_espejos_electricos == 1 {
+			eMap["Espejos eléctricos"] = true
+		}
+		if e_frenos_abs == 1 {
+			eMap["Frenos ABS"] = true
+		}
+		if e_halogenos == 1 {
+			eMap["Halógenos"] = true
+		}
+		if e_llave_inteligente == 1 {
+			eMap["Llave inteligente/botón de arranque"] = true
+		}
+		if e_xenon == 1 {
+			eMap["Luces de Xenón/Bixenón"] = true
+		}
+		if e_radio_usb == 1 {
+			eMap["Radio con USB/AUX"] = true
+		}
+		if e_retrovisores == 1 {
+			eMap["Retrovisores auto-retractibles"] = true
+		}
+		if e_revision_tecnica == 1 {
+			eMap["Revisión Técnica al día"] = true
+		}
+		if e_sensor_lluvia == 1 {
+			eMap["Sensor de lluvia"] = true
+		}
+		if e_sensores_retroceso == 1 {
+			eMap["Sensores de retroceso"] = true
+		}
+		if e_sensores_frontales == 1 {
+			eMap["Sensores frontales"] = true
+		}
+		if e_sunroof == 1 {
+			eMap["Sunroof/techo panorámico"] = true
+		}
+		if e_tapiceria_cuero == 1 {
+			eMap["Tapicería de cuero"] = true
+		}
+		if e_turbo == 1 {
+			eMap["Turbo"] = true
+		}
+		if e_vidrios_electricos == 1 {
+			eMap["Vidrios eléctricos"] = true
+		}
+		if e_vidrios_tintados == 1 {
+			eMap["Vidrios tintados"] = true
+		}
+		if e_volante_ajustable == 1 {
+			eMap["Volante ajustable"] = true
+		}
+		if e_volante_multifuncional == 1 {
+			eMap["Volante multifuncional"] = true
+		}
 
 		c.Equipments = eMap
 		cars = append(cars, c)
@@ -1595,7 +1753,7 @@ func parseTimeHelper(ns sql.NullString) time.Time {
 	if !ns.Valid || ns.String == "" {
 		return time.Time{}
 	}
-	
+
 	val := ns.String
 	// Sometimes sqlite returns datetime with trailing Z or timezone offsets.
 	// Try RFC3339

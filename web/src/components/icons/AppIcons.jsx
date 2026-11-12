@@ -1,5 +1,3 @@
-import React from 'react';
-
 /**
  * 1. Language Toggle: Flag icon (pole + wavy flag)
  */

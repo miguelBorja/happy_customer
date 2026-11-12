@@ -1,7 +1,6 @@
-import React, { createContext, useState, useContext, useCallback } from 'react';
+import { useState, useCallback } from 'react';
+import { FavoritesContext } from '../hooks/useFavorites';
 import { trackEvent } from '../utils/analytics';
-
-export const FavoritesContext = createContext();
 
 const FAVORITES_KEY = 'crautosdb_favorites';
 

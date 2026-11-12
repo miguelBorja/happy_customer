@@ -6,6 +6,7 @@ RUN npm install
 COPY web/ ./
 ARG VITE_GA_MEASUREMENT_ID
 ENV VITE_GA_MEASUREMENT_ID=$VITE_GA_MEASUREMENT_ID
+RUN npm run lint
 RUN npm run build
 
 # --- Stage 2: Build the Go Backend ---
@@ -16,6 +17,7 @@ RUN go mod download
 COPY . .
 # Copy the compiled React assets from the first stage
 COPY --from=frontend-builder /app/web/dist ./web/dist
+RUN unformatted="$(gofmt -l main.go api db scraper cmd)" && if [ -n "$unformatted" ]; then echo "gofmt needed on: $unformatted" >&2; exit 1; fi
 RUN CGO_ENABLED=0 GOOS=linux go build -o main .
 
 # --- Stage 3: Final Production Image ---

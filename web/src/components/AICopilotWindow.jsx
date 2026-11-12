@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLanguage } from '../context/LanguageContext';
 import { compareWithAI } from '../api/client';
 import { useFavorites } from '../hooks/useFavorites';
@@ -10,7 +10,6 @@ import {
   AdvisorOrb,
   SendAirplaneIcon,
   StarIcon,
-  StopIcon,
   MinimizeIcon,
   ExpandIcon,
   CloseIcon,
@@ -48,7 +47,7 @@ function renderMarkdown(text) {
   
   for (let line of lines) {
     const trimmed = line.trim();
-    const bulletMatch = trimmed.match(/^[\*\-]\s+(.+)$/);
+    const bulletMatch = trimmed.match(/^[*-]\s+(.+)$/);
     
     if (bulletMatch) {
       if (!inList) {
@@ -122,8 +121,8 @@ function detectWinner(text) {
     /el\s+ganador\s+es\s+(?:el\s+)?(?:carro|car)\s*([1-9])/i,
     /the\s+winner\s+is\s+(?:the\s+)?(?:carro|car)\s*([1-9])/i,
     /(?:ganador|winner)\s*=>\s*(?:carro|car)\s*([1-9])/i,
-    /#1\s*[:\-]\s*(?:carro|car)\s*([1-9])/i,
-    /1º\s*[:\-]\s*(?:carro|car)\s*([1-9])/i
+    /#1\s*[:-]\s*(?:carro|car)\s*([1-9])/i,
+    /1º\s*[:-]\s*(?:carro|car)\s*([1-9])/i
   ];
 
   for (const regex of declRegexes) {
@@ -203,15 +202,13 @@ const AICopilotWindow = ({
   const abortRef = useRef(null);
   const inputRef = useRef(null);
   const initialLoadedRef = useRef(false);
+  const msgSeqRef = useRef(0);
 
   // Restore initial active session messages & cars on mount
   useEffect(() => {
     if (!initialLoadedRef.current) {
       initialLoadedRef.current = true;
       if (activeSession) {
-        if (activeSession.messages && activeSession.messages.length > 0) {
-          setChatMessages(activeSession.messages);
-        }
         if (activeSession.attachedCars && activeSession.attachedCars.length > 0 && onSetAttachedCars) {
           onSetAttachedCars(activeSession.attachedCars);
         }
@@ -246,18 +243,18 @@ const AICopilotWindow = ({
     }
   }, [chatMessages, attachedCars, isGenerating, activeSessionId, saveSession]);
 
-  // Reset error & shuffle when cars change
-  const lastCarsRef = useRef('');
-  useEffect(() => {
-    const currentKey = attachedCars.map(c => c.URL || '').join('_');
-    if (lastCarsRef.current !== currentKey && lastCarsRef.current !== '') {
+  // Reset error & shuffle when cars change (render-time prop synchronization)
+  const currentCarsKey = attachedCars.map(c => c.URL || '').join('_');
+  const [prevCarsKey, setPrevCarsKey] = useState(currentCarsKey);
+  if (prevCarsKey !== currentCarsKey) {
+    setPrevCarsKey(currentCarsKey);
+    if (prevCarsKey !== '') {
       if (chatMessages.length > 0) {
         setError('');
       }
       setShuffleIndex(0);
     }
-    lastCarsRef.current = currentKey;
-  }, [attachedCars, chatMessages.length]);
+  }
 
   const handleGenerateComparison = useCallback(async () => {
     if (attachedCars.length === 0 || isGenerating) return;
@@ -266,7 +263,7 @@ const AICopilotWindow = ({
     setIsGenerating(true);
     setError('');
 
-    const initialMsgId = `asst-init-${Date.now()}`;
+    const initialMsgId = `asst-init-${++msgSeqRef.current}`;
     const newMessages = [{ id: initialMsgId, role: 'assistant', content: '' }];
     setChatMessages(newMessages);
 
@@ -295,8 +292,8 @@ const AICopilotWindow = ({
     if (abortRef.current) abortRef.current.abort();
     abortRef.current = new AbortController();
 
-    const userMsgId = `user-${Date.now()}`;
-    const asstMsgId = `asst-${Date.now()}`;
+    const userMsgId = `user-${++msgSeqRef.current}`;
+    const asstMsgId = `asst-${++msgSeqRef.current}`;
 
     const newUserMsg = { id: userMsgId, role: 'user', content: textToSend };
     const newAsstMsg = { id: asstMsgId, role: 'assistant', content: '' };
@@ -660,7 +657,7 @@ const AICopilotWindow = ({
                 <h4 style={{ fontSize: '1.25rem', fontWeight: '800', letterSpacing: '-0.01em', marginBottom: '0.4rem' }}>
                   {t('copilotTitle')}
                 </h4>
-                <p style={{ color: '#94a3b8', fontSize: '0.88rem' }}>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>
                   {t('copilotSubtitle')}
                 </p>
                 {attachedCars.length === 1 && (

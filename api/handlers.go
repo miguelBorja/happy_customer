@@ -25,7 +25,7 @@ type Server struct {
 func (s *Server) HandleCars(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
-	
+
 	q := r.URL.Query()
 	log.Printf("[API] HandleCars query params: %s", r.URL.RawQuery)
 	f := db.FilterParams{
@@ -54,13 +54,25 @@ func (s *Server) HandleCars(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if y, _ := strconv.Atoi(q.Get("yearMin")); y > 0 { f.YearMin = y }
-	if y, _ := strconv.Atoi(q.Get("yearMax")); y > 0 { f.YearMax = y }
-	if p, _ := strconv.Atoi(q.Get("priceMin")); p > 0 { f.PriceMin = p }
-	if p, _ := strconv.Atoi(q.Get("priceMax")); p > 0 { f.PriceMax = p }
-	if k, _ := strconv.Atoi(q.Get("kmMin")); k > 0 { f.KmMin = k }
-	if k, _ := strconv.Atoi(q.Get("kmMax")); k > 0 { f.KmMax = k }
-	
+	if y, _ := strconv.Atoi(q.Get("yearMin")); y > 0 {
+		f.YearMin = y
+	}
+	if y, _ := strconv.Atoi(q.Get("yearMax")); y > 0 {
+		f.YearMax = y
+	}
+	if p, _ := strconv.Atoi(q.Get("priceMin")); p > 0 {
+		f.PriceMin = p
+	}
+	if p, _ := strconv.Atoi(q.Get("priceMax")); p > 0 {
+		f.PriceMax = p
+	}
+	if k, _ := strconv.Atoi(q.Get("kmMin")); k > 0 {
+		f.KmMin = k
+	}
+	if k, _ := strconv.Atoi(q.Get("kmMax")); k > 0 {
+		f.KmMax = k
+	}
+
 	if isSoldStr := q.Get("isSold"); isSoldStr != "" {
 		b := isSoldStr == "true"
 		f.IsSold = &b
@@ -69,17 +81,17 @@ func (s *Server) HandleCars(w http.ResponseWriter, r *http.Request) {
 	if eq := q.Get("equipments"); eq != "" {
 		f.Equipments = strings.Split(eq, ",")
 	}
-	
+
 	if limit, _ := strconv.Atoi(q.Get("limit")); limit > 0 {
 		f.Limit = limit
 	} else {
 		f.Limit = 100 // default limit
 	}
-	
+
 	if offset, _ := strconv.Atoi(q.Get("offset")); offset > 0 {
 		f.Offset = offset
 	}
-	
+
 	if desc := q.Get("sortDesc"); desc == "false" {
 		f.SortDesc = false
 	} else {
@@ -105,7 +117,7 @@ func (s *Server) HandleCars(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	
+
 	if cars == nil {
 		cars = []db.Car{} // Return empty array instead of null
 	}
@@ -133,14 +145,14 @@ func (s *Server) HandleCars(w http.ResponseWriter, r *http.Request) {
 func (s *Server) HandleBrands(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
-	
+
 	rows, err := s.DB.Query(`SELECT DISTINCT brand FROM cars WHERE brand != '' ORDER BY brand ASC`)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
-	
+
 	var brands []string
 	for rows.Next() {
 		var b string
@@ -166,12 +178,24 @@ func (s *Server) HandleFilteredBrands(w http.ResponseWriter, r *http.Request) {
 		ScrapedTo:   q.Get("scrapedTo"),
 	}
 
-	if y, _ := strconv.Atoi(q.Get("yearMin")); y > 0 { f.YearMin = y }
-	if y, _ := strconv.Atoi(q.Get("yearMax")); y > 0 { f.YearMax = y }
-	if k, _ := strconv.Atoi(q.Get("kmMax")); k > 0 { f.KmMax = k }
-	if k, _ := strconv.Atoi(q.Get("kmMin")); k > 0 { f.KmMin = k }
-	if p, _ := strconv.Atoi(q.Get("priceMax")); p > 0 { f.PriceMax = p }
-	if p, _ := strconv.Atoi(q.Get("priceMin")); p > 0 { f.PriceMin = p }
+	if y, _ := strconv.Atoi(q.Get("yearMin")); y > 0 {
+		f.YearMin = y
+	}
+	if y, _ := strconv.Atoi(q.Get("yearMax")); y > 0 {
+		f.YearMax = y
+	}
+	if k, _ := strconv.Atoi(q.Get("kmMax")); k > 0 {
+		f.KmMax = k
+	}
+	if k, _ := strconv.Atoi(q.Get("kmMin")); k > 0 {
+		f.KmMin = k
+	}
+	if p, _ := strconv.Atoi(q.Get("priceMax")); p > 0 {
+		f.PriceMax = p
+	}
+	if p, _ := strconv.Atoi(q.Get("priceMin")); p > 0 {
+		f.PriceMin = p
+	}
 
 	if isSoldStr := q.Get("isSold"); isSoldStr != "" {
 		b := isSoldStr == "true"
@@ -224,18 +248,18 @@ func (s *Server) HandleProvinces(w http.ResponseWriter, r *http.Request) {
 func (s *Server) HandleStats(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
-	
+
 	var total, active, sold int
 	s.DB.QueryRow(`SELECT count(*) FROM cars`).Scan(&total)
 	s.DB.QueryRow(`SELECT count(*) FROM cars WHERE is_sold=0`).Scan(&active)
 	s.DB.QueryRow(`SELECT count(*) FROM cars WHERE is_sold=1`).Scan(&sold)
-	
+
 	visits, err := s.DB.GetTotalVisits()
 	if err != nil {
 		log.Printf("[API ERROR] Failed to get total visits: %v", err)
 		visits = 0
 	}
-	
+
 	json.NewEncoder(w).Encode(map[string]int{
 		"total":  total,
 		"active": active,
@@ -676,7 +700,7 @@ GUIDELINES:
 		{
 			"type": "function",
 			"function": map[string]interface{}{
-				"name": "search_web",
+				"name":        "search_web",
 				"description": "Search the live internet for automotive technical specifications, spare parts accessibility, maintenance costs, common problems, recall notices, or dealer/agency information in Costa Rica and globally.",
 				"parameters": map[string]interface{}{
 					"type": "object",
@@ -693,7 +717,7 @@ GUIDELINES:
 		{
 			"type": "function",
 			"function": map[string]interface{}{
-				"name": "query_car_market_stats",
+				"name":        "query_car_market_stats",
 				"description": "Query aggregated market stats (average price, min/max price, average mileage, total listings, sold count) from the Costa Rican cars database for a brand/model/year.",
 				"parameters": map[string]interface{}{
 					"type": "object",
@@ -721,7 +745,7 @@ GUIDELINES:
 		{
 			"type": "function",
 			"function": map[string]interface{}{
-				"name": "query_cars_db",
+				"name":        "query_cars_db",
 				"description": "Search actual car classifieds listings in the database with filters (brand, title/keywords, price range, year range, fuel, transmission).",
 				"parameters": map[string]interface{}{
 					"type": "object",

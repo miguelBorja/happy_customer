@@ -183,9 +183,6 @@ export function getDynamicSuggestions({
   // SCENARIO 2: TWO CARS ATTACHED (HEAD-TO-HEAD)
   // ==========================================
   else if (cars.length === 2 && c1 && c2) {
-    const brand1 = (c1.Brand || '').trim();
-    const brand2 = (c2.Brand || '').trim();
-
     // Resale & Depreciation
     pool.push({
       id: 'cmp-resale',

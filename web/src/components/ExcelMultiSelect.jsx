@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useLanguage } from '../context/LanguageContext';
 import { SearchIcon } from './icons/AppIcons';
 
@@ -37,12 +37,14 @@ const ExcelMultiSelect = ({
     const handleClickOutside = (e) => {
       if (containerRef.current && !containerRef.current.contains(e.target)) {
         setIsOpen(false);
+        setSearchTerm('');
       }
     };
 
     const handleKeyDown = (e) => {
       if (e.key === 'Escape' && isOpen) {
         setIsOpen(false);
+        setSearchTerm('');
       }
     };
 
@@ -64,8 +66,6 @@ const ExcelMultiSelect = ({
           searchInputRef.current.focus();
         }
       }, 50);
-    } else {
-      setSearchTerm('');
     }
   }, [isOpen]);
 
@@ -151,7 +151,7 @@ const ExcelMultiSelect = ({
       {/* Dropdown Trigger Button */}
       <div 
         className={`excel-multiselect-trigger ${isOpen ? 'active' : ''} ${selectedList.length > 0 ? 'has-selection' : ''}`}
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => { const next = !isOpen; setIsOpen(next); if (!next) setSearchTerm(''); }}
         tabIndex={0}
         role="button"
         aria-haspopup="listbox"

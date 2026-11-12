@@ -90,10 +90,10 @@ export const fetchCarsByUrls = async (urls) => {
 
 export const compareWithAI = async (carsOrCar1, car2OrLang, langOrMessages, messagesOrOnChunk, onChunkOrSignal, optionalSignal) => {
   let cars = [];
-  let language = 'es';
+  let language;
   let messages = [];
-  let onChunk = () => {};
-  let signal = undefined;
+  let onChunk;
+  let signal;
 
   if (Array.isArray(carsOrCar1)) {
     cars = carsOrCar1.filter(Boolean);
@@ -164,7 +164,7 @@ export const compareWithAI = async (carsOrCar1, car2OrLang, langOrMessages, mess
           if (content) {
             onChunk(content);
           }
-        } catch (e) {
+        } catch {
           // Ignore partial JSON chunks
         }
       }

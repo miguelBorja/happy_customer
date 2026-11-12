@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { fetchCarsByUrls } from '../api/client';
 import { useFavorites } from '../hooks/useFavorites';
 import { useSeenCars } from '../hooks/useSeenCars';
@@ -20,7 +20,6 @@ import { ResultsSkeleton } from '../components/LoadingSkeletons';
 
 const FavoritesPage = ({ viewMode, setViewMode }) => {
   const [cars, setCars] = useState([]);
-  const [loading, setLoading] = useState(true);
   const { isFavorite, toggleFavorite, favCount, getAllUrls } = useFavorites();
   const { isNew } = useSeenCars();
   const [selectedCar, setSelectedCar] = useState(null);
@@ -28,30 +27,32 @@ const FavoritesPage = ({ viewMode, setViewMode }) => {
   const { isComparing, toggleCompare } = useCompare();
   const { t, language } = useLanguage();
 
-  const loadFavorites = useCallback(async () => {
-    const urls = getAllUrls();
-    if (urls.length === 0) {
-      setCars([]);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    try {
-      const data = await fetchCarsByUrls(urls);
-      setCars(data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [getAllUrls]);
+  const favUrls = getAllUrls();
+  const favUrlsKey = favUrls.join('\n');
+  const [loadedKey, setLoadedKey] = useState('');
+  const loading = favUrls.length > 0 && loadedKey !== favUrlsKey;
 
   useEffect(() => {
-    loadFavorites();
-  }, [loadFavorites]);
+    if (!favUrlsKey) return;
+    let cancelled = false;
+    const urls = favUrlsKey.split('\n');
+    fetchCarsByUrls(urls)
+      .then((data) => {
+        if (!cancelled) setCars(data);
+      })
+      .catch((err) => {
+        console.error(err);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadedKey(favUrlsKey);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [favUrlsKey]);
 
   // Filter out unfavorited cars from display (in case user unfavorites while on this page)
-  const displayCars = cars.filter(car => isFavorite(car.URL));
+  const displayCars = favUrls.length === 0 ? [] : cars.filter(car => isFavorite(car.URL));
 
   const activeFavs = displayCars.filter(c => !c.IsSold).length;
   const soldFavs = displayCars.filter(c => c.IsSold).length;

@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { fetchCars, fetchCarsPage, fetchBrands, fetchCarsByUrls, fetchProvinces, fetchTopSellers, fetchFilteredBrands } from '../api/client';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { fetchCars, fetchCarsPage, fetchCarsByUrls, fetchProvinces, fetchTopSellers, fetchFilteredBrands } from '../api/client';
 import { trackEvent } from '../utils/analytics';
 import { formatListingAge, formatListingDate } from '../utils/listingDate';
 import { getWhatsAppPhone, buildWhatsAppLink } from '../utils/phone';
@@ -12,7 +12,7 @@ import { getMarketDeal } from '../utils/marketDeal';
 import { useSeenCars } from '../hooks/useSeenCars';
 import { useFavorites } from '../hooks/useFavorites';
 import { useLanguage } from '../context/LanguageContext';
-import FiltersModal, { commonEquipments } from '../components/FiltersModal';
+import FiltersModal from '../components/FiltersModal';
 import {
   SearchIcon,
   FilterFunnelIcon,
@@ -53,9 +53,9 @@ const CarsPage = ({
   const [brands, setBrands] = useState([]);
   const [provinces, setProvinces] = useState([]);
   const [sellers, setSellers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [catalogLoading, setCatalogLoading] = useState(true);
   const { isNew, markSeen, markAllSeen } = useSeenCars();
-  const { isFavorite, toggleFavorite, favCount, getAllUrls } = useFavorites();
+  const { isFavorite, toggleFavorite, getAllUrls } = useFavorites();
   const [favCars, setFavCars] = useState([]);
   const { language, t } = useLanguage();
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
@@ -97,14 +97,25 @@ const CarsPage = ({
 
   // Dynamically load brands matching all other filters
   useEffect(() => {
-    const filtersForBrands = { ...filters };
-    delete filtersForBrands.brand;
-    delete filtersForBrands.brands;
-    delete filtersForBrands.limit;
-    delete filtersForBrands.sortTitle;
-    delete filtersForBrands.sortYear;
-    delete filtersForBrands.sortPrice;
-    delete filtersForBrands.sortKm;
+    const filtersForBrands = {
+      title: filters.title,
+      provincia: filters.provincia,
+      yearMin: filters.yearMin,
+      yearMax: filters.yearMax,
+      priceMin: filters.priceMin,
+      priceMax: filters.priceMax,
+      kmMin: filters.kmMin,
+      kmMax: filters.kmMax,
+      estilo: filters.estilo,
+      transmision: filters.transmision,
+      combustible: filters.combustible,
+      sellerName: filters.sellerName,
+      isSold: filters.isSold,
+      equipments: filters.equipments,
+      scrapedFrom: filters.scrapedFrom,
+      scrapedTo: filters.scrapedTo,
+      deal: filters.deal,
+    };
 
     fetchFilteredBrands(filtersForBrands)
       .then(setBrands)
@@ -116,6 +127,7 @@ const CarsPage = ({
     filters.yearMax,
     filters.priceMin,
     filters.priceMax,
+    filters.kmMin,
     filters.kmMax,
     filters.estilo,
     filters.transmision,
@@ -125,6 +137,7 @@ const CarsPage = ({
     filters.equipments,
     filters.scrapedFrom,
     filters.scrapedTo,
+    filters.deal,
   ]);
 
   useEffect(() => {
@@ -138,7 +151,7 @@ const CarsPage = ({
     return () => {
       clearTimeout(handler);
     };
-  }, [localTitle]);
+  }, [localTitle, setFilters]);
 
   // "Best deal" ordering is resolved by the server over the whole catalog (not just loaded cars).
   const serverDealParams = useMemo(
@@ -146,28 +159,67 @@ const CarsPage = ({
     [clientSort]
   );
 
-  const loadCars = useCallback(async () => {
-    setLoading(true);
+  const [prevCatalogDeps, setPrevCatalogDeps] = useState({ filters, serverDealParams });
+  if (prevCatalogDeps.filters !== filters || prevCatalogDeps.serverDealParams !== serverDealParams) {
+    setPrevCatalogDeps({ filters, serverDealParams });
+    setCatalogLoading(true);
     setVisibleCount(RENDER_STEP);
-    try {
-      const batchLimit = Number(filters.limit) || 100;
-      const { cars: data, total } = await fetchCarsPage({ ...filters, ...serverDealParams, offset: 0 });
-      setCars(data);
-      setTotalCount(total);
-      const allowInfiniteServer = !filters.limit || Number(filters.limit) >= 100;
-      setHasMoreServer(allowInfiniteServer && data.length >= batchLimit);
-    } catch (err) {
-      console.error(err);
-      setHasMoreServer(false);
-      setTotalCount(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [filters, serverDealParams]);
+  }
+
+  const [prevViewDeps, setPrevViewDeps] = useState({ showFavsOnly, clientSort });
+  if (prevViewDeps.showFavsOnly !== showFavsOnly || prevViewDeps.clientSort !== clientSort) {
+    setPrevViewDeps({ showFavsOnly, clientSort });
+    setVisibleCount(RENDER_STEP);
+  }
 
   useEffect(() => {
-    setVisibleCount(RENDER_STEP);
-  }, [showFavsOnly, clientSort]);
+    let cancelled = false;
+    const batchLimit = Number(filters.limit) || 100;
+    fetchCarsPage({ ...filters, ...serverDealParams, offset: 0 })
+      .then(({ cars: data, total }) => {
+        if (cancelled) return;
+        setCars(data);
+        setTotalCount(total);
+        const allowInfiniteServer = !filters.limit || Number(filters.limit) >= 100;
+        setHasMoreServer(allowInfiniteServer && data.length >= batchLimit);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error(err);
+        setHasMoreServer(false);
+        setTotalCount(null);
+      })
+      .finally(() => {
+        if (!cancelled) setCatalogLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [filters, serverDealParams]);
+
+  const favUrlsKey = showFavsOnly ? getAllUrls().join('\n') : '';
+  const [loadedFavsKey, setLoadedFavsKey] = useState('');
+  const favsLoading = showFavsOnly && favUrlsKey !== '' && loadedFavsKey !== favUrlsKey;
+
+  // Load favorites from API when the favorites filter is toggled on
+  useEffect(() => {
+    if (!favUrlsKey) return;
+    let cancelled = false;
+    const urls = favUrlsKey.split('\n');
+    fetchCarsByUrls(urls)
+      .then((data) => {
+        if (!cancelled) setFavCars(data);
+      })
+      .catch(console.error)
+      .finally(() => {
+        if (!cancelled) setLoadedFavsKey(favUrlsKey);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [favUrlsKey]);
+
+  const loading = showFavsOnly ? favsLoading : catalogLoading;
 
   const loadMoreFromServer = useCallback(async () => {
     if (loading || loadingMore || !hasMoreServer || showFavsOnly) return;
@@ -192,30 +244,10 @@ const CarsPage = ({
     } finally {
       setLoadingMore(false);
     }
-  }, [loading, loadingMore, hasMoreServer, showFavsOnly, filters, serverDealParams, cars.length]);
-
-  useEffect(() => {
-    loadCars();
-  }, [loadCars]);
-
-  // Load favorites from API when filter is toggled on
-  useEffect(() => {
-    if (showFavsOnly) {
-      const urls = getAllUrls();
-      if (urls.length > 0) {
-        setLoading(true);
-        fetchCarsByUrls(urls)
-          .then(data => setFavCars(data))
-          .catch(console.error)
-          .finally(() => setLoading(false));
-      } else {
-        setFavCars([]);
-      }
-    }
-  }, [showFavsOnly, getAllUrls]);
+  }, [loading, loadingMore, hasMoreServer, showFavsOnly, filters, serverDealParams, cars]);
 
   const displayCars = useMemo(() => {
-    const base = !showFavsOnly ? cars : favCars.filter(c => isFavorite(c.URL));
+    const base = !showFavsOnly ? cars : (favUrlsKey === '' ? [] : favCars.filter(c => isFavorite(c.URL)));
     // Server already ordered the catalog; only favorites (loaded locally) are sorted here.
     if (clientSort === 'bestDeal' && showFavsOnly) {
       const withDeals = base.map((car, index) => ({ car, deal: getMarketDeal(car), index }));
@@ -236,7 +268,7 @@ const CarsPage = ({
       return withDeals.map(item => item.car);
     }
     return base;
-  }, [cars, favCars, showFavsOnly, isFavorite, clientSort]);
+  }, [cars, favCars, showFavsOnly, favUrlsKey, isFavorite, clientSort]);
 
   const visibleCars = useMemo(() => {
     return displayCars.slice(0, visibleCount);
@@ -457,7 +489,7 @@ const CarsPage = ({
         clear: () => setFilters(f => ({ ...f, scrapedPeriod: '', scrapedFrom: '', scrapedTo: '' }))
       });
     } else if (filters.scrapedFrom || filters.scrapedTo) {
-      let label = '';
+      let label;
       if (filters.scrapedFrom && filters.scrapedTo) label = `${filters.scrapedFrom} to ${filters.scrapedTo}`;
       else if (filters.scrapedFrom) label = `From ${filters.scrapedFrom}`;
       else label = `To ${filters.scrapedTo}`;
