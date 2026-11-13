@@ -66,7 +66,9 @@ const FiltersModal = ({
   onReset,
   brands = [],
   provinces = [],
-  sellers = []
+  sellers = [],
+  models = [],
+  styles = []
 }) => {
   const { t } = useLanguage();
 
@@ -180,8 +182,12 @@ const FiltersModal = ({
       ...f,
       brands: newBrands,
       brand: newBrands.join(','),
+      models: newBrands.length === 0 ? [] : f.models,
     }));
   };
+
+  const KM_PRESETS = ['30000', '50000', '75000', '100000', '125000', '150000', '200000'];
+  const isCustomKm = filters.kmMode === 'custom' || (Boolean(filters.kmMax) && !KM_PRESETS.includes(String(filters.kmMax)));
 
   return (
     <div className="filters-modal-overlay open" onClick={onClose}>
@@ -204,6 +210,30 @@ const FiltersModal = ({
               onChange={handleBrandChange}
               placeholder={t('allBrands')}
             />
+          </div>
+
+          {/* Model - Excel MultiSelect */}
+          <div className="filter-group">
+            <label>{t('model')}</label>
+            {selectedBrands.length === 0 ? (
+              <ExcelMultiSelect
+                disabled
+                options={[]}
+                selected={[]}
+                placeholder={t('selectBrandFirst')}
+                id="excel-multiselect-models"
+              />
+            ) : (
+              <ExcelMultiSelect
+                options={models}
+                selected={filters.models || []}
+                onChange={(newModels) => setFilters(f => ({ ...f, models: newModels }))}
+                placeholder={t('allModels')}
+                searchPlaceholder={t('searchModels')}
+                noResultsLabel={t('noModelsFound')}
+                id="excel-multiselect-models"
+              />
+            )}
           </div>
  
           {/* Province */}
@@ -353,7 +383,7 @@ const FiltersModal = ({
             <select
               name="kmModeSelect"
               className="select-field"
-              value={filters.kmMode === 'custom' ? 'custom' : filters.kmMax || ''}
+              value={isCustomKm ? 'custom' : filters.kmMax || ''}
               onChange={(e) => {
                 const val = e.target.value;
                 if (val === 'custom') {
@@ -364,14 +394,16 @@ const FiltersModal = ({
               }}
             >
               <option value="">{t('any')}</option>
+              <option value="30000">30,000 km</option>
+              <option value="50000">50,000 km</option>
+              <option value="75000">75,000 km</option>
               <option value="100000">100,000 km</option>
               <option value="125000">125,000 km</option>
               <option value="150000">150,000 km</option>
-              <option value="175000">175,000 km</option>
               <option value="200000">200,000 km</option>
               <option value="custom">{t('custom') || 'Custom'}</option>
             </select>
-            {filters.kmMode === 'custom' && (
+            {isCustomKm && (
               <input
                 type="number"
                 name="kmMax"
@@ -392,6 +424,15 @@ const FiltersModal = ({
               <option value="yesterday">{t('yesterday')}</option>
               <option value="week">{t('thisWeek')}</option>
               <option value="month">{t('lastMonth')}</option>
+            </select>
+          </div>
+
+          {/* Body Style */}
+          <div className="filter-group">
+            <label>{t('specBodyStyle')}</label>
+            <select name="estilo" className="select-field" value={filters.estilo || ''} onChange={handleChange}>
+              <option value="">{t('any')}</option>
+              {styles.map(st => <option key={st} value={st}>{st}</option>)}
             </select>
           </div>
 
@@ -417,20 +458,6 @@ const FiltersModal = ({
               <option value="Híbrido">{t('hybrid')}</option>
             </select>
           </div>
-
-          {/* Results Limit */}
-          <div className="filter-group">
-            <label>{t('limit')}</label>
-            <select name="limit" className="select-field" value={filters.limit || '100'} onChange={handleChange}>
-              <option value="5">Top 5</option>
-              <option value="10">Top 10</option>
-              <option value="20">Top 20</option>
-              <option value="50">Top 50</option>
-              <option value="100">Top 100</option>
-              <option value="500">Top 500</option>
-            </select>
-          </div>
-
 
           {/* Equipments Checkboxes */}
           <div className="filter-group full-width filter-group--equipments">
@@ -460,6 +487,26 @@ const FiltersModal = ({
             <label className="checkbox-group fav-filter-label">
               <input type="checkbox" name="showFavsOnly" checked={showFavsOnly} onChange={handleChange} />
               <span>{t('showFavsOnly')}</span>
+            </label>
+
+            <label className="checkbox-group">
+              <input type="checkbox" checked={filters.deal === 'good'} onChange={(e) => setFilters(f => ({ ...f, deal: e.target.checked ? 'good' : '' }))} />
+              <span>{t('goodPricesOnly')}</span>
+            </label>
+
+            <label className="checkbox-group">
+              <input type="checkbox" checked={filters.priceDrop === 'true'} onChange={(e) => setFilters(f => ({ ...f, priceDrop: e.target.checked ? 'true' : '' }))} />
+              <span>{t('priceDropsOnly')}</span>
+            </label>
+
+            <label className="checkbox-group">
+              <input type="checkbox" checked={filters.seRecibe === 'true'} onChange={(e) => setFilters(f => ({ ...f, seRecibe: e.target.checked ? 'true' : '' }))} />
+              <span>{t('tradeInOnly')}</span>
+            </label>
+
+            <label className="checkbox-group">
+              <input type="checkbox" checked={filters.negociable === 'true'} onChange={(e) => setFilters(f => ({ ...f, negociable: e.target.checked ? 'true' : '' }))} />
+              <span>{t('negotiableOnly')}</span>
             </label>
           </div>
         </div>

@@ -54,11 +54,37 @@ export const fetchFilteredBrands = async (filters) => {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(filters)) {
     if (value !== '' && value !== null && value !== undefined) {
-      params.append(key, value);
+      if (Array.isArray(value)) {
+        if (value.length > 0) params.append(key, value.join(','));
+      } else {
+        params.append(key, value);
+      }
     }
   }
   const res = await fetch(`${BASE_URL}/brands/filtered?${params.toString()}`);
   if (!res.ok) throw new Error('Failed to fetch filtered brands');
+  return res.json();
+};
+
+export const fetchStyles = async () => {
+  const res = await fetch(`${BASE_URL}/styles`);
+  if (!res.ok) throw new Error('Failed to fetch styles');
+  return res.json();
+};
+
+export const fetchFilteredModels = async (filters) => {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) {
+    if (value !== '' && value !== null && value !== undefined) {
+      if (Array.isArray(value)) {
+        if (value.length > 0) params.append(key, value.join(','));
+      } else {
+        params.append(key, value);
+      }
+    }
+  }
+  const res = await fetch(`${BASE_URL}/models/filtered?${params.toString()}`);
+  if (!res.ok) throw new Error('Failed to fetch filtered models');
   return res.json();
 };
 

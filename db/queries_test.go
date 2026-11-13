@@ -262,3 +262,161 @@ func TestFuelAndTransmissionFilterVariants(t *testing.T) {
 		t.Errorf("GetActiveCarsLastSeen('Land Rover') expected map with car 203, got %v", activeMap)
 	}
 }
+
+func TestModelsTradeInNegotiableAndFilteredBrands(t *testing.T) {
+	database, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	now := time.Now()
+	cars := []Car{
+		{
+			URL:              "https://crautos.com/cardetail.cfm?c=301",
+			Title:            "Toyota Hilux 2022",
+			Brand:            "Toyota",
+			Model:            "Hilux",
+			Year:             2022,
+			Price:            25000,
+			Estilo:           "Pickup",
+			SeRecibe:         "SI",
+			PrecioNegociable: "NO",
+			ScrapedAt:        now,
+			LastSeenAt:       now,
+		},
+		{
+			URL:              "https://crautos.com/cardetail.cfm?c=302",
+			Title:            "Toyota RAV4 2021",
+			Brand:            "Toyota",
+			Model:            "RAV4",
+			Year:             2021,
+			Price:            28000,
+			Estilo:           "SUV",
+			SeRecibe:         "NO",
+			PrecioNegociable: "SI",
+			ScrapedAt:        now,
+			LastSeenAt:       now,
+		},
+		{
+			URL:              "https://crautos.com/cardetail.cfm?c=303",
+			Title:            "Hyundai Tucson 2020",
+			Brand:            "Hyundai",
+			Model:            "Tucson",
+			Year:             2020,
+			Price:            20000,
+			Estilo:           "SUV",
+			SeRecibe:         "SI",
+			PrecioNegociable: "SI",
+			ScrapedAt:        now,
+			LastSeenAt:       now,
+		},
+	}
+
+	if err := database.UpsertCarBatch(cars); err != nil {
+		t.Fatalf("UpsertCarBatch failed: %v", err)
+	}
+
+	// Models filter (single, case-insensitive)
+	got, err := database.GetCars(FilterParams{Models: []string{"hilux"}})
+	if err != nil {
+		t.Fatalf("GetCars(Models: [hilux]) failed: %v", err)
+	}
+	if len(got) != 1 || got[0].Model != "Hilux" {
+		t.Errorf("GetCars(Models: [hilux]) = %d cars, want 1 Hilux", len(got))
+	}
+	if n, err := database.CountCars(FilterParams{Models: []string{"hilux"}}); err != nil || n != 1 {
+		t.Errorf("CountCars(Models: [hilux]) = %d, err %v; want 1", n, err)
+	}
+
+	// Models filter (multiple values)
+	got, err = database.GetCars(FilterParams{Models: []string{"Hilux", "Tucson"}})
+	if err != nil {
+		t.Fatalf("GetCars(Models: [Hilux Tucson]) failed: %v", err)
+	}
+	if len(got) != 2 {
+		t.Errorf("GetCars(Models: [Hilux Tucson]) = %d cars, want 2", len(got))
+	}
+	if n, err := database.CountCars(FilterParams{Models: []string{"Hilux", "Tucson"}}); err != nil || n != 2 {
+		t.Errorf("CountCars(Models: [Hilux Tucson]) = %d, err %v; want 2", n, err)
+	}
+
+	// SeRecibe and Negociable filters
+	got, err = database.GetCars(FilterParams{SeRecibe: true})
+	if err != nil {
+		t.Fatalf("GetCars(SeRecibe) failed: %v", err)
+	}
+	if len(got) != 2 {
+		t.Errorf("GetCars(SeRecibe) = %d cars, want 2", len(got))
+	}
+	if n, err := database.CountCars(FilterParams{SeRecibe: true}); err != nil || n != 2 {
+		t.Errorf("CountCars(SeRecibe) = %d, err %v; want 2", n, err)
+	}
+
+	got, err = database.GetCars(FilterParams{Negociable: true})
+	if err != nil {
+		t.Fatalf("GetCars(Negociable) failed: %v", err)
+	}
+	if len(got) != 2 {
+		t.Errorf("GetCars(Negociable) = %d cars, want 2", len(got))
+	}
+	if n, err := database.CountCars(FilterParams{Negociable: true}); err != nil || n != 2 {
+		t.Errorf("CountCars(Negociable) = %d, err %v; want 2", n, err)
+	}
+
+	// GetFilteredBrands delegates to buildCarFilters (respects Estilo and SeRecibe)
+	estiloBrands, err := database.GetFilteredBrands(FilterParams{Estilo: "SUV"})
+	if err != nil {
+		t.Fatalf("GetFilteredBrands(Estilo: SUV) failed: %v", err)
+	}
+	if len(estiloBrands) != 2 || estiloBrands[0] != "Hyundai" || estiloBrands[1] != "Toyota" {
+		t.Errorf("GetFilteredBrands(Estilo: SUV) = %v, want [Hyundai Toyota]", estiloBrands)
+	}
+
+	seRecibeBrands, err := database.GetFilteredBrands(FilterParams{SeRecibe: true})
+	if err != nil {
+		t.Fatalf("GetFilteredBrands(SeRecibe) failed: %v", err)
+	}
+	if len(seRecibeBrands) != 2 || seRecibeBrands[0] != "Hyundai" || seRecibeBrands[1] != "Toyota" {
+		t.Errorf("GetFilteredBrands(SeRecibe) = %v, want [Hyundai Toyota]", seRecibeBrands)
+	}
+
+	filteredBrands, err := database.GetFilteredBrands(FilterParams{Estilo: "SUV", SeRecibe: true})
+	if err != nil {
+		t.Fatalf("GetFilteredBrands(Estilo: SUV, SeRecibe) failed: %v", err)
+	}
+	if len(filteredBrands) != 1 || filteredBrands[0] != "Hyundai" {
+		t.Errorf("GetFilteredBrands(Estilo: SUV, SeRecibe) = %v, want [Hyundai]", filteredBrands)
+	}
+
+	// GetFilteredModels returns a non-nil empty slice when no brand is given
+	noBrandModels, err := database.GetFilteredModels(FilterParams{})
+	if err != nil {
+		t.Fatalf("GetFilteredModels(no brand) failed: %v", err)
+	}
+	if noBrandModels == nil || len(noBrandModels) != 0 {
+		t.Errorf("GetFilteredModels(no brand) = %#v, want empty non-nil slice", noBrandModels)
+	}
+
+	// GetFilteredModels respects the selected brand/brands and remaining filters
+	toyotaModels, err := database.GetFilteredModels(FilterParams{Brand: "Toyota"})
+	if err != nil {
+		t.Fatalf("GetFilteredModels(Toyota) failed: %v", err)
+	}
+	if len(toyotaModels) != 2 || toyotaModels[0] != "Hilux" || toyotaModels[1] != "RAV4" {
+		t.Errorf("GetFilteredModels(Toyota) = %v, want [Hilux RAV4]", toyotaModels)
+	}
+
+	toyotaSeRecibeModels, err := database.GetFilteredModels(FilterParams{Brand: "Toyota", SeRecibe: true})
+	if err != nil {
+		t.Fatalf("GetFilteredModels(Toyota, SeRecibe) failed: %v", err)
+	}
+	if len(toyotaSeRecibeModels) != 1 || toyotaSeRecibeModels[0] != "Hilux" {
+		t.Errorf("GetFilteredModels(Toyota, SeRecibe) = %v, want [Hilux]", toyotaSeRecibeModels)
+	}
+
+	multiBrandModels, err := database.GetFilteredModels(FilterParams{Brands: []string{"Toyota", "Hyundai"}})
+	if err != nil {
+		t.Fatalf("GetFilteredModels(Brands: [Toyota Hyundai]) failed: %v", err)
+	}
+	if len(multiBrandModels) != 3 || multiBrandModels[0] != "Hilux" || multiBrandModels[1] != "RAV4" || multiBrandModels[2] != "Tucson" {
+		t.Errorf("GetFilteredModels(Brands: [Toyota Hyundai]) = %v, want [Hilux RAV4 Tucson]", multiBrandModels)
+	}
+}

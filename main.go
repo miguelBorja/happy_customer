@@ -209,6 +209,8 @@ func main() {
 		mux.HandleFunc("/api/bargains", server.HandleBargains)
 		mux.HandleFunc("/api/brands", server.HandleBrands)
 		mux.HandleFunc("/api/brands/filtered", server.HandleFilteredBrands)
+		mux.HandleFunc("/api/models/filtered", server.HandleFilteredModels)
+		mux.HandleFunc("/api/styles", server.HandleStyles)
 		mux.HandleFunc("/api/provinces", server.HandleProvinces)
 		mux.HandleFunc("/api/stats", server.HandleStats)
 		mux.HandleFunc("/api/stats/detailed", server.HandleDetailedStats)
@@ -220,11 +222,9 @@ func main() {
 		if _, err := os.Stat("web/dist"); err == nil {
 			fs := http.FileServer(http.Dir("web/dist"))
 			mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-				// Disable caching for HTML entrypoints to prevent caching issues on updates
 				if r.URL.Path == "/" || r.URL.Path == "/index.html" {
-					w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
-					w.Header().Set("Pragma", "no-cache")
-					w.Header().Set("Expires", "0")
+					server.ServeIndexHTML(w, r, "web/dist/index.html")
+					return
 				}
 				fs.ServeHTTP(w, r)
 			})

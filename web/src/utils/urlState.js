@@ -6,6 +6,7 @@ export const DEFAULT_FILTERS = Object.freeze({
   title: '',
   brand: '',
   brands: [],
+  models: [],
   provincia: '',
   yearMin: '',
   yearMax: '',
@@ -20,6 +21,9 @@ export const DEFAULT_FILTERS = Object.freeze({
   sellerName: '',
   sellerMode: '',
   isSold: 'false',
+  priceDrop: '',
+  seRecibe: '',
+  negociable: '',
   equipments: [],
   scrapedFrom: '',
   scrapedTo: '',
@@ -34,7 +38,7 @@ export const DEFAULT_FILTERS = Object.freeze({
   sortKm: '',
 });
 
-export const createDefaultFilters = () => ({ ...DEFAULT_FILTERS, brands: [], equipments: [] });
+export const createDefaultFilters = () => ({ ...DEFAULT_FILTERS, brands: [], models: [], equipments: [] });
 
 const TABS = ['browse', 'favorites', 'bargains', 'stats', 'about'];
 const CLIENT_SORTS = ['bestDeal'];

@@ -304,6 +304,37 @@
   line-height: 1.4;
 }
 
+.details-spec-value--warn {
+  color: var(--deal-check-text);
+}
+
+.details-spec-value--good {
+  color: var(--deal-great-text);
+}
+
+.details-taxes-warning {
+  background: var(--deal-check-bg);
+  border: 1px solid var(--deal-check-border);
+  color: var(--deal-check-text);
+  border-radius: 8px;
+  padding: 0.65rem 0.85rem;
+  font-size: 0.84rem;
+  line-height: 1.4;
+  margin: 0.5rem 0;
+}
+
+.details-seller-address {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+.excel-multiselect-trigger.disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 .details-market-footnote {
   font-size: 0.75rem;
   color: var(--text-muted, #b0bed0);

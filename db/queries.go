@@ -407,6 +407,9 @@ func (d *DB) UpdateComment(url, comment string) error {
 type FilterParams struct {
 	Brand       string
 	Brands      []string
+	Models      []string
+	SeRecibe    bool
+	Negociable  bool
 	YearMin     int
 	YearMax     int
 	KmMin       int
@@ -532,6 +535,32 @@ func buildCarFilters(f FilterParams) (string, []interface{}) {
 			}
 			q += fmt.Sprintf(" AND brand IN (%s)", strings.Join(placeholders, ","))
 		}
+	}
+	if len(f.Models) > 0 {
+		var validModels []string
+		for _, m := range f.Models {
+			m = strings.TrimSpace(m)
+			if m != "" {
+				validModels = append(validModels, m)
+			}
+		}
+		if len(validModels) == 1 {
+			q += " AND LOWER(model) = LOWER(?)"
+			args = append(args, validModels[0])
+		} else if len(validModels) > 1 {
+			placeholders := make([]string, len(validModels))
+			for i, m := range validModels {
+				placeholders[i] = "LOWER(?)"
+				args = append(args, m)
+			}
+			q += fmt.Sprintf(" AND LOWER(model) IN (%s)", strings.Join(placeholders, ","))
+		}
+	}
+	if f.SeRecibe {
+		q += " AND UPPER(TRIM(se_recibe)) IN ('SI', 'SÍ')"
+	}
+	if f.Negociable {
+		q += " AND UPPER(TRIM(precio_negociable)) IN ('SI', 'SÍ')"
 	}
 	if f.YearMin > 0 {
 		q += " AND year >= ?"
@@ -930,124 +959,13 @@ func (d *DB) GetCars(f FilterParams) ([]Car, error) {
 }
 
 func (d *DB) GetFilteredBrands(f FilterParams) ([]string, error) {
-	q := `SELECT DISTINCT brand FROM cars WHERE brand != ''`
-	var args []interface{}
+	fCopy := f
+	fCopy.Brands = nil
+	fCopy.Brand = ""
+	fCopy.Models = nil
+	where, args := buildCarFilters(fCopy)
 
-	if f.TitleQuery != "" {
-		q += " AND (LOWER(title) LIKE ? OR LOWER(brand) LIKE ?)"
-		query := strings.ReplaceAll(f.TitleQuery, "*", "%")
-		query = strings.ReplaceAll(query, "?", "_")
-		if !strings.Contains(query, "%") && !strings.Contains(query, "_") {
-			query = "%" + query + "%"
-		}
-		query = strings.ToLower(query)
-		args = append(args, query, query)
-	}
-	if f.YearMin > 0 {
-		q += " AND year >= ?"
-		args = append(args, f.YearMin)
-	}
-	if f.YearMax > 0 {
-		q += " AND year <= ?"
-		args = append(args, f.YearMax)
-	}
-	if f.KmMax > 0 {
-		q += " AND kilometraje <= ?"
-		args = append(args, f.KmMax)
-	}
-	if f.KmMin > 0 {
-		q += " AND kilometraje >= ?"
-		args = append(args, f.KmMin)
-	}
-	if f.PriceMax > 0 {
-		q += " AND price <= ?"
-		args = append(args, f.PriceMax)
-	}
-	if f.PriceMin > 0 {
-		q += " AND price >= ?"
-		args = append(args, f.PriceMin)
-	}
-	if f.Transmision != "" {
-		q, args = appendTransmisionFilter(q, args, f.Transmision)
-	}
-	if f.Combustible != "" {
-		q, args = appendCombustibleFilter(q, args, f.Combustible)
-	}
-	if f.SellerName != "" {
-		q += " AND LOWER(seller_name) LIKE ?"
-		args = append(args, "%"+strings.ToLower(f.SellerName)+"%")
-	}
-	if f.IsSold != nil {
-		q += " AND is_sold = ?"
-		if *f.IsSold {
-			args = append(args, 1)
-		} else {
-			args = append(args, 0)
-		}
-	}
-	if f.Provincia != "" {
-		q += " AND provincia = ?"
-		args = append(args, f.Provincia)
-	}
-	if f.ScrapedFrom != "" {
-		q += " AND scraped_at >= ?"
-		args = append(args, f.ScrapedFrom)
-	}
-	if f.ScrapedTo != "" {
-		q += " AND scraped_at <= ?"
-		args = append(args, f.ScrapedTo+" 23:59:59")
-	}
-
-	// Handle equipments map mapping to DB column
-	equipMap := map[string]string{
-		"Aire acondicionado":                   "equip_aire_ac",
-		"Aire acondicionado climatizado":       "equip_aire_climatizado",
-		"Alarma":                               "equip_alarma",
-		"Android Auto":                         "equip_android_auto",
-		"Apple CarPlay":                        "equip_apple_carplay",
-		"Aros de lujo":                         "equip_aros_lujo",
-		"Asiento con memoria":                  "equip_asiento_memoria",
-		"Asientos eléctricos":                  "equip_asientos_electricos",
-		"Bluetooth":                            "equip_bluetooth",
-		"Bolsa de aire":                        "equip_bolsa_aire",
-		"Caja de cambios dual":                 "equip_caja_dual",
-		"Cierre central":                       "equip_cierre_central",
-		"Computadora de viaje":                 "equip_computadora",
-		"Control crucero":                      "equip_control_crucero",
-		"Control de descenso":                  "equip_control_descenso",
-		"Control de radio en el volante":       "equip_radio_volante",
-		"Control electrónico de estabilidad":   "equip_estabilidad",
-		"Cámara 360":                           "equip_camara_360",
-		"Cámara de retroceso":                  "equip_camara_retroceso",
-		"Desempañador Trasero":                 "equip_desempanador",
-		"Dirección Hidráulica/Electroasistida": "equip_direccion",
-		"Espejos eléctricos":                   "equip_espejos_electricos",
-		"Frenos ABS":                           "equip_frenos_abs",
-		"Halógenos":                            "equip_halogenos",
-		"Llave inteligente/botón de arranque":  "equip_llave_inteligente",
-		"Luces de Xenón/Bixenón":               "equip_xenon",
-		"Radio con USB/AUX":                    "equip_radio_usb",
-		"Retrovisores auto-retractibles":       "equip_retrovisores",
-		"Revisión Técnica al día":              "equip_revision_tecnica",
-		"Sensor de lluvia":                     "equip_sensor_lluvia",
-		"Sensores de retroceso":                "equip_sensores_retroceso",
-		"Sensores frontales":                   "equip_sensores_frontales",
-		"Sunroof/techo panorámico":             "equip_sunroof",
-		"Tapicería de cuero":                   "equip_tapiceria_cuero",
-		"Turbo":                                "equip_turbo",
-		"Vidrios eléctricos":                   "equip_vidrios_electricos",
-		"Vidrios tintados":                     "equip_vidrios_tintados",
-		"Volante ajustable":                    "equip_volante_ajustable",
-		"Volante multifuncional":               "equip_volante_multifuncional",
-	}
-
-	for _, eq := range f.Equipments {
-		if col, ok := equipMap[eq]; ok {
-			q += fmt.Sprintf(" AND %s = 1", col)
-		}
-	}
-
-	q += " ORDER BY brand ASC"
+	q := "SELECT DISTINCT brand FROM cars WHERE brand != '' AND brand IS NOT NULL" + where + " ORDER BY brand ASC"
 
 	rows, err := d.Query(d.queryFormat(q), args...)
 	if err != nil {
@@ -1055,14 +973,49 @@ func (d *DB) GetFilteredBrands(f FilterParams) ([]string, error) {
 	}
 	defer rows.Close()
 
-	var brands []string
+	brands := []string{}
 	for rows.Next() {
 		var b string
-		if err := rows.Scan(&b); err == nil {
-			brands = append(brands, b)
+		if err := rows.Scan(&b); err != nil {
+			return nil, err
 		}
+		brands = append(brands, b)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return brands, nil
+}
+
+func (d *DB) GetFilteredModels(f FilterParams) ([]string, error) {
+	if len(f.Brands) == 0 && strings.TrimSpace(f.Brand) == "" {
+		return []string{}, nil
+	}
+
+	fCopy := f
+	fCopy.Models = nil
+	where, args := buildCarFilters(fCopy)
+
+	q := "SELECT DISTINCT model FROM cars WHERE model != '' AND model IS NOT NULL" + where + " ORDER BY model ASC"
+
+	rows, err := d.Query(d.queryFormat(q), args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	models := []string{}
+	for rows.Next() {
+		var m string
+		if err := rows.Scan(&m); err != nil {
+			return nil, err
+		}
+		models = append(models, m)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return models, nil
 }
 
 func (d *DB) GetCarsByURLs(urls []string) ([]Car, error) {

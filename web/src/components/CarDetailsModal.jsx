@@ -15,6 +15,7 @@ import {
   formatHistoryDate,
   formatHeadlineChange,
 } from '../utils/priceHistory';
+import { parsePlateInfo, formatYesNo, isTaxesUnpaid, cleanSpecText } from '../utils/crVehicleInfo';
 
 // Data Categorization Utility
 const categorizeFeatures = (featuresArray, translateFn) => {
@@ -177,6 +178,12 @@ const CarDetailsModal = ({ isOpen, onClose, car }) => {
   const listingAge = formatListingAge(car, language);
   const listingDate = formatListingDate(car, language);
 
+  const hasRtvUpToDate = Boolean(car.Equipments?.['Revisión Técnica al día']);
+  const plateInfo = parsePlateInfo(car.Placa, car.Combustible, hasRtvUpToDate);
+  const unpaidTaxes = isTaxesUnpaid(car.PagoImpuestos);
+  const cleanEstado = cleanSpecText(car.Estado);
+  const sellerAddress = cleanSpecText(car.SellerAddress);
+
   const whatsappPhone = getWhatsAppPhone(car.SellerPhone);
   const allPhones = parsePhones(car.SellerPhone);
   const otherPhones = whatsappPhone
@@ -195,11 +202,38 @@ const CarDetailsModal = ({ isOpen, onClose, car }) => {
     { key: 'Combustible', label: t('fuelType'), value: car.Combustible },
     { key: 'Cilindrada', label: t('specDisplacement'), value: car.Cilindrada },
     { key: 'Estilo', label: t('specBodyStyle'), value: car.Estilo },
-    { key: 'ColorExterior', label: t('specExteriorColor'), value: car.ColorExterior },
+    { key: 'Estado', label: t('specCondition'), value: cleanEstado ? t(cleanEstado) : null },
+    { key: 'ColorExterior', label: t('specExteriorColor'), value: cleanSpecText(car.ColorExterior) },
+    { key: 'ColorInterior', label: t('specInteriorColor'), value: cleanSpecText(car.ColorInterior) },
+    {
+      key: 'Placa',
+      label: t('specPlate'),
+      value: plateInfo ? (plateInfo.digit !== null ? t('plateEndsIn', { digit: plateInfo.digit }) : plateInfo.raw) : null
+    },
+    {
+      key: 'RestriccionSJ',
+      label: t('specRestriction'),
+      value: plateInfo?.restrictionKey ? t(plateInfo.restrictionKey) : null,
+      className: plateInfo?.isElectric ? 'details-spec-value--good' : ''
+    },
+    {
+      key: 'MesDEKRA',
+      label: t('specDekra'),
+      value: plateInfo?.dekraMonthKey
+        ? (plateInfo.hasRtvUpToDate ? t('dekraUpToDateSuffix', { month: t(plateInfo.dekraMonthKey) }) : t(plateInfo.dekraMonthKey))
+        : null,
+      className: plateInfo?.hasRtvUpToDate ? 'details-spec-value--good' : ''
+    },
     { key: 'Puertas', label: t('specDoors'), value: car.Puertas },
     { key: 'Pasajeros', label: t('specPassengers'), value: car.Pasajeros },
-    { key: 'PrecioNegociable', label: t('specNegotiable'), value: car.PrecioNegociable },
-    { key: 'SeRecibe', label: t('specTradeIn'), value: car.SeRecibe },
+    { key: 'PrecioNegociable', label: t('specNegotiable'), value: formatYesNo(car.PrecioNegociable, t) },
+    { key: 'SeRecibe', label: t('specTradeIn'), value: formatYesNo(car.SeRecibe, t) },
+    {
+      key: 'PagoImpuestos',
+      label: t('specTaxesPaid'),
+      value: unpaidTaxes ? t('taxesUnpaidValue') : formatYesNo(car.PagoImpuestos, t),
+      className: unpaidTaxes ? 'details-spec-value--warn' : ''
+    },
   ];
 
   const activeSpecs = specsList.filter(s => {
@@ -371,18 +405,20 @@ const CarDetailsModal = ({ isOpen, onClose, car }) => {
             </div>
           )}
 
+          {unpaidTaxes && <div className="details-taxes-warning">⚠️ {t('taxesUnpaidWarning')}</div>}
+
           {activeSpecs.length > 0 && (
             <div className="details-specs-grid">
               {activeSpecs.map(spec => (
                 <div key={spec.key} className="details-spec-item">
                   <span className="details-spec-label">{spec.label}</span>
-                  <span className="details-spec-value">{spec.value}</span>
+                  <span className={`details-spec-value ${spec.className || ''}`}>{spec.value}</span>
                 </div>
               ))}
             </div>
           )}
 
-          {(sellerName || listingAge) && (
+          {(sellerName || sellerAddress || listingAge) && (
             <div className="details-seller-card">
               <div className="details-seller-label">
                 {t('sellerName')}
@@ -391,6 +427,9 @@ const CarDetailsModal = ({ isOpen, onClose, car }) => {
                 <div className="details-seller-name">
                   {sellerName}
                 </div>
+              )}
+              {sellerAddress && (
+                <div className="details-seller-address">📍 {sellerAddress}</div>
               )}
               {listingAge && (
                 <div className="details-seller-date">

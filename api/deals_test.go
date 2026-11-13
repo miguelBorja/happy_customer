@@ -92,6 +92,26 @@ func TestDealThresholdsMatchFrontend(t *testing.T) {
 			t.Errorf("%s: marketDeal.js = %s, Go = %v", name, m[1], goVal)
 		}
 	}
+
+	phSrc, err := os.ReadFile("../web/src/utils/priceHistory.js")
+	if err != nil {
+		t.Skipf("frontend not available: %v", err)
+	}
+	dropWant := map[string]float64{
+		"MIN_BADGE_DROP_USD": minBadgeDropUSD,
+		"MIN_BADGE_DROP_PCT": minBadgeDropPct,
+	}
+	for name, goVal := range dropWant {
+		m := regexp.MustCompile(`export const ` + name + `\s*=\s*(-?[0-9.]+)`).FindSubmatch(phSrc)
+		if m == nil {
+			t.Errorf("%s not found in priceHistory.js", name)
+			continue
+		}
+		jsVal, err := strconv.ParseFloat(string(m[1]), 64)
+		if err != nil || jsVal != goVal {
+			t.Errorf("%s: priceHistory.js = %s, Go = %v", name, m[1], goVal)
+		}
+	}
 }
 
 // Gangas uses the "Gran precio" threshold over the same reference as the badges.
@@ -232,5 +252,155 @@ func TestHandleCarsAndBargainsExcludeDuplicates(t *testing.T) {
 	}
 	if h := rec.Header().Get("X-Total-Count"); h != "6" {
 		t.Errorf("X-Total-Count = %q, want 6", h)
+	}
+}
+
+func TestPriceDropFilterAndOrder(t *testing.T) {
+	database, err := db.Init(filepath.Join(t.TempDir(), "test.db"))
+	if err != nil {
+		t.Fatalf("db.Init: %v", err)
+	}
+	defer database.Close()
+
+	resetMarketCache := func() {
+		marketCache.Lock()
+		marketCache.stats = nil
+		marketCache.loadedAt = time.Time{}
+		marketCache.Unlock()
+	}
+	resetMarketCache()
+	t.Cleanup(resetMarketCache)
+
+	baseTime := time.Date(2026, 11, 11, 12, 0, 0, 0, time.UTC)
+	older := baseTime.Add(-90 * time.Minute)
+	newest := baseTime.Add(-60 * time.Minute)
+	prev := baseTime.Add(-24 * time.Hour)
+
+	cars := []db.Car{
+		{URL: "https://crautos.com/drop1", Brand: "Toyota", Model: "Corolla", Year: 2018, Price: 18900, Kilometraje: 50000, Placa: "Termina en 1", ColorExterior: "BLANCO", SellerPhone: "8888-3001", Title: "Toyota Corolla", ScrapedAt: baseTime, LastSeenAt: baseTime},
+		{URL: "https://crautos.com/drop2", Brand: "Toyota", Model: "Corolla", Year: 2018, Price: 18500, Kilometraje: 52000, Placa: "Termina en 2", ColorExterior: "GRIS", SellerPhone: "8888-3002", Title: "Toyota Corolla", ScrapedAt: baseTime, LastSeenAt: baseTime},
+		{URL: "https://crautos.com/drop3", Brand: "Toyota", Model: "Corolla", Year: 2018, Price: 17800, Kilometraje: 54000, Placa: "Termina en 3", ColorExterior: "NEGRO", SellerPhone: "8888-3003", Title: "Toyota Corolla", ScrapedAt: baseTime, LastSeenAt: baseTime},
+		{URL: "https://crautos.com/fair", Brand: "Toyota", Model: "Corolla", Year: 2018, Price: 20000, Kilometraje: 56000, Placa: "Termina en 4", ColorExterior: "AZUL", SellerPhone: "8888-3004", Title: "Toyota Corolla", ScrapedAt: baseTime, LastSeenAt: baseTime},
+		{URL: "https://crautos.com/condition", Brand: "Toyota", Model: "Corolla", Year: 2018, Price: 14000, Kilometraje: 70000, Placa: "Termina en 5", ColorExterior: "ROJO", SellerPhone: "8888-3005", Title: "Toyota Corolla", Comment: "Detalles de pintura, la caja patina", ScrapedAt: baseTime, LastSeenAt: baseTime},
+		{URL: "https://crautos.com/typo", Brand: "Toyota", Model: "Corolla", Year: 2018, Price: 2100, Kilometraje: 60000, Placa: "Termina en 6", ColorExterior: "BLANCO", SellerPhone: "8888-3006", Title: "Toyota Corolla", ScrapedAt: baseTime, LastSeenAt: baseTime},
+		{URL: "https://crautos.com/smallusd", Brand: "Kia", Model: "Rio", Year: 2015, Price: 10000, Kilometraje: 30000, Placa: "Termina en 7", ColorExterior: "GRIS", SellerPhone: "8888-3007", Title: "Kia Rio", ScrapedAt: baseTime, LastSeenAt: baseTime},
+		{URL: "https://crautos.com/smallpct", Brand: "Honda", Model: "Civic", Year: 2012, Price: 99050, Kilometraje: 40000, Placa: "Termina en 8", ColorExterior: "NEGRO", SellerPhone: "8888-3008", Title: "Honda Civic", ScrapedAt: baseTime, LastSeenAt: baseTime},
+	}
+	if err := database.UpsertCarBatch(cars); err != nil {
+		t.Fatalf("UpsertCarBatch: %v", err)
+	}
+
+	insertPrice := func(url string, price int, seen time.Time) {
+		if _, err := database.Exec("INSERT INTO price_history (url, price, seen_at) VALUES (?, ?, ?)", url, price, seen); err != nil {
+			t.Fatalf("insert price_history %s: %v", url, err)
+		}
+	}
+	insertPrice("https://crautos.com/drop1", 20000, prev)
+	insertPrice("https://crautos.com/drop1", 18900, older)
+	insertPrice("https://crautos.com/drop2", 20000, prev)
+	insertPrice("https://crautos.com/drop2", 18500, newest)
+	insertPrice("https://crautos.com/drop3", 20000, prev)
+	insertPrice("https://crautos.com/drop3", 17800, newest)
+	insertPrice("https://crautos.com/condition", 20000, prev)
+	insertPrice("https://crautos.com/condition", 14000, baseTime)
+	insertPrice("https://crautos.com/typo", 20000, prev)
+	insertPrice("https://crautos.com/typo", 2100, baseTime)
+	insertPrice("https://crautos.com/smallusd", 10050, prev)
+	insertPrice("https://crautos.com/smallusd", 10000, baseTime)
+	insertPrice("https://crautos.com/smallpct", 100000, prev)
+	insertPrice("https://crautos.com/smallpct", 99050, baseTime)
+
+	srv := &Server{DB: database}
+	req := httptest.NewRequest(http.MethodGet, "/api/cars?priceDrop=true&isSold=false&limit=20", nil)
+	rec := httptest.NewRecorder()
+	srv.HandleCars(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("HandleCars status = %d, want 200", rec.Code)
+	}
+
+	var got []CarWithMarket
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("unmarshal price drops: %v", err)
+	}
+	wantURLs := []string{"https://crautos.com/drop3", "https://crautos.com/drop2", "https://crautos.com/drop1"}
+	if len(got) != len(wantURLs) {
+		t.Fatalf("len(price drops) = %d, want %d: %+v", len(got), len(wantURLs), got)
+	}
+	for i, u := range wantURLs {
+		if got[i].Car.URL != u {
+			t.Errorf("price drop %d = %q, want %q", i, got[i].Car.URL, u)
+		}
+	}
+	if h := rec.Header().Get("X-Total-Count"); h != strconv.Itoa(len(wantURLs)) {
+		t.Errorf("X-Total-Count = %q, want %d", h, len(wantURLs))
+	}
+}
+
+func TestHandleCarsNewFiltersStylesAndModels(t *testing.T) {
+	database, err := db.Init(filepath.Join(t.TempDir(), "test.db"))
+	if err != nil {
+		t.Fatalf("db.Init: %v", err)
+	}
+	defer database.Close()
+
+	resetMarketCache := func() {
+		marketCache.Lock()
+		marketCache.stats = nil
+		marketCache.loadedAt = time.Time{}
+		marketCache.Unlock()
+	}
+	resetMarketCache()
+	t.Cleanup(resetMarketCache)
+
+	baseTime := time.Date(2026, 11, 11, 12, 0, 0, 0, time.UTC)
+	cars := []db.Car{
+		{URL: "https://crautos.com/corolla", Brand: "Toyota", Model: "Corolla", Year: 2018, Price: 15000, Kilometraje: 50000, Placa: "Termina en 1", ColorExterior: "BLANCO", SellerPhone: "8888-4001", Title: "Toyota Corolla", ScrapedAt: baseTime, LastSeenAt: baseTime},
+		{URL: "https://crautos.com/civic", Brand: "Honda", Model: "Civic", Year: 2018, Price: 15500, Kilometraje: 52000, Placa: "Termina en 2", ColorExterior: "GRIS", SellerPhone: "8888-4002", Title: "Honda Civic", ScrapedAt: baseTime, LastSeenAt: baseTime},
+	}
+	if err := database.UpsertCarBatch(cars); err != nil {
+		t.Fatalf("UpsertCarBatch: %v", err)
+	}
+
+	srv := &Server{DB: database}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/cars?isSold=false&models=Corolla&limit=10", nil)
+	rec := httptest.NewRecorder()
+	srv.HandleCars(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("HandleCars(models) status = %d, want 200", rec.Code)
+	}
+	var got []CarWithMarket
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("unmarshal cars models: %v", err)
+	}
+	if len(got) != 1 || got[0].Car.URL != "https://crautos.com/corolla" {
+		t.Errorf("models filter = %+v, want only Corolla", got)
+	}
+	if h := rec.Header().Get("X-Total-Count"); h != "1" {
+		t.Errorf("X-Total-Count = %q, want 1", h)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/api/cars?isSold=false&models=Corolla&seRecibe=true&negociable=true&limit=10", nil)
+	rec = httptest.NewRecorder()
+	srv.HandleCars(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("HandleCars(seRecibe/negociable) status = %d, want 200", rec.Code)
+	}
+	if len(rec.Body.Bytes()) == 0 || rec.Body.Bytes()[0] != '[' {
+		t.Errorf("seRecibe/negociable response = %s, want JSON array", rec.Body.String())
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/api/styles", nil)
+	rec = httptest.NewRecorder()
+	srv.HandleStyles(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("HandleStyles status = %d, want 200", rec.Code)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/api/models?brand=Toyota", nil)
+	rec = httptest.NewRecorder()
+	srv.HandleFilteredModels(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("HandleFilteredModels status = %d, want 200", rec.Code)
 	}
 }

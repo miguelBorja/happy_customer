@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
+	"time"
 
 	"crautosdb/db"
 )
@@ -19,6 +20,13 @@ const (
 	greatDealMaxPct      = -12.0 // "Gran precio"
 	goodDealMaxPct       = -5.0  // "Buen precio" or better (deal=good)
 	highDealMinPct       = 10.0  // "Sobre el mercado"
+)
+
+// Price-drop badge thresholds. Must match web/src/utils/priceHistory.js; TestDealThresholdsMatchFrontend
+// enforces it. A drop must be both >= $100 and >= 1% of the previous price to earn the badge.
+const (
+	minBadgeDropUSD = 100
+	minBadgeDropPct = 1.0
 )
 
 // "Check the price" flags (MarketFlag in the API). A flagged car gets a warning badge instead of
@@ -61,6 +69,29 @@ func marketDealPct(stats *db.MarketIndex, k db.CarPriceKey) (float64, string, bo
 	}
 	pct := float64(k.Price-ref.Expected) / float64(ref.Expected) * 100
 	return pct, dealFlag(pct, k.Price, ref.Expected, stats.TextFlag(k.URL)), true
+}
+
+// qualifyingPriceDrop reports whether a listing has a clean price drop that earns the
+// "price drop" badge: same current price as the cleaned history, previous > current,
+// no market/typo flag, and drop >= $100 and >= 1% of the previous price.
+func qualifyingPriceDrop(stats *db.MarketIndex, k db.CarPriceKey) (dropUSD int, dropPct float64, changedAt time.Time, ok bool) {
+	pc, has := stats.PriceChangeOf(k.URL)
+	if !has || k.Price <= 0 || pc.CurrentPrice != k.Price || pc.PreviousPrice <= k.Price {
+		return 0, 0, time.Time{}, false
+	}
+	_, flag, _ := marketDealPct(stats, k)
+	if flag != "" {
+		return 0, 0, time.Time{}, false
+	}
+	if db.IsTypoPrice(k.Price, pc.PreviousPrice) {
+		return 0, 0, time.Time{}, false
+	}
+	drop := pc.PreviousPrice - k.Price
+	pct := float64(drop) / float64(pc.PreviousPrice) * 100
+	if drop < minBadgeDropUSD || pct < minBadgeDropPct {
+		return 0, 0, time.Time{}, false
+	}
+	return drop, pct, pc.ChangedAt, true
 }
 
 // rankDealURLs filters and/or orders the candidate keys (already most-recent-first) by market deal.
@@ -107,6 +138,81 @@ func rankDeals(keys []db.CarPriceKey, stats *db.MarketIndex, maxPct float64, bes
 		})
 	}
 	return items
+}
+
+type rankedDrop struct {
+	key       db.CarPriceKey
+	dropPct   float64
+	changedAt time.Time
+}
+
+// rankDealAndDropURLs resolves the market-deal and price-drop ranking modes. priceDrop=true
+// filters the catalog to listings with a qualifying price drop; when no deal ordering is also
+// requested, it sorts by the requested column (or by drop recency/depth by default).
+func rankDealAndDropURLs(keys []db.CarPriceKey, stats *db.MarketIndex, onlyGood, onlyDrops, bestFirst bool, f db.FilterParams) []string {
+	if !onlyDrops {
+		return rankDealURLs(keys, stats, onlyGood, bestFirst)
+	}
+
+	drops := make([]rankedDrop, 0, len(keys))
+	for _, k := range keys {
+		_, pct, changedAt, ok := qualifyingPriceDrop(stats, k)
+		if !ok {
+			continue
+		}
+		drops = append(drops, rankedDrop{key: k, dropPct: pct, changedAt: changedAt})
+	}
+
+	if onlyGood || bestFirst {
+		filtered := make([]db.CarPriceKey, len(drops))
+		for i, d := range drops {
+			filtered[i] = d.key
+		}
+		return rankDealURLs(filtered, stats, onlyGood, bestFirst)
+	}
+
+	if f.SortPrice != "" || f.SortYear != "" || f.SortKm != "" || f.SortTitle != "" {
+		sort.SliceStable(drops, func(i, j int) bool {
+			if f.SortYear != "" {
+				if drops[i].key.Year != drops[j].key.Year {
+					if f.SortYear == "asc" {
+						return drops[i].key.Year < drops[j].key.Year
+					}
+					return drops[i].key.Year > drops[j].key.Year
+				}
+			}
+			if f.SortPrice != "" {
+				if drops[i].key.Price != drops[j].key.Price {
+					if f.SortPrice == "asc" {
+						return drops[i].key.Price < drops[j].key.Price
+					}
+					return drops[i].key.Price > drops[j].key.Price
+				}
+			}
+			if f.SortKm != "" {
+				if drops[i].key.Km != drops[j].key.Km {
+					if f.SortKm == "asc" {
+						return drops[i].key.Km < drops[j].key.Km
+					}
+					return drops[i].key.Km > drops[j].key.Km
+				}
+			}
+			return false
+		})
+	} else {
+		sort.SliceStable(drops, func(i, j int) bool {
+			if !drops[i].changedAt.Equal(drops[j].changedAt) {
+				return drops[i].changedAt.After(drops[j].changedAt)
+			}
+			return drops[i].dropPct > drops[j].dropPct
+		})
+	}
+
+	urls := make([]string, len(drops))
+	for i, d := range drops {
+		urls[i] = d.key.URL
+	}
+	return urls
 }
 
 // maxBargains caps the Gangas tab.
@@ -192,14 +298,14 @@ func orderCarsByURLs(cars []db.Car, urls []string) []db.Car {
 
 // serveDealCars answers /api/cars when deal=good and/or sortDeal=best: it ranks every matching
 // car against the mileage-adjusted market median, then loads only the requested page. X-Total-Count is always set.
-func (s *Server) serveDealCars(w http.ResponseWriter, f db.FilterParams, onlyGood, bestFirst bool) {
+func (s *Server) serveDealCars(w http.ResponseWriter, f db.FilterParams, onlyGood, onlyDrops, bestFirst bool) {
 	keys, err := s.DB.GetCarPriceKeys(f)
 	if err != nil {
 		log.Printf("[API ERROR] GetCarPriceKeys failed: %v", err)
 		respondError(w, http.StatusInternalServerError, "Failed to fetch cars")
 		return
 	}
-	urls := rankDealURLs(keys, s.getMarketStats(), onlyGood, bestFirst)
+	urls := rankDealAndDropURLs(keys, s.getMarketStats(), onlyGood, onlyDrops, bestFirst, f)
 	page := pageOfURLs(urls, f.Offset, f.Limit)
 
 	cars := []db.Car{}

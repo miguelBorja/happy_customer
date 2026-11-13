@@ -24,12 +24,8 @@ type Server struct {
 	cache    serverCache
 }
 
-func (s *Server) HandleCars(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-
-	q := r.URL.Query()
-	log.Printf("[API] HandleCars query params: %s", r.URL.RawQuery)
+// parseFilterQuery converts the shared listing query parameters into db.FilterParams.
+func parseFilterQuery(q url.Values) db.FilterParams {
 	f := db.FilterParams{
 		Estilo:      q.Get("estilo"),
 		Transmision: q.Get("transmision"),
@@ -44,6 +40,8 @@ func (s *Server) HandleCars(w http.ResponseWriter, r *http.Request) {
 		ScrapedFrom: q.Get("scrapedFrom"),
 		ScrapedTo:   q.Get("scrapedTo"),
 		SellerName:  q.Get("sellerName"),
+		SeRecibe:    q.Get("seRecibe") == "true",
+		Negociable:  q.Get("negociable") == "true",
 	}
 
 	if brandsParam := q.Get("brands"); brandsParam != "" {
@@ -54,6 +52,10 @@ func (s *Server) HandleCars(w http.ResponseWriter, r *http.Request) {
 		} else {
 			f.Brand = brandParam
 		}
+	}
+
+	if modelsParam := q.Get("models"); modelsParam != "" {
+		f.Models = strings.Split(modelsParam, ",")
 	}
 
 	if y, _ := strconv.Atoi(q.Get("yearMin")); y > 0 {
@@ -100,16 +102,29 @@ func (s *Server) HandleCars(w http.ResponseWriter, r *http.Request) {
 		f.SortDesc = true // default desc
 	}
 
+	return f
+}
+
+func (s *Server) HandleCars(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	q := r.URL.Query()
+	log.Printf("[API] HandleCars query params: %s", r.URL.RawQuery)
+	f := parseFilterQuery(q)
+
 	if stats := s.getMarketStats(); stats != nil {
 		f.ExcludeURLs = stats.ActiveDuplicateURLs()
 	}
 
-	// Market-deal mode: ordering by deal and/or the "good prices only" filter need the market
-	// median of every matching car, so they are resolved here over the whole catalog.
+	// Market-deal mode: ordering by deal, the "good prices only" filter, and/or the
+	// "price drops" filter need the market median of every matching car, so they are
+	// resolved here over the whole catalog.
 	onlyGood := q.Get("deal") == "good"
+	onlyDrops := q.Get("priceDrop") == "true"
 	bestFirst := q.Get("sortDeal") == "best"
-	if onlyGood || bestFirst {
-		s.serveDealCars(w, f, onlyGood, bestFirst)
+	if onlyGood || onlyDrops || bestFirst {
+		s.serveDealCars(w, f, onlyGood, onlyDrops, bestFirst)
 		return
 	}
 
@@ -162,43 +177,10 @@ func (s *Server) HandleFilteredBrands(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
-	q := r.URL.Query()
-	f := db.FilterParams{
-		TitleQuery:  q.Get("title"),
-		Provincia:   q.Get("provincia"),
-		Transmision: q.Get("transmision"),
-		Combustible: q.Get("combustible"),
-		SellerName:  q.Get("sellerName"),
-		ScrapedFrom: q.Get("scrapedFrom"),
-		ScrapedTo:   q.Get("scrapedTo"),
-	}
+	f := parseFilterQuery(r.URL.Query())
 
-	if y, _ := strconv.Atoi(q.Get("yearMin")); y > 0 {
-		f.YearMin = y
-	}
-	if y, _ := strconv.Atoi(q.Get("yearMax")); y > 0 {
-		f.YearMax = y
-	}
-	if k, _ := strconv.Atoi(q.Get("kmMax")); k > 0 {
-		f.KmMax = k
-	}
-	if k, _ := strconv.Atoi(q.Get("kmMin")); k > 0 {
-		f.KmMin = k
-	}
-	if p, _ := strconv.Atoi(q.Get("priceMax")); p > 0 {
-		f.PriceMax = p
-	}
-	if p, _ := strconv.Atoi(q.Get("priceMin")); p > 0 {
-		f.PriceMin = p
-	}
-
-	if isSoldStr := q.Get("isSold"); isSoldStr != "" {
-		b := isSoldStr == "true"
-		f.IsSold = &b
-	}
-
-	if eq := q.Get("equipments"); eq != "" {
-		f.Equipments = strings.Split(eq, ",")
+	if stats := s.getMarketStats(); stats != nil {
+		f.ExcludeURLs = stats.ActiveDuplicateURLs()
 	}
 
 	brands, err := s.DB.GetFilteredBrands(f)
@@ -215,6 +197,30 @@ func (s *Server) HandleFilteredBrands(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(brands)
 }
 
+func (s *Server) HandleFilteredModels(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	f := parseFilterQuery(r.URL.Query())
+
+	if stats := s.getMarketStats(); stats != nil {
+		f.ExcludeURLs = stats.ActiveDuplicateURLs()
+	}
+
+	models, err := s.DB.GetFilteredModels(f)
+	if err != nil {
+		log.Printf("[API ERROR] GetFilteredModels failed: %v", err)
+		respondError(w, http.StatusInternalServerError, "Failed to fetch models")
+		return
+	}
+
+	if models == nil {
+		models = []string{}
+	}
+
+	json.NewEncoder(w).Encode(models)
+}
+
 func (s *Server) HandleProvinces(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -227,6 +233,20 @@ func (s *Server) HandleProvinces(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json.NewEncoder(w).Encode(provinces)
+}
+
+func (s *Server) HandleStyles(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	styles, err := s.getStyles()
+	if err != nil {
+		log.Printf("[API ERROR] getStyles failed: %v", err)
+		respondError(w, http.StatusInternalServerError, "Failed to fetch styles")
+		return
+	}
+
+	json.NewEncoder(w).Encode(styles)
 }
 
 func (s *Server) HandleStats(w http.ResponseWriter, r *http.Request) {

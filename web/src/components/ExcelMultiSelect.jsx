@@ -7,6 +7,9 @@ const ExcelMultiSelect = ({
   selected = [],
   onChange,
   placeholder,
+  searchPlaceholder,
+  noResultsLabel,
+  disabled = false,
   id = 'excel-multiselect',
 }) => {
   const { t } = useLanguage();
@@ -150,12 +153,13 @@ const ExcelMultiSelect = ({
     <div className="excel-multiselect-container" ref={containerRef} id={id}>
       {/* Dropdown Trigger Button */}
       <div 
-        className={`excel-multiselect-trigger ${isOpen ? 'active' : ''} ${selectedList.length > 0 ? 'has-selection' : ''}`}
-        onClick={() => { const next = !isOpen; setIsOpen(next); if (!next) setSearchTerm(''); }}
-        tabIndex={0}
+        className={`excel-multiselect-trigger ${isOpen ? 'active' : ''} ${selectedList.length > 0 ? 'has-selection' : ''} ${disabled ? 'disabled' : ''}`}
+        onClick={() => { if (disabled) return; const next = !isOpen; setIsOpen(next); if (!next) setSearchTerm(''); }}
+        tabIndex={disabled ? -1 : 0}
         role="button"
         aria-haspopup="listbox"
         aria-expanded={isOpen}
+        aria-disabled={disabled ? 'true' : undefined}
       >
         <div className="excel-trigger-text-wrapper">
           <span className={`excel-trigger-label ${selectedList.length === 0 ? 'placeholder' : ''}`}>
@@ -196,7 +200,7 @@ const ExcelMultiSelect = ({
                 ref={searchInputRef}
                 type="text"
                 className="excel-search-input"
-                placeholder={t('searchBrands')}
+                placeholder={searchPlaceholder || t('searchBrands')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 onClick={(e) => e.stopPropagation()}
@@ -265,7 +269,7 @@ const ExcelMultiSelect = ({
           <div className="excel-options-list" role="listbox">
             {filteredOptions.length === 0 ? (
               <div className="excel-no-results">
-                {t('noBrandsFound')}
+                {noResultsLabel || t('noBrandsFound')}
               </div>
             ) : (
               filteredOptions.map((opt) => {

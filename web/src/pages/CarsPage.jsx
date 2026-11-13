@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { fetchCars, fetchCarsPage, fetchCarsByUrls, fetchProvinces, fetchTopSellers, fetchFilteredBrands } from '../api/client';
+import { fetchCars, fetchCarsPage, fetchCarsByUrls, fetchProvinces, fetchTopSellers, fetchFilteredBrands, fetchFilteredModels, fetchStyles } from '../api/client';
 import { trackEvent } from '../utils/analytics';
 import { formatListingAge, formatListingDate } from '../utils/listingDate';
 import { getWhatsAppPhone, buildWhatsAppLink } from '../utils/phone';
@@ -54,6 +54,8 @@ const CarsPage = ({
   const [brands, setBrands] = useState([]);
   const [provinces, setProvinces] = useState([]);
   const [sellers, setSellers] = useState([]);
+  const [models, setModels] = useState([]);
+  const [styles, setStyles] = useState([]);
   const [catalogLoading, setCatalogLoading] = useState(true);
   const { isNew, markSeen, markAllSeen } = useSeenCars();
   const { isFavorite, toggleFavorite, getAllUrls } = useFavorites();
@@ -78,6 +80,12 @@ const CarsPage = ({
     return cars.find(c => c.URL === carUrl) || favCars.find(c => c.URL === carUrl) || null;
   }, [carUrl, selectedCar, cars, favCars]);
 
+  const selectedBrands = useMemo(() => (
+    Array.isArray(filters.brands)
+      ? filters.brands
+      : (filters.brand ? filters.brand.split(',').map(s => s.trim()).filter(Boolean) : [])
+  ), [filters.brands, filters.brand]);
+
   // Shared link: the car may not be in the loaded results, so fetch it once.
   const needsFetch = Boolean(carUrl) && !openCar && !loading;
   useEffect(() => {
@@ -94,6 +102,7 @@ const CarsPage = ({
   useEffect(() => {
     fetchProvinces().then(setProvinces).catch(console.error);
     fetchTopSellers().then(setSellers).catch(console.error);
+    fetchStyles().then(setStyles).catch(console.error);
   }, []);
 
   // Dynamically load brands matching all other filters
@@ -115,6 +124,8 @@ const CarsPage = ({
       equipments: filters.equipments,
       scrapedFrom: filters.scrapedFrom,
       scrapedTo: filters.scrapedTo,
+      seRecibe: filters.seRecibe,
+      negociable: filters.negociable,
       deal: filters.deal,
     };
 
@@ -139,6 +150,57 @@ const CarsPage = ({
     filters.scrapedFrom,
     filters.scrapedTo,
     filters.deal,
+    filters.seRecibe,
+    filters.negociable,
+  ]);
+
+  useEffect(() => {
+    if (selectedBrands.length === 0) return;
+    let cancelled = false;
+    fetchFilteredModels({
+      brands: selectedBrands,
+      title: filters.title,
+      provincia: filters.provincia,
+      yearMin: filters.yearMin,
+      yearMax: filters.yearMax,
+      priceMin: filters.priceMin,
+      priceMax: filters.priceMax,
+      kmMin: filters.kmMin,
+      kmMax: filters.kmMax,
+      estilo: filters.estilo,
+      transmision: filters.transmision,
+      combustible: filters.combustible,
+      sellerName: filters.sellerName,
+      isSold: filters.isSold,
+      equipments: filters.equipments,
+      scrapedFrom: filters.scrapedFrom,
+      scrapedTo: filters.scrapedTo,
+      seRecibe: filters.seRecibe,
+      negociable: filters.negociable,
+    })
+      .then(data => { if (!cancelled) setModels(Array.isArray(data) ? data : []); })
+      .catch(console.error);
+    return () => { cancelled = true; };
+  }, [
+    selectedBrands,
+    filters.title,
+    filters.provincia,
+    filters.yearMin,
+    filters.yearMax,
+    filters.priceMin,
+    filters.priceMax,
+    filters.kmMin,
+    filters.kmMax,
+    filters.estilo,
+    filters.transmision,
+    filters.combustible,
+    filters.sellerName,
+    filters.isSold,
+    filters.equipments,
+    filters.scrapedFrom,
+    filters.scrapedTo,
+    filters.seRecibe,
+    filters.negociable,
   ]);
 
   useEffect(() => {
@@ -426,8 +488,18 @@ const CarsPage = ({
               ...f,
               brands: updated,
               brand: updated.join(','),
+              models: updated.length === 0 ? [] : f.models,
             };
           })
+        });
+      });
+    }
+    if (filters.models && filters.models.length > 0) {
+      filters.models.forEach(m => {
+        tags.push({
+          id: 'model-' + m,
+          label: `${t('model')}: ${m}`,
+          clear: () => setFilters(f => ({ ...f, models: (f.models || []).filter(modelItem => modelItem !== m) }))
         });
       });
     }
@@ -473,7 +545,7 @@ const CarsPage = ({
       }
     }
     if (filters.kmMax) tags.push({ id: 'kmMax', label: `Max km: ${Number(filters.kmMax).toLocaleString()}`, clear: () => setFilters(f => ({ ...f, kmMax: '', kmMode: '' })) });
-    if (filters.estilo) tags.push({ id: 'estilo', label: `Estilo: ${filters.estilo}`, clear: () => setFilters(f => ({ ...f, estilo: '' })) });
+    if (filters.estilo) tags.push({ id: 'estilo', label: `${t('specBodyStyle')}: ${filters.estilo}`, clear: () => setFilters(f => ({ ...f, estilo: '' })) });
     if (filters.transmision) tags.push({ id: 'transmision', label: `${t('transmission')}: ${getTransmisionLabel(filters.transmision)}`, clear: () => setFilters(f => ({ ...f, transmision: '' })) });
     if (filters.combustible) tags.push({ id: 'combustible', label: `${t('fuel')}: ${getCombustibleLabel(filters.combustible)}`, clear: () => setFilters(f => ({ ...f, combustible: '' })) });
     if (filters.sellerName) tags.push({ id: 'sellerName', label: `${t('sellerName') || 'Seller'}: ${filters.sellerName}`, clear: () => setFilters(f => ({ ...f, sellerName: '', sellerMode: '' })) });
@@ -512,6 +584,9 @@ const CarsPage = ({
     }
     if (filters.isSold !== 'false') tags.push({ id: 'isSold', label: t('showSold'), clear: () => setFilters(f => ({ ...f, isSold: 'false' })) });
     if (filters.deal === 'good') tags.push({ id: 'deal', label: t('goodPricesOnly'), clear: () => setFilters(f => ({ ...f, deal: '' })) });
+    if (filters.priceDrop === 'true') tags.push({ id: 'priceDrop', label: t('priceDropsOnly'), clear: () => setFilters(f => ({ ...f, priceDrop: '' })) });
+    if (filters.seRecibe === 'true') tags.push({ id: 'seRecibe', label: t('tradeInOnly'), clear: () => setFilters(f => ({ ...f, seRecibe: '' })) });
+    if (filters.negociable === 'true') tags.push({ id: 'negociable', label: t('negotiableOnly'), clear: () => setFilters(f => ({ ...f, negociable: '' })) });
     if (showFavsOnly) tags.push({ id: 'showFavsOnly', label: t('showFavsOnly'), clear: () => setShowFavsOnly(false) });
     
     return tags;
@@ -569,6 +644,13 @@ const CarsPage = ({
         setClientSort(null);
         setFilters(f => ({ ...f, deal: '' }));
       },
+    },
+    {
+      id: 'priceDrops',
+      label: t('quickPriceDrops'),
+      isActive: filters.priceDrop === 'true',
+      apply: () => setFilters(f => ({ ...f, priceDrop: 'true' })),
+      remove: () => setFilters(f => ({ ...f, priceDrop: '' })),
     },
     {
       id: 'under15k',
@@ -718,6 +800,8 @@ const CarsPage = ({
         brands={brands}
         provinces={provinces}
         sellers={sellers}
+        models={selectedBrands.length > 0 ? models : []}
+        styles={styles}
       />
 
       {/* Results Container */}
@@ -800,7 +884,7 @@ const CarsPage = ({
               clear: () => { setLocalTitle(''); setFilters(f => ({ ...f, title: '' })); }
             };
           } else {
-            const priorityOrder = ['sellerName', 'eq-', 'deal', 'scrapedPeriod', 'scrapedDate', 'price', 'kmMax', 'year', 'combustible', 'estilo', 'transmision', 'provincia', 'brand-', 'isSold'];
+            const priorityOrder = ['sellerName', 'eq-', 'deal', 'priceDrop', 'seRecibe', 'negociable', 'scrapedPeriod', 'scrapedDate', 'price', 'kmMax', 'year', 'combustible', 'estilo', 'transmision', 'provincia', 'brand-', 'model-', 'isSold'];
             for (const prefix of priorityOrder) {
               const tag = activeTags.find(tg => tg.id === prefix || tg.id.startsWith(prefix));
               if (tag) { suggestion = { label: tag.label, clear: tag.clear }; break; }

@@ -41,6 +41,9 @@ type serverCache struct {
 	sellers         []string
 	sellersLoadedAt time.Time
 
+	styles         []string
+	stylesLoadedAt time.Time
+
 	statsTotal    int
 	statsActive   int
 	statsSold     int
@@ -122,6 +125,39 @@ func (s *Server) getProvinces() ([]string, error) {
 	s.cache.provinces = provinces
 	s.cache.provincesLoadedAt = time.Now()
 	return provinces, nil
+}
+
+func (s *Server) getStyles() ([]string, error) {
+	s.cache.mu.Lock()
+	defer s.cache.mu.Unlock()
+
+	if !s.cache.stylesLoadedAt.IsZero() && time.Since(s.cache.stylesLoadedAt) < s.cacheTTL() {
+		return s.cache.styles, nil
+	}
+
+	rows, err := s.DB.Query(`SELECT estilo FROM cars WHERE estilo != '' AND estilo IS NOT NULL GROUP BY estilo ORDER BY COUNT(*) DESC, estilo ASC`)
+	if err != nil {
+		return nil, err
+	}
+
+	styles := []string{}
+	for rows.Next() {
+		var st string
+		if err := rows.Scan(&st); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		styles = append(styles, st)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return nil, err
+	}
+	rows.Close()
+
+	s.cache.styles = styles
+	s.cache.stylesLoadedAt = time.Now()
+	return styles, nil
 }
 
 func (s *Server) getTopSellers() ([]string, error) {
