@@ -1,5 +1,5 @@
 # --- Stage 1: Build the React Frontend ---
-FROM node:20-alpine AS frontend-builder
+FROM node:22-alpine AS frontend-builder
 WORKDIR /app/web
 COPY web/package*.json ./
 RUN npm install
@@ -7,10 +7,12 @@ COPY web/ ./
 ARG VITE_GA_MEASUREMENT_ID
 ENV VITE_GA_MEASUREMENT_ID=$VITE_GA_MEASUREMENT_ID
 RUN npm run lint
+RUN npm test
 RUN npm run build
 
 # --- Stage 2: Build the Go Backend ---
-FROM golang:alpine AS backend-builder
+FROM golang:1.27-alpine AS backend-builder
+COPY --from=golangci/golangci-lint:v2.15-alpine /usr/bin/golangci-lint /usr/local/bin/golangci-lint
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
@@ -19,6 +21,7 @@ COPY . .
 COPY --from=frontend-builder /app/web/dist ./web/dist
 RUN unformatted="$(gofmt -l main.go api db scraper cmd)" && if [ -n "$unformatted" ]; then echo "gofmt needed on: $unformatted" >&2; exit 1; fi
 RUN CGO_ENABLED=0 go vet . ./api/... ./db/... ./scraper/... ./cmd/...
+RUN CGO_ENABLED=0 golangci-lint run . ./api/... ./db/... ./scraper/... ./cmd/...
 RUN CGO_ENABLED=0 go test -count=1 . ./api/... ./db/... ./scraper/... ./cmd/...
 RUN CGO_ENABLED=0 GOOS=linux go build -o main .
 

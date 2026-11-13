@@ -33,7 +33,7 @@ func restoreTable(sqlDB *sql.DB, tableName string, records []map[string]interfac
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	// Extract column names from the first record to build dynamic query template
 	first := records[0]
@@ -56,7 +56,7 @@ func restoreTable(sqlDB *sql.DB, tableName string, records []map[string]interfac
 
 		// Construct multi-row query: INSERT OR REPLACE INTO table (col1, col2) VALUES (?, ?), (?, ?) ...
 		var queryBuilder strings.Builder
-		queryBuilder.WriteString(fmt.Sprintf("INSERT OR REPLACE INTO %s (%s) VALUES ", tableName, strings.Join(cols, ", ")))
+		_, _ = fmt.Fprintf(&queryBuilder, "INSERT OR REPLACE INTO %s (%s) VALUES ", tableName, strings.Join(cols, ", "))
 
 		vals := make([]interface{}, 0, len(currentBatch)*len(cols))
 		for rowIndex, record := range currentBatch {

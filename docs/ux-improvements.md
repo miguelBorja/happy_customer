@@ -15,9 +15,9 @@ Leyenda: `[x]` hecho · `[~]` parcial · `[ ]` pendiente
 
 ## 📍 Estado actual y qué sigue
 
-- **Avance general:** **22 de 23** mejoras del backlog UX/producto completadas (**Prioridad 1, Prioridad 3, Prioridad 4 y Calidad de datos al 100%**).
-- **Único ítem UX pendiente:** **Alertas guardadas** (Prioridad 2).
-- **Rutas recomendadas a continuación (en orden práctico):**
+- **Avance general:** **23 de 23** mejoras del backlog UX/producto completadas en su alcance local (**Prioridad 1, Prioridad 2 Etapa 1, Prioridad 3, Prioridad 4 y Calidad de datos**).
+- **Qué sigue:** la evolución del producto (Etapa 2 con alertas externas por Telegram/Email, curva de depreciación, Copilot negociador, calculadora de cambio de carro, PWA, TCO CR, SEO y Fotos Fase 2) vive ahora en [proximas-mejoras.md](./proximas-mejoras.md).
+- **Estado de las rutas previas:**
   1. **Opción A — ✅ Completada (2026-11-12): Cierre técnico en CI y scraper** ([improvements.md](./improvements.md) §2):
      - `CGO_ENABLED=0 go vet` y `go test -count=1` agregados en `Dockerfile` junto con `.dockerignore`.
      - Fixtures HTML offline en `scraper/testdata/` + tests de extremo a extremo y backfill (`scraper/scraper_test.go`).

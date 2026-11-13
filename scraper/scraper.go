@@ -27,7 +27,6 @@ const (
 var (
 	millasRegexp     = regexp.MustCompile(`,|millas| `)
 	kilometersRegexp = regexp.MustCompile(`,|kms| `)
-	precioRegexp     = regexp.MustCompile(`,|\(|$|\)|\*|`)
 	precioNumRegexp  = regexp.MustCompile(`[^\d]`)
 
 	targetBrands = map[string]string{

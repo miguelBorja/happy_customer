@@ -165,7 +165,7 @@ func (s *Server) HandleValuate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !ok || ref.Count == 0 || ref.Expected <= 0 {
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 		return
 	}
 
@@ -198,5 +198,5 @@ func (s *Server) HandleValuate(w http.ResponseWriter, r *http.Request) {
 		resp.KmAdjustmentPct = math.Round(float64(ref.Expected-ref.Median)/float64(ref.Median)*1000) / 10
 	}
 
-	json.NewEncoder(w).Encode(resp)
+	_ = json.NewEncoder(w).Encode(resp)
 }

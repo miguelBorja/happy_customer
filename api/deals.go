@@ -266,7 +266,9 @@ func (s *Server) HandleBargains(w http.ResponseWriter, r *http.Request) {
 			bargains = append(bargains, Bargain{Car: c, MarketPrice: c.MarketExpected, DiscountPercent: -pctByURL[c.URL]})
 		}
 	}
-	json.NewEncoder(w).Encode(bargains)
+	if err := json.NewEncoder(w).Encode(bargains); err != nil {
+		log.Printf("[API ERROR] Failed to encode bargains response: %v", err)
+	}
 }
 
 // pageOfURLs returns urls[offset:offset+limit] (bounds-safe).
@@ -321,5 +323,7 @@ func (s *Server) serveDealCars(w http.ResponseWriter, f db.FilterParams, onlyGoo
 
 	w.Header().Set("X-Total-Count", strconv.Itoa(len(urls)))
 	w.Header().Set("Access-Control-Expose-Headers", "X-Total-Count")
-	json.NewEncoder(w).Encode(s.withMarket(cars))
+	if err := json.NewEncoder(w).Encode(s.withMarket(cars)); err != nil {
+		log.Printf("[API ERROR] Failed to encode deal cars response: %v", err)
+	}
 }

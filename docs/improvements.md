@@ -1,6 +1,6 @@
 # CrautosDB - Codebase Improvements & Architecture Guide
 
-Last Updated: 2026-11-12
+Last Updated: 2026-11-13
 
 This document tracks architectural, performance, security, and maintainability improvements for the **CrautosDB** application (Scraper, API, Database, and Web Frontend). It complements [ux-improvements.md](./ux-improvements.md), which covers frontend/product features and UX polish.
 
@@ -83,10 +83,10 @@ CrautosDB is a Go-based system that scrapes vehicle listings, stores them in SQL
 * **Current State:**
   * Replaced blocking `http.ListenAndServe` in `main.go` with `signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)` and `&http.Server{ReadHeaderTimeout: 10s, IdleTimeout: 120s}` calling `Shutdown` with a 10-second drain timeout (while avoiding a short `WriteTimeout` so SSE streams on `/api/ai/compare` remain uninterrupted).
 
-### ✅ Multi-Stage Alpine `Dockerfile`, `.dockerignore`, CI Quality Gate (`gofmt`/`go vet`/`go test`) & Unit Tests
+### ✅ Multi-Stage Alpine `Dockerfile`, `.dockerignore`, CI Quality Gates (`Vitest`/`golangci-lint`/`go test`) & Unit Tests
 * **Current State:**
-  * Multi-stage Alpine [Dockerfile](../Dockerfile) (with [.dockerignore](../.dockerignore) excluding local DBs, secrets, binaries, and `node_modules`) runs `npm run lint` (`eslint .`), `npm run build`, `gofmt -l main.go api db scraper cmd`, `CGO_ENABLED=0 go vet`, and `CGO_ENABLED=0 go test -count=1` across all Go packages before compiling the static Linux binary.
-  * Automated unit test coverage across `scraper/` (`scraper_test.go` + offline HTML fixtures in `scraper/testdata/`), `db/` (`db_optimizations_test.go`, `count_cars_test.go`, `market_test.go`, `market_flags_test.go`, `price_history_test.go`, `queries_test.go`), and `api/` (`cache_errors_test.go`, `deals_test.go`, `price_history_test.go`).
+  * Multi-stage Alpine [Dockerfile](../Dockerfile) (with [.dockerignore](../.dockerignore) excluding local DBs, secrets, binaries, and `node_modules`) runs `npm run lint` (`eslint .`), `npm test` (`Vitest` unit suites covering `crCostEstimator.js`, `urlState.js`, `marketDeal.js`, `priceHistory.js`, and `crVehicleInfo.js`), and `npm run build` in Stage 1 (`node:22-alpine`), followed by `gofmt -l main.go api db scraper cmd`, `CGO_ENABLED=0 go vet`, `CGO_ENABLED=0 golangci-lint run` (via `golangci/golangci-lint:v2.15-alpine` + [.golangci.yml](../.golangci.yml) `v2` enabling `bodyclose` and `errorlint`), and `CGO_ENABLED=0 go test -count=1` across all Go packages in Stage 2 (`golang:1.27-alpine`) before compiling the static Linux binary.
+  * Automated unit test coverage across `web/src/utils/` (119 `Vitest` tests), `scraper/` (`scraper_test.go` + offline HTML fixtures in `scraper/testdata/`), `db/` (`db_optimizations_test.go`, `count_cars_test.go`, `market_test.go`, `market_flags_test.go`, `price_history_test.go`, `queries_test.go`), and `api/` (`cache_errors_test.go`, `deals_test.go`, `price_history_test.go`, `saved_searches_test.go`, `valuate_test.go`).
 
 ### ✅ Scraper Context Propagation & Cancellation Safety
 * **Current State:**
@@ -102,8 +102,7 @@ CrautosDB is a Go-based system that scrapes vehicle listings, stores them in SQL
 
 ## 3. Remaining Optional Enhancements (Backlog)
 
-*All planned P1–P3 architectural, CI, and offline-test items are complete. Optional future enhancement:*
-* **`golangci-lint` in CI:** Add `golangci-lint` alongside the existing `gofmt -l`, `go vet`, and `go test -count=1` gates if stricter static analyzers beyond standard `go vet` are desired later.
+*All planned P1–P3 architectural, CI (`Vitest` + `golangci-lint`), and offline-test items are complete. Product feature evolution is tracked in [proximas-mejoras.md](./proximas-mejoras.md).*
 
 ---
 
@@ -124,3 +123,4 @@ CrautosDB is a Go-based system that scrapes vehicle listings, stores them in SQL
 | **Completed** | **Scraper Context Propagation** | Scraper / CLI | Clean `SIGINT`/`SIGTERM` cancellation & `MarkSold` safety |
 | **Completed** | **Offline HTML Detail Fixture Tests** | Scraper / Tests | Catch upstream `crautos.com` HTML structure changes offline |
 | **Completed** | **Run `go vet` / `go test` in CI + `.dockerignore`** | CI/CD | Automated backend vet & test gate in Cloud Build |
+| **Completed** | **Frontend Unit Tests (`Vitest`) & `golangci-lint` in CI** | Web / CI | 119 frontend unit tests + `golangci-lint` v2 gate in `Dockerfile` |

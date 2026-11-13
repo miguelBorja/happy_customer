@@ -404,5 +404,5 @@ func (s *Server) ServeIndexHTML(w http.ResponseWriter, r *http.Request, indexPat
 	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
 	w.Header().Set("Pragma", "no-cache")
 	w.Header().Set("Expires", "0")
-	w.Write([]byte(s.RenderIndexHTML(r, string(data))))
+	_, _ = w.Write([]byte(s.RenderIndexHTML(r, string(data))))
 }

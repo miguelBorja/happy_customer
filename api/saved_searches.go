@@ -115,7 +115,7 @@ func (s *Server) HandleSearchesDigest(w http.ResponseWriter, r *http.Request) {
 		results = append(results, res)
 	}
 
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"results": results,
 	})
 }

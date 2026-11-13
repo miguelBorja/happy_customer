@@ -50,5 +50,5 @@ func (s *Server) HandlePriceHistory(w http.ResponseWriter, r *http.Request) {
 	if clean == nil {
 		clean = []db.PricePoint{}
 	}
-	json.NewEncoder(w).Encode(clean)
+	_ = json.NewEncoder(w).Encode(clean)
 }

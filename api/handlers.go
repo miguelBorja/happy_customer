@@ -156,7 +156,9 @@ func (s *Server) HandleCars(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	json.NewEncoder(w).Encode(s.withMarket(cars))
+	if err := json.NewEncoder(w).Encode(s.withMarket(cars)); err != nil {
+		log.Printf("[API ERROR] Failed to encode cars response: %v", err)
+	}
 }
 
 func (s *Server) HandleBrands(w http.ResponseWriter, r *http.Request) {
@@ -170,7 +172,7 @@ func (s *Server) HandleBrands(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	json.NewEncoder(w).Encode(brands)
+	_ = json.NewEncoder(w).Encode(brands)
 }
 
 func (s *Server) HandleFilteredBrands(w http.ResponseWriter, r *http.Request) {
@@ -194,7 +196,7 @@ func (s *Server) HandleFilteredBrands(w http.ResponseWriter, r *http.Request) {
 		brands = []string{}
 	}
 
-	json.NewEncoder(w).Encode(brands)
+	_ = json.NewEncoder(w).Encode(brands)
 }
 
 func (s *Server) HandleFilteredModels(w http.ResponseWriter, r *http.Request) {
@@ -218,7 +220,7 @@ func (s *Server) HandleFilteredModels(w http.ResponseWriter, r *http.Request) {
 		models = []string{}
 	}
 
-	json.NewEncoder(w).Encode(models)
+	_ = json.NewEncoder(w).Encode(models)
 }
 
 func (s *Server) HandleProvinces(w http.ResponseWriter, r *http.Request) {
@@ -232,7 +234,7 @@ func (s *Server) HandleProvinces(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	json.NewEncoder(w).Encode(provinces)
+	_ = json.NewEncoder(w).Encode(provinces)
 }
 
 func (s *Server) HandleStyles(w http.ResponseWriter, r *http.Request) {
@@ -246,7 +248,7 @@ func (s *Server) HandleStyles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	json.NewEncoder(w).Encode(styles)
+	_ = json.NewEncoder(w).Encode(styles)
 }
 
 func (s *Server) HandleStats(w http.ResponseWriter, r *http.Request) {
@@ -260,7 +262,7 @@ func (s *Server) HandleStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	json.NewEncoder(w).Encode(stats)
+	_ = json.NewEncoder(w).Encode(stats)
 }
 
 func (s *Server) HandleDetailedStats(w http.ResponseWriter, r *http.Request) {
@@ -274,7 +276,7 @@ func (s *Server) HandleDetailedStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	json.NewEncoder(w).Encode(stats)
+	_ = json.NewEncoder(w).Encode(stats)
 }
 
 func getClientIP(r *http.Request) string {
@@ -327,7 +329,7 @@ func (s *Server) HandleRecordVisit(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "success"})
 }
 
 func (s *Server) HandleCarsByURLs(w http.ResponseWriter, r *http.Request) {
@@ -365,7 +367,9 @@ func (s *Server) HandleCarsByURLs(w http.ResponseWriter, r *http.Request) {
 		cars = []db.Car{}
 	}
 
-	json.NewEncoder(w).Encode(s.withMarket(cars))
+	if err := json.NewEncoder(w).Encode(s.withMarket(cars)); err != nil {
+		log.Printf("[API ERROR] Failed to encode cars response: %v", err)
+	}
 }
 
 type OpenRouterToolCall struct {
@@ -533,7 +537,7 @@ func (s *Server) HandleAICompare(w http.ResponseWriter, r *http.Request) {
 			yearVal, _ := car["Year"].(float64)
 			year := int(yearVal)
 			carJSON, _ := json.MarshalIndent(car, "", "  ")
-			vehiclesText.WriteString(fmt.Sprintf("- %s (%s %d):\n%s\n\n", label, title, year, string(carJSON)))
+			_, _ = fmt.Fprintf(&vehiclesText, "- %s (%s %d):\n%s\n\n", label, title, year, string(carJSON))
 		}
 
 		systemPrompt = fmt.Sprintf(`You are an expert automotive advisor specializing in the Costa Rican used car market and an assistant for the "Happy Customer" car platform.
@@ -856,35 +860,44 @@ GUIDELINES:
 			fnArgsJSON := toolCall.Function.Arguments
 			var toolOutput string
 
-			if fnName == "search_web" {
+			switch fnName {
+			case "search_web":
 				var args struct {
 					Query string `json:"query"`
 				}
-				json.Unmarshal([]byte(fnArgsJSON), &args)
-				webResults, err := searchDuckDuckGo(args.Query)
-				if err != nil || len(webResults) == 0 {
-					toolOutput = fmt.Sprintf(`{"status": "search completed", "query": "%s", "results": "No specific external snippets found. Use Costa Rican market context and general knowledge."}`, args.Query)
+				if err := json.Unmarshal([]byte(fnArgsJSON), &args); err != nil {
+					log.Printf("[API ERROR] Invalid tool args for %s: %v", fnName, err)
+					toolOutput = `{"error": "invalid tool arguments"}`
 				} else {
-					outBytes, _ := json.Marshal(webResults)
-					toolOutput = string(outBytes)
+					webResults, err := searchDuckDuckGo(args.Query)
+					if err != nil || len(webResults) == 0 {
+						toolOutput = fmt.Sprintf(`{"status": "search completed", "query": "%s", "results": "No specific external snippets found. Use Costa Rican market context and general knowledge."}`, args.Query)
+					} else {
+						outBytes, _ := json.Marshal(webResults)
+						toolOutput = string(outBytes)
+					}
 				}
-			} else if fnName == "query_car_market_stats" {
+			case "query_car_market_stats":
 				var args struct {
 					Brand   string `json:"brand"`
 					Model   string `json:"model"`
 					YearMin int    `json:"year_min"`
 					YearMax int    `json:"year_max"`
 				}
-				json.Unmarshal([]byte(fnArgsJSON), &args)
-				stats, err := s.DB.GetMarketStats(args.Brand, args.Model, args.YearMin, args.YearMax)
-				if err != nil {
-					log.Printf("[API ERROR] GetMarketStats tool call failed: %v", err)
-					toolOutput = `{"error": "database query failed"}`
+				if err := json.Unmarshal([]byte(fnArgsJSON), &args); err != nil {
+					log.Printf("[API ERROR] Invalid tool args for %s: %v", fnName, err)
+					toolOutput = `{"error": "invalid tool arguments"}`
 				} else {
-					outBytes, _ := json.Marshal(stats)
-					toolOutput = string(outBytes)
+					stats, err := s.DB.GetMarketStats(args.Brand, args.Model, args.YearMin, args.YearMax)
+					if err != nil {
+						log.Printf("[API ERROR] GetMarketStats tool call failed: %v", err)
+						toolOutput = `{"error": "database query failed"}`
+					} else {
+						outBytes, _ := json.Marshal(stats)
+						toolOutput = string(outBytes)
+					}
 				}
-			} else if fnName == "query_cars_db" {
+			case "query_cars_db":
 				var args struct {
 					Brand        string `json:"brand"`
 					Title        string `json:"title"`
@@ -896,56 +909,60 @@ GUIDELINES:
 					Transmission string `json:"transmission"`
 					Limit        int    `json:"limit"`
 				}
-				json.Unmarshal([]byte(fnArgsJSON), &args)
-				limit := args.Limit
-				if limit <= 0 || limit > 10 {
-					limit = 5
-				}
-				f := db.FilterParams{
-					Brand:       args.Brand,
-					TitleQuery:  args.Title,
-					PriceMin:    args.PriceMin,
-					PriceMax:    args.PriceMax,
-					YearMin:     args.YearMin,
-					YearMax:     args.YearMax,
-					Combustible: args.Fuel,
-					Transmision: args.Transmission,
-					Limit:       limit,
-				}
-				cars, err := s.DB.GetCars(f)
-				if err != nil {
-					log.Printf("[API ERROR] GetCars tool call failed: %v", err)
-					toolOutput = `{"error": "database query failed"}`
+				if err := json.Unmarshal([]byte(fnArgsJSON), &args); err != nil {
+					log.Printf("[API ERROR] Invalid tool args for %s: %v", fnName, err)
+					toolOutput = `{"error": "invalid tool arguments"}`
 				} else {
-					type SimpleCar struct {
-						Title       string `json:"title"`
-						Year        int    `json:"year"`
-						Price       int    `json:"price"`
-						PriceText   string `json:"price_text"`
-						Kilometraje int    `json:"kilometraje"`
-						Combustible string `json:"combustible"`
-						Transmision string `json:"transmision"`
-						Provincia   string `json:"provincia"`
-						URL         string `json:"url"`
+					limit := args.Limit
+					if limit <= 0 || limit > 10 {
+						limit = 5
 					}
-					var simple []SimpleCar
-					for _, c := range cars {
-						simple = append(simple, SimpleCar{
-							Title:       c.Title,
-							Year:        c.Year,
-							Price:       c.Price,
-							PriceText:   c.PriceText,
-							Kilometraje: c.Kilometraje,
-							Combustible: c.Combustible,
-							Transmision: c.Transmision,
-							Provincia:   c.Provincia,
-							URL:         c.URL,
-						})
+					f := db.FilterParams{
+						Brand:       args.Brand,
+						TitleQuery:  args.Title,
+						PriceMin:    args.PriceMin,
+						PriceMax:    args.PriceMax,
+						YearMin:     args.YearMin,
+						YearMax:     args.YearMax,
+						Combustible: args.Fuel,
+						Transmision: args.Transmission,
+						Limit:       limit,
 					}
-					outBytes, _ := json.Marshal(simple)
-					toolOutput = string(outBytes)
+					cars, err := s.DB.GetCars(f)
+					if err != nil {
+						log.Printf("[API ERROR] GetCars tool call failed: %v", err)
+						toolOutput = `{"error": "database query failed"}`
+					} else {
+						type SimpleCar struct {
+							Title       string `json:"title"`
+							Year        int    `json:"year"`
+							Price       int    `json:"price"`
+							PriceText   string `json:"price_text"`
+							Kilometraje int    `json:"kilometraje"`
+							Combustible string `json:"combustible"`
+							Transmision string `json:"transmision"`
+							Provincia   string `json:"provincia"`
+							URL         string `json:"url"`
+						}
+						var simple []SimpleCar
+						for _, c := range cars {
+							simple = append(simple, SimpleCar{
+								Title:       c.Title,
+								Year:        c.Year,
+								Price:       c.Price,
+								PriceText:   c.PriceText,
+								Kilometraje: c.Kilometraje,
+								Combustible: c.Combustible,
+								Transmision: c.Transmision,
+								Provincia:   c.Provincia,
+								URL:         c.URL,
+							})
+						}
+						outBytes, _ := json.Marshal(simple)
+						toolOutput = string(outBytes)
+					}
 				}
-			} else {
+			default:
 				toolOutput = `{"error": "Unknown tool"}`
 			}
 
@@ -991,7 +1008,9 @@ GUIDELINES:
 		for {
 			n, err := secondResp.Body.Read(buf)
 			if n > 0 {
-				w.Write(buf[:n])
+				if _, writeErr := w.Write(buf[:n]); writeErr != nil {
+					break
+				}
 				flusher.Flush()
 			}
 			if err != nil {
@@ -1036,5 +1055,5 @@ func (s *Server) HandleTopSellers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	json.NewEncoder(w).Encode(sellers)
+	_ = json.NewEncoder(w).Encode(sellers)
 }

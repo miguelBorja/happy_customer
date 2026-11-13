@@ -102,20 +102,21 @@ func (d *DB) migrate() error {
 		return err
 	}
 	// Add seller columns if they don't exist (for existing SQLite/libsql databases)
-	if d.DriverName == "sqlite" || d.DriverName == "libsql" {
+	switch d.DriverName {
+	case "sqlite", "libsql":
 		for _, col := range []string{
 			"ALTER TABLE cars ADD COLUMN seller_name TEXT DEFAULT ''",
 			"ALTER TABLE cars ADD COLUMN seller_phone TEXT DEFAULT ''",
 			"ALTER TABLE cars ADD COLUMN seller_address TEXT DEFAULT ''",
 			"ALTER TABLE cars ADD COLUMN comment TEXT DEFAULT ''",
 		} {
-			d.Exec(col) // ignore errors (column already exists)
+			_, _ = d.Exec(col) // ignore errors (column already exists)
 		}
-	} else if d.DriverName == "postgres" {
-		d.Exec("ALTER TABLE cars ADD COLUMN IF NOT EXISTS comment TEXT DEFAULT ''")
-		d.Exec("ALTER TABLE cars ENABLE ROW LEVEL SECURITY")
-		d.Exec("ALTER TABLE page_views ENABLE ROW LEVEL SECURITY")
-		d.Exec("ALTER TABLE price_history ENABLE ROW LEVEL SECURITY")
+	case "postgres":
+		_, _ = d.Exec("ALTER TABLE cars ADD COLUMN IF NOT EXISTS comment TEXT DEFAULT ''")
+		_, _ = d.Exec("ALTER TABLE cars ENABLE ROW LEVEL SECURITY")
+		_, _ = d.Exec("ALTER TABLE page_views ENABLE ROW LEVEL SECURITY")
+		_, _ = d.Exec("ALTER TABLE price_history ENABLE ROW LEVEL SECURITY")
 	}
 	if _, err := d.Exec(seedPriceHistory); err != nil {
 		log.Printf("Warning: price_history seed failed: %v", err)
@@ -243,7 +244,7 @@ func (d *DB) queryFormat(query string) string {
 	paramIndex := 1
 	for _, r := range query {
 		if r == '?' {
-			sb.WriteString(fmt.Sprintf("$%d", paramIndex))
+			_, _ = fmt.Fprintf(&sb, "$%d", paramIndex)
 			paramIndex++
 		} else {
 			sb.WriteRune(r)
@@ -336,7 +337,7 @@ func (d *DB) CleanUpData() error {
 		if err != nil {
 			return err
 		}
-		defer tx.Rollback()
+		defer func() { _ = tx.Rollback() }()
 
 		stmt, err := tx.Prepare(d.queryFormat("UPDATE cars SET title=?, brand=?, model=?, comment=? WHERE url=?"))
 		if err != nil {

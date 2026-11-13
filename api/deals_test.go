@@ -327,8 +327,8 @@ func TestPriceDropFilterAndOrder(t *testing.T) {
 		t.Fatalf("len(price drops) = %d, want %d: %+v", len(got), len(wantURLs), got)
 	}
 	for i, u := range wantURLs {
-		if got[i].Car.URL != u {
-			t.Errorf("price drop %d = %q, want %q", i, got[i].Car.URL, u)
+		if got[i].URL != u {
+			t.Errorf("price drop %d = %q, want %q", i, got[i].URL, u)
 		}
 	}
 	if h := rec.Header().Get("X-Total-Count"); h != strconv.Itoa(len(wantURLs)) {
@@ -373,7 +373,7 @@ func TestHandleCarsNewFiltersStylesAndModels(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
 		t.Fatalf("unmarshal cars models: %v", err)
 	}
-	if len(got) != 1 || got[0].Car.URL != "https://crautos.com/corolla" {
+	if len(got) != 1 || got[0].URL != "https://crautos.com/corolla" {
 		t.Errorf("models filter = %+v, want only Corolla", got)
 	}
 	if h := rec.Header().Get("X-Total-Count"); h != "1" {
