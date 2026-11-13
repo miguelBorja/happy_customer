@@ -40,10 +40,20 @@ export const DEFAULT_FILTERS = Object.freeze({
 
 export const createDefaultFilters = () => ({ ...DEFAULT_FILTERS, brands: [], models: [], equipments: [] });
 
-const TABS = ['browse', 'favorites', 'bargains', 'stats', 'about'];
+const TABS = ['browse', 'favorites', 'bargains', 'stats', 'valuate', 'about'];
 const CLIENT_SORTS = ['bestDeal'];
+const MAX_COMPARE_URL_ITEMS = 4;
 
-/** Parses a location.search string into { tab, filters, clientSort, carUrl }. */
+export const parseCompareUrlsParam = (raw) => {
+  if (!raw) return [];
+  return String(raw)
+    .split(',')
+    .map((s) => s.trim())
+    .filter((u) => /^https?:\/\//i.test(u))
+    .slice(0, MAX_COMPARE_URL_ITEMS);
+};
+
+/** Parses a location.search string into { tab, filters, clientSort, carUrl, compareUrls, valuateParams }. */
 export const parseUrlState = (search) => {
   const params = new URLSearchParams(search);
   const filters = createDefaultFilters();
@@ -57,13 +67,30 @@ export const parseUrlState = (search) => {
   const tab = TABS.includes(params.get('tab')) ? params.get('tab') : 'browse';
   const clientSort = CLIENT_SORTS.includes(params.get('sort')) ? params.get('sort') : null;
   const carUrl = tab === 'browse' ? (params.get('car') || null) : null;
-  return { tab, filters, clientSort, carUrl };
+  const compareUrls = parseCompareUrlsParam(params.get('compare'));
+  const valuateParams = tab === 'valuate'
+    ? {
+        brand: params.get('brand') || '',
+        model: params.get('model') || '',
+        year: params.get('year') || '',
+        km: params.get('km') || '',
+      }
+    : { brand: '', model: '', year: '', km: '' };
+  return { tab, filters, clientSort, carUrl, compareUrls, valuateParams };
 };
 
 /** Builds the canonical query string ("" or "?a=b") for the given state. */
-export const buildUrlSearch = ({ tab, filters, clientSort, carUrl }) => {
+export const buildUrlSearch = ({ tab, filters, clientSort, carUrl, valuateParams }) => {
   const params = new URLSearchParams();
   if (tab && tab !== 'browse') params.set('tab', tab);
+  if (tab === 'valuate' && valuateParams) {
+    for (const key of ['brand', 'model', 'year', 'km']) {
+      const val = valuateParams[key];
+      if (val !== undefined && val !== null && String(val).trim() !== '') {
+        params.set(key, String(val).trim());
+      }
+    }
+  }
   if (tab === 'browse' || !tab) {
     for (const key of Object.keys(DEFAULT_FILTERS)) {
       const value = filters?.[key];

@@ -223,7 +223,7 @@ const BargainsPage = ({ viewMode, setViewMode }) => {
                     <td className="col-fav">
                       <button
                         className={`fav-btn-table ${carIsFav ? 'active' : ''}`}
-                        onClick={() => toggleFavorite(car.URL)}
+                        onClick={() => toggleFavorite(car.URL, car.Price)}
                       >
                         {carIsFav ? '★' : '☆'}
                       </button>

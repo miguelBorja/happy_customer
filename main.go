@@ -206,6 +206,8 @@ func main() {
 		mux.HandleFunc("/api/cars", server.HandleCars)
 		mux.HandleFunc("/api/cars/favorites", server.HandleCarsByURLs)
 		mux.HandleFunc("/api/cars/price-history", server.HandlePriceHistory)
+		mux.HandleFunc("/api/searches/digest", server.HandleSearchesDigest)
+		mux.HandleFunc("/api/valuate", server.HandleValuate)
 		mux.HandleFunc("/api/bargains", server.HandleBargains)
 		mux.HandleFunc("/api/brands", server.HandleBrands)
 		mux.HandleFunc("/api/brands/filtered", server.HandleFilteredBrands)

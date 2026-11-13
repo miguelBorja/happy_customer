@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { fetchCarsByUrls } from '../api/client';
 import { useFavorites } from '../hooks/useFavorites';
+import { useSavedSearches } from '../hooks/useSavedSearches';
 import { useSeenCars } from '../hooks/useSeenCars';
 import { trackEvent } from '../utils/analytics';
 import { formatListingAge, formatListingDate } from '../utils/listingDate';
@@ -10,20 +11,28 @@ import MileageBar from '../components/MileageBar';
 import PriceBar from '../components/PriceBar';
 import MarketBadge from '../components/MarketBadge';
 import PriceDropBadge from '../components/PriceDropBadge';
-import { getMarketDeal } from '../utils/marketDeal';
+import { getMarketDeal, formatUSD } from '../utils/marketDeal';
 import { useLanguage } from '../context/LanguageContext';
 import { useTableDensity } from '../hooks/useTableDensity';
 import { useCompare } from '../hooks/useCompare';
 import { CarThumb } from '../components/CarPhoto';
 import CarDetailsModal from '../components/CarDetailsModal';
-import { StarIcon, CardsGridIcon, TableListIcon } from '../components/icons/AppIcons';
+import {
+  StarIcon,
+  CardsGridIcon,
+  TableListIcon,
+  BellIcon,
+  WhatsAppIcon,
+} from '../components/icons/AppIcons';
 import { ResultsSkeleton } from '../components/LoadingSkeletons';
 
-const FavoritesPage = ({ viewMode, setViewMode }) => {
+const FavoritesPage = ({ viewMode, setViewMode, onApplySavedSearch, onFilterBySeller }) => {
   const [cars, setCars] = useState([]);
-  const { isFavorite, toggleFavorite, favCount, getAllUrls } = useFavorites();
+  const { isFavorite, toggleFavorite, favCount, getAllUrls, getFavoriteMeta, syncFavoritePrices } = useFavorites();
+  const { savedSearches, digests, removeSearch, markSearchChecked } = useSavedSearches();
   const { isNew } = useSeenCars();
   const [selectedCar, setSelectedCar] = useState(null);
+  const [onlyDrops, setOnlyDrops] = useState(false);
   const { density, setDensity, showPhotos } = useTableDensity();
   const { isComparing, toggleCompare } = useCompare();
   const { t, language } = useLanguage();
@@ -39,7 +48,10 @@ const FavoritesPage = ({ viewMode, setViewMode }) => {
     const urls = favUrlsKey.split('\n');
     fetchCarsByUrls(urls)
       .then((data) => {
-        if (!cancelled) setCars(data);
+        if (!cancelled) {
+          setCars(data);
+          syncFavoritePrices(data);
+        }
       })
       .catch((err) => {
         console.error(err);
@@ -50,10 +62,33 @@ const FavoritesPage = ({ viewMode, setViewMode }) => {
     return () => {
       cancelled = true;
     };
-  }, [favUrlsKey]);
+  }, [favUrlsKey, syncFavoritePrices]);
 
   // Filter out unfavorited cars from display (in case user unfavorites while on this page)
-  const displayCars = favUrls.length === 0 ? [] : cars.filter(car => isFavorite(car.URL));
+  const displayCars = useMemo(
+    () => (favUrls.length === 0 ? [] : cars.filter((car) => isFavorite(car.URL))),
+    [favUrls.length, cars, isFavorite]
+  );
+
+  const dropByUrl = useMemo(() => {
+    const map = new Map();
+    displayCars.forEach((car) => {
+      const meta = getFavoriteMeta(car.URL);
+      if (meta && meta.savedPrice > 0 && car.Price > 0 && meta.savedPrice - car.Price >= 100) {
+        const diffUSD = meta.savedPrice - car.Price;
+        const diffPct = Math.round((diffUSD / meta.savedPrice) * 100);
+        map.set(car.URL, { savedPrice: meta.savedPrice, diffUSD, diffPct });
+      }
+    });
+    return map;
+  }, [displayCars, getFavoriteMeta]);
+
+  const droppedCars = useMemo(
+    () => displayCars.filter((car) => dropByUrl.has(car.URL)),
+    [displayCars, dropByUrl]
+  );
+
+  const shownCars = onlyDrops && droppedCars.length > 0 ? droppedCars : displayCars;
 
   const activeFavs = displayCars.filter(c => !c.IsSold).length;
   const soldFavs = displayCars.filter(c => c.IsSold).length;
@@ -111,6 +146,97 @@ const FavoritesPage = ({ viewMode, setViewMode }) => {
 
       {loading && <ResultsSkeleton viewMode={viewMode} count={4} />}
 
+      <section className="fav-saved-searches" aria-label={t('savedSearchesTitle')}>
+        <div className="fav-saved-header">
+          <h3 className="fav-saved-title">
+            <BellIcon size={17} color="var(--icon-gold)" />
+            <span>{t('savedSearchesTitle')}</span>
+          </h3>
+        </div>
+        {savedSearches.length === 0 ? (
+          <p className="fav-saved-empty">{t('savedSearchesEmpty')}</p>
+        ) : (
+          <div className="fav-saved-grid">
+            {savedSearches.map((item) => {
+              const d = digests[item.id];
+              const hasAlerts = d && ((d.newCount || 0) + (d.dropCount || 0) > 0);
+              return (
+                <div key={item.id} className={`fav-saved-card ${hasAlerts ? 'has-alerts' : ''}`}>
+                  <button
+                    type="button"
+                    className="fav-saved-main"
+                    onClick={() => {
+                      markSearchChecked(item.id);
+                      onApplySavedSearch && onApplySavedSearch(item);
+                    }}
+                    title={t('savedSearchApply')}
+                  >
+                    <span className="fav-saved-name">{item.name}</span>
+                    <span className="fav-saved-badges">
+                      {d ? (
+                        <>
+                          {d.newCount > 0 && (
+                            <span className="saved-alert-badge saved-alert-badge--new">
+                              {t('savedSearchNewBadge', { count: d.newCount })}
+                            </span>
+                          )}
+                          {d.dropCount > 0 && (
+                            <span className="saved-alert-badge saved-alert-badge--drop">
+                              {t('savedSearchDropBadge', { count: d.dropCount })}
+                            </span>
+                          )}
+                          <span className="saved-alert-total">
+                            {t('savedSearchTotal', { count: d.totalCount })}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="saved-alert-total">…</span>
+                      )}
+                    </span>
+                  </button>
+                  <div className="fav-saved-actions">
+                    {hasAlerts && (
+                      <button
+                        type="button"
+                        className="fav-saved-check-btn"
+                        onClick={() => markSearchChecked(item.id)}
+                      >
+                        {t('savedSearchCheck')}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="fav-saved-remove-btn"
+                      onClick={() => removeSearch(item.id)}
+                      aria-label={t('savedSearchRemove')}
+                      title={t('savedSearchRemove')}
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {!loading && droppedCars.length > 0 && (
+        <div className="fav-drops-banner">
+          <div className="fav-drops-banner-text">
+            <span>📉</span>
+            <span>{t('favDropsTitle', { count: droppedCars.length })}</span>
+          </div>
+          <button
+            type="button"
+            className={`fav-drops-filter-btn ${onlyDrops ? 'active' : ''}`}
+            onClick={() => setOnlyDrops((prev) => !prev)}
+          >
+            {onlyDrops ? t('favDropsFilterAll') : t('favDropsFilter')}
+          </button>
+        </div>
+      )}
+
       {!loading && displayCars.length === 0 && (
         <div className="page-empty-state">
           <div className="page-empty-icon">☆</div>
@@ -119,19 +245,29 @@ const FavoritesPage = ({ viewMode, setViewMode }) => {
         </div>
       )}
 
-      {!loading && displayCars.length > 0 && (
+      {!loading && shownCars.length > 0 && (
         <>
           <div className={`results-grid fav-cards-container ${viewMode === 'cards' ? 'active-view' : ''}`}>
-            {displayCars.map(car => (
-              <CarCard
-                key={car.URL}
-                car={car}
-                isNew={isNew(car)}
-                isFav={true}
-                onToggleFav={toggleFavorite}
-                onOpenDetails={setSelectedCar}
-              />
-            ))}
+            {shownCars.map(car => {
+              const dropInfo = dropByUrl.get(car.URL);
+              return (
+                <div key={car.URL} className="fav-card-slot">
+                  {dropInfo && (
+                    <div className="fav-saved-drop-pill">
+                      <span>{t('favSavedAt', { price: formatUSD(dropInfo.savedPrice) })}</span>
+                      <strong>{t('favDropSinceSaved', { amount: formatUSD(dropInfo.diffUSD), pct: dropInfo.diffPct })}</strong>
+                    </div>
+                  )}
+                  <CarCard
+                    car={car}
+                    isNew={isNew(car)}
+                    isFav={true}
+                    onToggleFav={toggleFavorite}
+                    onOpenDetails={setSelectedCar}
+                  />
+                </div>
+              );
+            })}
           </div>
 
           <div className={`table-container fav-table-container ${viewMode === 'table' ? 'active-view' : ''}`}>
@@ -151,8 +287,9 @@ const FavoritesPage = ({ viewMode, setViewMode }) => {
                 </tr>
               </thead>
               <tbody>
-                {displayCars.map(car => {
+                {shownCars.map(car => {
                   const waPhone = getWhatsAppPhone(car.SellerPhone);
+                  const dropInfo = dropByUrl.get(car.URL);
                   return (
                     <tr 
                       key={car.URL} 
@@ -171,7 +308,7 @@ const FavoritesPage = ({ viewMode, setViewMode }) => {
                       <td className="col-fav">
                         <button
                           className="fav-btn-table active"
-                          onClick={() => toggleFavorite(car.URL)}
+                          onClick={() => toggleFavorite(car.URL, car.Price)}
                           title={t('removeFromFavorites')}
                         >
                           ★
@@ -199,6 +336,11 @@ const FavoritesPage = ({ viewMode, setViewMode }) => {
                         <PriceBar price={car.Price} priceText={car.PriceText} deal={getMarketDeal(car)} />
                         <MarketBadge car={car} variant="compact" />
                         <PriceDropBadge car={car} variant="compact" />
+                        {dropInfo && (
+                          <span className="fav-saved-drop-table-badge" title={t('favSavedAt', { price: formatUSD(dropInfo.savedPrice) })}>
+                            ↓ {formatUSD(dropInfo.diffUSD)}
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td className="col-km">
@@ -238,9 +380,7 @@ const FavoritesPage = ({ viewMode, setViewMode }) => {
                             className="btn-action-icon--whatsapp"
                             onClick={() => trackEvent('contact_whatsapp', 'outbound', car.Title || car.URL)}
                           >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
-                            </svg>
+                            <WhatsAppIcon size={16} color="currentColor" />
                           </a>
                         )}
                         <a href={car.URL} target="_blank" rel="noreferrer" className="btn-table-action">
@@ -262,6 +402,7 @@ const FavoritesPage = ({ viewMode, setViewMode }) => {
           isOpen
           onClose={() => setSelectedCar(null)}
           car={selectedCar}
+          onFilterBySeller={onFilterBySeller}
         />
       )}
     </div>

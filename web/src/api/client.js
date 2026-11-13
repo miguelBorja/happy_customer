@@ -217,3 +217,27 @@ export const fetchPriceHistory = async (url, signal) => {
   if (!res.ok) throw new Error('Failed to fetch price history');
   return res.json();
 };
+
+export const fetchSearchesDigest = async (searches, signal) => {
+  const res = await fetch(`${BASE_URL}/searches/digest`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ searches }),
+    signal,
+  });
+  if (!res.ok) throw new Error('Failed to fetch searches digest');
+  return res.json();
+};
+
+export const fetchValuation = async ({ brand, model, year, km }, signal) => {
+  const params = new URLSearchParams();
+  if (brand) params.set('brand', brand);
+  if (model) params.set('model', model);
+  if (year) params.set('year', String(year));
+  if (km !== undefined && km !== null && String(km).trim() !== '') {
+    params.set('km', String(km).trim());
+  }
+  const res = await fetch(`${BASE_URL}/valuate?${params.toString()}`, { signal });
+  if (!res.ok) throw new Error('Failed to fetch valuation');
+  return res.json();
+};

@@ -75,6 +75,16 @@ func (s *Server) RenderIndexHTML(r *http.Request, baseHTML string) string {
 		return s.renderCarMeta(baseHTML, carURL)
 	}
 
+	// Side-by-side comparison link (?compare=url1,url2,...).
+	if compareParam := strings.TrimSpace(q.Get("compare")); compareParam != "" {
+		return s.renderCompareMeta(baseHTML, compareParam)
+	}
+
+	// Seller valuation calculator (?tab=valuate&brand=...&model=...&year=...).
+	if q.Get("tab") == "valuate" {
+		return renderValuateMeta(baseHTML, q)
+	}
+
 	// Gangas tab.
 	if q.Get("tab") == "bargains" {
 		const title = "Gangas del mercado | Happy Customer"
@@ -195,6 +205,96 @@ func (s *Server) renderCarMeta(baseHTML, carURL string) string {
 	doc = replaceMetaTag(doc, "property", "og:description", desc)
 	doc = replaceMetaTag(doc, "property", "og:image", ogImage)
 	doc = setTwitterCard(doc, twitterCard)
+	return doc
+}
+
+func (s *Server) renderCompareMeta(baseHTML, compareParam string) string {
+	urls := splitNonEmpty(compareParam)
+	if len(urls) > 4 {
+		urls = urls[:4]
+	}
+
+	title := "Comparativa de autos usados | Happy Customer"
+	desc := "Compara precio, kilometraje, equipamiento y valor de mercado en Costa Rica."
+	ogImage := "/favicon.png"
+	twitterCard := "summary"
+
+	if s != nil && s.DB != nil && len(urls) > 0 {
+		if cars, err := s.DB.GetCarsByURLs(urls); err == nil && len(cars) > 0 {
+			ordered := orderCarsByURLs(cars, urls)
+			if len(ordered) > 0 {
+				var names []string
+				var details []string
+				for _, car := range ordered {
+					label := strings.TrimSpace(strings.TrimSpace(car.Brand) + " " + strings.TrimSpace(car.Model))
+					if car.Year > 0 && label != "" {
+						label += " " + strconv.Itoa(car.Year)
+					}
+					if label == "" {
+						label = strings.TrimSpace(car.Title)
+					}
+					if label == "" {
+						label = "Auto"
+					}
+					names = append(names, label)
+
+					var meta []string
+					if car.Price > 0 {
+						meta = append(meta, "$"+formatCommaInt(car.Price))
+					}
+					if car.Kilometraje > 0 {
+						meta = append(meta, fmt.Sprintf("%s km", formatCommaInt(car.Kilometraje)))
+					}
+					if len(meta) > 0 {
+						details = append(details, fmt.Sprintf("%s (%s)", label, strings.Join(meta, " · ")))
+					} else {
+						details = append(details, label)
+					}
+
+					if ogImage == "/favicon.png" && !car.IsSold {
+						if m := crautosCarIDRe.FindStringSubmatch(car.URL); len(m) > 1 {
+							ogImage = "https://crautos.com/clasificados/usados/" + m[1] + "-1.jpg"
+							twitterCard = "summary_large_image"
+						}
+					}
+				}
+				title = "Comparativa: " + strings.Join(names, " vs ") + " | Happy Customer"
+				desc = strings.Join(details, " · ")
+			}
+		}
+	}
+
+	doc := replaceTitleTag(baseHTML, title)
+	doc = replaceMetaTag(doc, "name", "description", desc)
+	doc = replaceMetaTag(doc, "property", "og:title", title)
+	doc = replaceMetaTag(doc, "property", "og:description", desc)
+	doc = replaceMetaTag(doc, "property", "og:image", ogImage)
+	doc = setTwitterCard(doc, twitterCard)
+	return doc
+}
+
+func renderValuateMeta(baseHTML string, q url.Values) string {
+	brand := strings.TrimSpace(q.Get("brand"))
+	model := strings.TrimSpace(q.Get("model"))
+	year, _ := strconv.Atoi(strings.TrimSpace(q.Get("year")))
+
+	title := "¿A cuánto vender mi carro en Costa Rica? | Happy Customer"
+	desc := "Calcula el precio justo de mercado, venta rápida y competencia activa para tu vehículo en Costa Rica."
+	if brand != "" && model != "" {
+		subject := brand + " " + model
+		if year >= 1980 && year <= 2030 {
+			subject += " " + strconv.Itoa(year)
+		}
+		title = "¿Cuánto vale un " + subject + " en Costa Rica? | Happy Customer"
+		desc = "Rango estimado de mercado ajustado por kilometraje, liquidez y comparables activos para " + subject + " en Costa Rica."
+	}
+
+	doc := replaceTitleTag(baseHTML, title)
+	doc = replaceMetaTag(doc, "name", "description", desc)
+	doc = replaceMetaTag(doc, "property", "og:title", title)
+	doc = replaceMetaTag(doc, "property", "og:description", desc)
+	doc = replaceMetaTag(doc, "property", "og:image", "/favicon.png")
+	doc = setTwitterCard(doc, "summary")
 	return doc
 }
 

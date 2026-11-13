@@ -154,3 +154,57 @@ func TestGetAllMarketStatsDeduplicatesAndExcludeURLs(t *testing.T) {
 		t.Errorf("GetCarPriceKeys len = %d, %v; want 5", len(got), err)
 	}
 }
+
+func TestMarketPercentilesAndSellerActiveCount(t *testing.T) {
+	database, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	baseTime := time.Date(2026, 11, 12, 10, 0, 0, 0, time.UTC)
+	cars := []Car{
+		// Same seller phone 8888-1111 has 2 unique active cars (c=10, c=11) + 1 active duplicate (c=12) + 1 sold car (c=13).
+		{URL: "https://crautos.com/c=10", Brand: "Honda", Model: "CR-V", Year: 2020, Price: 20000, Kilometraje: 60000, Placa: "Termina en 1", ColorExterior: "GRIS", SellerName: "AutosCR", SellerPhone: "8888-1111", ScrapedAt: baseTime, LastSeenAt: baseTime},
+		{URL: "https://crautos.com/c=12", Brand: "Honda", Model: "CR-V", Year: 2020, Price: 20000, Kilometraje: 60000, Placa: "Termina en 1", ColorExterior: "GRIS", SellerName: "AutosCR", SellerPhone: "8888-1111", ScrapedAt: baseTime.Add(-time.Hour), LastSeenAt: baseTime.Add(-time.Hour)},
+		{URL: "https://crautos.com/c=11", Brand: "Honda", Model: "CR-V", Year: 2020, Price: 24000, Kilometraje: 50000, Placa: "Termina en 2", ColorExterior: "BLANCO", SellerName: "AutosCR", SellerPhone: "8888-1111", ScrapedAt: baseTime, LastSeenAt: baseTime},
+		{URL: "https://crautos.com/c=13", Brand: "Honda", Model: "CR-V", Year: 2020, Price: 22000, Kilometraje: 55000, Placa: "Termina en 3", ColorExterior: "AZUL", SellerName: "AutosCR", SellerPhone: "8888-1111", ScrapedAt: baseTime.Add(-48 * time.Hour), LastSeenAt: baseTime.Add(-48 * time.Hour)},
+		// Individual seller with 1 active car.
+		{URL: "https://crautos.com/c=14", Brand: "Honda", Model: "CR-V", Year: 2020, Price: 28000, Kilometraje: 40000, Placa: "Termina en 4", ColorExterior: "NEGRO", SellerName: "Juan Perez", SellerPhone: "8777-2222", ScrapedAt: baseTime, LastSeenAt: baseTime},
+	}
+	if err := database.UpsertCarBatch(cars); err != nil {
+		t.Fatalf("UpsertCarBatch: %v", err)
+	}
+	if err := database.MarkSold([]string{"https://crautos.com/c=13"}); err != nil {
+		t.Fatalf("MarkSold: %v", err)
+	}
+
+	stats, err := database.GetAllMarketStats()
+	if err != nil {
+		t.Fatalf("GetAllMarketStats: %v", err)
+	}
+
+	stat := stats.Groups[MarketKey("Honda", "CR-V", 2020)]
+	// Sorted clean prices: 20000, 22000, 24000, 28000 -> P25 = 21500, Median = 23000, P75 = 25000.
+	if stat.P25 != 21500 || stat.Median != 23000 || stat.P75 != 25000 {
+		t.Errorf("stat quartiles = (P25=%d, Med=%d, P75=%d), want (21500, 23000, 25000)", stat.P25, stat.Median, stat.P75)
+	}
+
+	if got := stats.SellerActiveCount("https://crautos.com/c=10"); got != 2 {
+		t.Errorf("SellerActiveCount(c=10) = %d, want 2 (deduped)", got)
+	}
+	if got := stats.SellerActiveCount("https://crautos.com/c=14"); got != 1 {
+		t.Errorf("SellerActiveCount(c=14) = %d, want 1", got)
+	}
+
+	summary, err := database.GetValuationSummary("Honda", "CR-V", 2020, 2020, stats.ActiveDuplicateURLs())
+	if err != nil {
+		t.Fatalf("GetValuationSummary: %v", err)
+	}
+	if summary.ActiveCount != 3 || summary.SoldCount != 1 {
+		t.Errorf("summary counts = (active=%d, sold=%d), want (3, 1)", summary.ActiveCount, summary.SoldCount)
+	}
+	if summary.MinPrice != 20000 || summary.MaxPrice != 28000 {
+		t.Errorf("summary min/max = (%d, %d), want (20000, 28000)", summary.MinPrice, summary.MaxPrice)
+	}
+	if len(summary.ComparableURLs) != 3 {
+		t.Errorf("ComparableURLs len = %d, want 3", len(summary.ComparableURLs))
+	}
+}

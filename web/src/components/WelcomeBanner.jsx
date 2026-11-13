@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useLanguage } from '../context/LanguageContext';
+import { CalculatorIcon } from './icons/AppIcons';
 
 const STORAGE_KEY = 'crautosdb_welcome_seen_v1';
 
-const WelcomeBanner = ({ stats, onExploreGoodDeals, onOpenBargains }) => {
+const WelcomeBanner = ({ stats, onExploreGoodDeals, onOpenBargains, onOpenValuate }) => {
   const { t } = useLanguage();
 
   const [visible, setVisible] = useState(() => {
@@ -92,6 +93,19 @@ const WelcomeBanner = ({ stats, onExploreGoodDeals, onOpenBargains }) => {
         >
           {t('welcomeCtaBargains')}
         </button>
+        {onOpenValuate && (
+          <button
+            className="btn-welcome-secondary btn-welcome-valuate"
+            type="button"
+            onClick={() => {
+              dismiss();
+              onOpenValuate();
+            }}
+          >
+            <CalculatorIcon size={15} color="currentColor" />
+            <span>{t('valuateQuickPill')}</span>
+          </button>
+        )}
         <button className="btn-welcome-ghost" type="button" onClick={dismiss}>
           {t('welcomeCtaBrowse')}
         </button>

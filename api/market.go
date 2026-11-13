@@ -18,10 +18,11 @@ var marketCache struct {
 // car's mileage; the deal badges (and sortDeal/deal=good) compare the price against it.
 type CarWithMarket struct {
 	db.Car
-	MarketMedian   int `json:"MarketMedian,omitempty"`
-	MarketCount    int `json:"MarketCount,omitempty"`
-	MarketExpected int `json:"MarketExpected,omitempty"`
-	MarketMedianKm int `json:"MarketMedianKm,omitempty"`
+	MarketMedian      int `json:"MarketMedian,omitempty"`
+	MarketCount       int `json:"MarketCount,omitempty"`
+	MarketExpected    int `json:"MarketExpected,omitempty"`
+	MarketMedianKm    int `json:"MarketMedianKm,omitempty"`
+	SellerActiveCount int `json:"SellerActiveCount,omitempty"`
 	// MarketFlag ("typo", "outlier", "condition", "debt") means "check the price": the badge
 	// shows a warning instead of a deal level (see dealFlag in deals.go).
 	MarketFlag     string     `json:"MarketFlag,omitempty"`
@@ -58,7 +59,10 @@ func (s *Server) withMarket(cars []db.Car) []CarWithMarket {
 
 	stats := s.getMarketStats()
 	for _, car := range cars {
-		cwm := CarWithMarket{Car: car}
+		cwm := CarWithMarket{
+			Car:               car,
+			SellerActiveCount: stats.SellerActiveCount(car.URL),
+		}
 		if ref, ok := stats.Lookup(car.Brand, car.Model, car.Year, car.Kilometraje); ok {
 			cwm.MarketMedian = ref.Median
 			cwm.MarketCount = ref.Count

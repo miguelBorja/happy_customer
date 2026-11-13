@@ -7,7 +7,8 @@ import {
   ElectricPlugIcon,
   LocationPinIcon,
   StarIcon,
-  NewBadgeIcon
+  NewBadgeIcon,
+  WhatsAppIcon
 } from './icons/AppIcons';
 import { CarThumb } from './CarPhoto';
 import CarDetailsModal from './CarDetailsModal';
@@ -15,6 +16,8 @@ import MarketBadge from './MarketBadge';
 import PriceDropBadge from './PriceDropBadge';
 import { getMarketDeal } from '../utils/marketDeal';
 import { useCompare } from '../hooks/useCompare';
+import { getWhatsAppPhone, buildWhatsAppLink } from '../utils/phone';
+import { trackEvent } from '../utils/analytics';
 
 const MAX_PRICE = 100000;
 const MAX_MILEAGE = 150000;
@@ -61,6 +64,7 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage, onOpenD
   const mileagePercent = Math.min((carMileage / limitMileage) * 100, 100);
 
   const deal = getMarketDeal(car);
+  const waPhone = !car.IsSold ? getWhatsAppPhone(car.SellerPhone) : null;
 
   // Helper to interpolate colors: Green (120 hue) -> Yellow -> Orange -> Red (0 hue)
   const getDynamicColors = (percent) => {
@@ -102,6 +106,23 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage, onOpenD
         <CarThumb car={car} variant="card" badge={isNew ? <NewBadgeIcon size={18} /> : null} />
       </div>
 
+      {waPhone && (
+        <a
+          className="whatsapp-btn-card"
+          href={buildWhatsAppLink(waPhone, car, language)}
+          target="_blank"
+          rel="noreferrer"
+          onClick={(e) => {
+            e.stopPropagation();
+            trackEvent('contact_whatsapp_card', 'outbound', car.Title || car.URL);
+          }}
+          title={t('waCardTitle')}
+          aria-label={t('waCardTitle')}
+        >
+          <WhatsAppIcon size={15} color="currentColor" />
+        </a>
+      )}
+
       <button
         type="button"
         className={`compare-btn-card ${inCompare ? 'active' : ''}`}
@@ -114,7 +135,7 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage, onOpenD
 
       <button
         className={`fav-btn-card ${isFav ? 'active' : ''}`}
-        onClick={(e) => { e.stopPropagation(); onToggleFav && onToggleFav(car.URL); }}
+        onClick={(e) => { e.stopPropagation(); onToggleFav && onToggleFav(car.URL, car.Price); }}
         title={isFav ? t('removeFromFavorites') : t('addToFavorites')}
       >
         <StarIcon size={16} color="var(--icon-gold)" filled={isFav} />

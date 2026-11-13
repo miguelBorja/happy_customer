@@ -12,6 +12,7 @@ import PriceDropBadge from '../components/PriceDropBadge';
 import { getMarketDeal } from '../utils/marketDeal';
 import { useSeenCars } from '../hooks/useSeenCars';
 import { useFavorites } from '../hooks/useFavorites';
+import { useSavedSearches } from '../hooks/useSavedSearches';
 import { useLanguage } from '../context/LanguageContext';
 import FiltersModal from '../components/FiltersModal';
 import {
@@ -19,7 +20,9 @@ import {
   FilterFunnelIcon,
   CardsGridIcon,
   TableListIcon,
-  NewBadgeIcon
+  NewBadgeIcon,
+  BellIcon,
+  CalculatorIcon
 } from '../components/icons/AppIcons';
 import { CarThumb } from '../components/CarPhoto';
 import CarDetailsModal from '../components/CarDetailsModal';
@@ -43,7 +46,9 @@ const CarsPage = ({
   onOpenCar,
   onCloseCar,
   viewMode,
-  setViewMode
+  setViewMode,
+  onOpenValuate,
+  onFilterBySeller
 }) => {
   const [cars, setCars] = useState([]);
   const [visibleCount, setVisibleCount] = useState(RENDER_STEP);
@@ -59,6 +64,7 @@ const CarsPage = ({
   const [catalogLoading, setCatalogLoading] = useState(true);
   const { isNew, markSeen, markAllSeen } = useSeenCars();
   const { isFavorite, toggleFavorite, getAllUrls } = useFavorites();
+  const { savedSearches, digests, isSearchSaved, saveSearch, removeSearch, markSearchChecked } = useSavedSearches();
   const [favCars, setFavCars] = useState([]);
   const { language, t } = useLanguage();
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
@@ -770,7 +776,60 @@ const CarsPage = ({
             {chip.label}
           </button>
         ))}
+        {onOpenValuate && (
+          <button
+            type="button"
+            className="quick-chip quick-chip--valuate"
+            onClick={onOpenValuate}
+          >
+            <CalculatorIcon size={14} color="currentColor" />
+            <span>{t('valuateQuickPill')}</span>
+          </button>
+        )}
       </div>
+
+      {/* Saved Searches Strip */}
+      {savedSearches.length > 0 && (
+        <div className="saved-searches-strip" aria-label={t('savedSearchesTitle')}>
+          <span className="saved-searches-strip-label">
+            <BellIcon size={13} color="var(--icon-gold)" />
+            <span>{t('savedSearchesTitle')}:</span>
+          </span>
+          {savedSearches.map((item) => {
+            const d = digests[item.id];
+            const alertCount = d ? (d.newCount || 0) + (d.dropCount || 0) : 0;
+            return (
+              <div key={item.id} className="saved-search-chip-wrap">
+                <button
+                  type="button"
+                  className="saved-search-chip"
+                  onClick={() => {
+                    markSearchChecked(item.id);
+                    setShowFavsOnly(false);
+                    setLocalTitle(item.filters?.title || '');
+                    setFilters({ ...createDefaultFilters(), ...(item.filters || {}) });
+                    setClientSort(item.clientSort || null);
+                  }}
+                >
+                  <span>{item.name}</span>
+                  {alertCount > 0 && (
+                    <span className="saved-search-chip-badge">+{alertCount}</span>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  className="saved-search-chip-remove"
+                  onClick={() => removeSearch(item.id)}
+                  aria-label={t('savedSearchRemove')}
+                  title={t('savedSearchRemove')}
+                >
+                  ×
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Active Filter Chips */}
       {hasActiveFilters && (
@@ -781,6 +840,15 @@ const CarsPage = ({
               <button className="filter-tag-close" onClick={tag.clear}>×</button>
             </span>
           ))}
+          <button
+            type="button"
+            className={`btn-save-search-tag ${isSearchSaved(filters, clientSort) ? 'saved' : ''}`}
+            disabled={isSearchSaved(filters, clientSort)}
+            onClick={() => saveSearch({ filters, clientSort })}
+          >
+            <BellIcon size={13} color="currentColor" />
+            <span>{isSearchSaved(filters, clientSort) ? t('searchSavedBtn') : t('saveSearchBtn')}</span>
+          </button>
           <button className="btn-clear-all-tags" onClick={handleResetFilters}>
             {t('clearAll')}
           </button>
@@ -802,6 +870,9 @@ const CarsPage = ({
         sellers={sellers}
         models={selectedBrands.length > 0 ? models : []}
         styles={styles}
+        hasActiveFilters={hasActiveFilters}
+        isSearchSaved={isSearchSaved(filters, clientSort)}
+        onSaveSearch={() => saveSearch({ filters, clientSort })}
       />
 
       {/* Results Container */}
@@ -978,7 +1049,7 @@ const CarsPage = ({
                         <td className="col-fav">
                           <button
                             className={`fav-btn-table ${carIsFav ? 'active' : ''}`}
-                            onClick={() => toggleFavorite(car.URL)}
+                            onClick={() => toggleFavorite(car.URL, car.Price)}
                             title={carIsFav ? t('removeFromFavorites') : t('addToFavorites')}
                           >
                             {carIsFav ? '★' : '☆'}
@@ -1092,8 +1163,8 @@ const CarsPage = ({
                     >
                       <button
                         className={`top-car-mobile-fav-btn ${carIsFav ? 'active' : ''}`}
-                        onClick={() => toggleFavorite(car.URL)}
-                        title={carIsFav ? 'Remove from favorites' : 'Add to favorites'}
+                        onClick={() => toggleFavorite(car.URL, car.Price)}
+                        title={carIsFav ? t('removeFromFavorites') : t('addToFavorites')}
                       >
                         {carIsFav ? '★' : '☆'}
                       </button>
@@ -1176,6 +1247,7 @@ const CarsPage = ({
           isOpen
           onClose={onCloseCar}
           car={openCar}
+          onFilterBySeller={onFilterBySeller}
         />
       )}
     </div>

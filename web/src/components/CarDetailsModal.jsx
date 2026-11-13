@@ -16,6 +16,8 @@ import {
   formatHeadlineChange,
 } from '../utils/priceHistory';
 import { parsePlateInfo, formatYesNo, isTaxesUnpaid, cleanSpecText } from '../utils/crVehicleInfo';
+import CostEstimatorCard from './CostEstimatorCard';
+import { WhatsAppIcon } from './icons/AppIcons';
 
 // Data Categorization Utility
 const categorizeFeatures = (featuresArray, translateFn) => {
@@ -93,24 +95,19 @@ const categorizeFeatures = (featuresArray, translateFn) => {
   return categories;
 };
 
-const WhatsAppIcon = ({ size = 18, color = 'currentColor', style = {} }) => (
-  <svg
-    viewBox="0 0 24 24"
-    width={size}
-    height={size}
-    fill={color}
-    className="hc-icon"
-    style={style}
-  >
-    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.746.953 3.71 1.456 5.71 1.457h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-  </svg>
-);
+const WA_INTENTS = [
+  { id: 'availability', labelKey: 'waIntentAvailability' },
+  { id: 'cash', labelKey: 'waIntentCash' },
+  { id: 'tradeIn', labelKey: 'waIntentTradeIn' },
+];
 
-const CarDetailsModal = ({ isOpen, onClose, car }) => {
+const CarDetailsModal = ({ isOpen, onClose, car, onFilterBySeller }) => {
   const { t, language } = useLanguage();
   const { isComparing, toggleCompare } = useCompare();
   const [historyState, setHistoryState] = useState({ url: null, points: [] });
+  const [waIntentState, setWaIntentState] = useState({ url: null, intent: 'availability' });
   const activeUrl = isOpen && car?.URL ? car.URL : null;
+  const waIntent = waIntentState.url === activeUrl ? waIntentState.intent : 'availability';
 
   useEffect(() => {
     if (!activeUrl) return undefined;
@@ -183,6 +180,15 @@ const CarDetailsModal = ({ isOpen, onClose, car }) => {
   const unpaidTaxes = isTaxesUnpaid(car.PagoImpuestos);
   const cleanEstado = cleanSpecText(car.Estado);
   const sellerAddress = cleanSpecText(car.SellerAddress);
+  const sellerActiveCount = Number(car.SellerActiveCount) || 0;
+  const sellerBadgeText = sellerActiveCount >= 4
+    ? t('sellerAgencyBadge', { count: sellerActiveCount })
+    : sellerActiveCount >= 2
+      ? t('sellerMultiBadge', { count: sellerActiveCount })
+      : sellerActiveCount === 1
+        ? t('sellerIndividual')
+        : null;
+  const sellerBadgeTone = sellerActiveCount >= 4 ? 'agency' : sellerActiveCount >= 2 ? 'multi' : 'individual';
 
   const whatsappPhone = getWhatsAppPhone(car.SellerPhone);
   const allPhones = parsePhones(car.SellerPhone);
@@ -405,6 +411,8 @@ const CarDetailsModal = ({ isOpen, onClose, car }) => {
             </div>
           )}
 
+          <CostEstimatorCard car={car} />
+
           {unpaidTaxes && <div className="details-taxes-warning">⚠️ {t('taxesUnpaidWarning')}</div>}
 
           {activeSpecs.length > 0 && (
@@ -418,14 +426,35 @@ const CarDetailsModal = ({ isOpen, onClose, car }) => {
             </div>
           )}
 
-          {(sellerName || sellerAddress || listingAge) && (
+          {(sellerName || sellerAddress || listingAge || sellerBadgeText) && (
             <div className="details-seller-card">
-              <div className="details-seller-label">
-                {t('sellerName')}
+              <div className="details-seller-header">
+                <div className="details-seller-label">
+                  {t('sellerName')}
+                </div>
+                {sellerBadgeText && (
+                  <span className={`details-seller-badge details-seller-badge--${sellerBadgeTone}`}>
+                    {sellerBadgeText}
+                  </span>
+                )}
               </div>
               {sellerName && (
-                <div className="details-seller-name">
-                  {sellerName}
+                <div className="details-seller-name-row">
+                  <div className="details-seller-name">
+                    {sellerName}
+                  </div>
+                  {sellerActiveCount >= 2 && onFilterBySeller && (
+                    <button
+                      type="button"
+                      className="btn-seller-cars"
+                      onClick={() => {
+                        onClose && onClose();
+                        onFilterBySeller(sellerName);
+                      }}
+                    >
+                      {t('viewSellerCars', { count: sellerActiveCount })} →
+                    </button>
+                  )}
                 </div>
               )}
               {sellerAddress && (
@@ -468,16 +497,31 @@ const CarDetailsModal = ({ isOpen, onClose, car }) => {
 
         <div className="details-modal-footer">
           {whatsappPhone && (
-            <a
-              href={buildWhatsAppLink(whatsappPhone, car, language)}
-              target="_blank"
-              rel="noreferrer"
-              className="btn-link btn-whatsapp"
-              onClick={() => trackEvent('contact_whatsapp', 'outbound', car.Title || car.URL)}
-            >
-              <WhatsAppIcon size={18} color="#ffffff" />
-              <span>WhatsApp {whatsappPhone.display}</span>
-            </a>
+            <div className="details-wa-section">
+              <div className="wa-intent-chips" role="group" aria-label={t('waCardTitle')}>
+                {WA_INTENTS.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={`wa-intent-chip ${waIntent === item.id ? 'active' : ''}`}
+                    aria-pressed={waIntent === item.id}
+                    onClick={() => setWaIntentState({ url: activeUrl, intent: item.id })}
+                  >
+                    {t(item.labelKey)}
+                  </button>
+                ))}
+              </div>
+              <a
+                href={buildWhatsAppLink(whatsappPhone, car, language, waIntent)}
+                target="_blank"
+                rel="noreferrer"
+                className="btn-link btn-whatsapp"
+                onClick={() => trackEvent('contact_whatsapp', 'outbound', car.Title || car.URL)}
+              >
+                <WhatsAppIcon size={18} color="#ffffff" />
+                <span>WhatsApp {whatsappPhone.display}</span>
+              </a>
+            </div>
           )}
           <a 
             href={car.URL} 
@@ -506,7 +550,7 @@ const CarDetailsModal = ({ isOpen, onClose, car }) => {
                 phone.mobile ? (
                   <a
                     key={phone.digits}
-                    href={buildWhatsAppLink(phone, car, language)}
+                    href={buildWhatsAppLink(phone, car, language, waIntent)}
                     target="_blank"
                     rel="noreferrer"
                     className="details-phone-link"

@@ -4,11 +4,13 @@ import FavoritesPage from './pages/FavoritesPage';
 import StatsPage from './pages/StatsPage';
 import AboutPage from './pages/AboutPage';
 import BargainsPage from './pages/BargainsPage';
+import ValuatePage from './pages/ValuatePage';
 import AICopilotWindow from './components/AICopilotWindow';
 import CompareWidget from './components/CompareWidget';
 import WelcomeBanner from './components/WelcomeBanner';
 import { fetchStats, recordVisit } from './api/client';
 import { useFavorites } from './hooks/useFavorites';
+import { useSavedSearches } from './hooks/useSavedSearches';
 import { useLanguage } from './context/LanguageContext';
 import { useTheme } from './hooks/useTheme';
 import { trackPageView } from './utils/analytics';
@@ -22,15 +24,17 @@ import {
   StatsChartIcon,
   InfoCircleIcon,
   SearchIcon,
-  SparkleClusterIcon
+  SparkleClusterIcon,
+  CalculatorIcon
 } from './components/icons/AppIcons';
 
 function App() {
   // Tab, filters, sort and open car are restored from the URL (shareable links + Back button).
   const initialUrlState = useMemo(() => parseUrlState(window.location.search), []);
-  // A shared link (car, filters, sort, tab) must never be interrupted by the welcome banner.
+  // A shared link (car, filters, sort, tab, compare) must never be interrupted by the welcome banner.
   const hasInitialUrlParams = useMemo(() => Boolean(
     initialUrlState.carUrl ||
+    initialUrlState.compareUrls.length > 0 ||
     initialUrlState.tab !== 'browse' ||
     initialUrlState.clientSort ||
     !sameFilters(initialUrlState.filters, createDefaultFilters())
@@ -38,6 +42,7 @@ function App() {
   const [activeTab, setActiveTab] = useState(initialUrlState.tab);
   const [stats, setStats] = useState({ total: 0, active: 0, sold: 0, visits: 0 });
   const { favCount } = useFavorites();
+  const { totalAlerts } = useSavedSearches();
   const { toggleLanguage, t } = useLanguage();
   const { isLight, toggleTheme } = useTheme();
   const [browseViewMode, setBrowseViewMode] = useState(() => {
@@ -69,22 +74,29 @@ function App() {
   const [showFavsOnly, setShowFavsOnly] = useState(false);
   const [clientSort, setClientSort] = useState(initialUrlState.clientSort);
   const [carUrl, setCarUrl] = useState(initialUrlState.carUrl);
+  const [valuateParams, setValuateParams] = useState(initialUrlState.valuateParams);
   // True while the current history entry was pushed by opening a car, so closing it can go "Back".
   const carPushedRef = useRef(false);
   const prevUrlStateRef = useRef(null);
 
   // State -> URL. Typing in the search box (or the client sort) only replaces the entry;
-  // tab, filter and car changes add a history step so "Back" undoes them.
+  // tab, filter, valuate and car changes add a history step so "Back" undoes them.
   useEffect(() => {
-    const search = buildUrlSearch({ tab: activeTab, filters, clientSort, carUrl });
+    const search = buildUrlSearch({ tab: activeTab, filters, clientSort, carUrl, valuateParams });
     const prev = prevUrlStateRef.current;
-    prevUrlStateRef.current = { tab: activeTab, filters, carUrl };
+    prevUrlStateRef.current = { tab: activeTab, filters, carUrl, valuateParams };
     if (search === window.location.search) return;
 
     const url = window.location.pathname + search + window.location.hash;
+    const sameValuate =
+      prev?.valuateParams?.brand === valuateParams?.brand &&
+      prev?.valuateParams?.model === valuateParams?.model &&
+      prev?.valuateParams?.year === valuateParams?.year &&
+      prev?.valuateParams?.km === valuateParams?.km;
     const minorChange = !prev || (
       prev.tab === activeTab &&
       prev.carUrl === carUrl &&
+      sameValuate &&
       sameFilters({ ...prev.filters, title: '' }, { ...filters, title: '' })
     );
     if (minorChange) {
@@ -93,7 +105,7 @@ function App() {
       window.history.pushState(null, '', url);
       carPushedRef.current = Boolean(carUrl) && !prev.carUrl;
     }
-  }, [activeTab, filters, clientSort, carUrl]);
+  }, [activeTab, filters, clientSort, carUrl, valuateParams]);
 
   // URL -> state when the user presses Back / Forward.
   useEffect(() => {
@@ -105,6 +117,7 @@ function App() {
       setLocalTitle(s.filters.title);
       setClientSort(s.clientSort);
       setCarUrl(s.carUrl);
+      setValuateParams(s.valuateParams);
     };
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
@@ -174,6 +187,39 @@ function App() {
     setClientSort('bestDeal');
   }, []);
 
+  const handleApplySavedSearch = useCallback((saved) => {
+    if (!saved) return;
+    setActiveTab('browse');
+    setCarUrl(null);
+    setShowFavsOnly(false);
+    setLocalTitle(saved.filters?.title || '');
+    setFilters({ ...createDefaultFilters(), ...(saved.filters || {}) });
+    setClientSort(saved.clientSort || null);
+  }, []);
+
+  const handleFilterBySeller = useCallback((sellerName) => {
+    if (!sellerName) return;
+    setActiveTab('browse');
+    setCarUrl(null);
+    setShowFavsOnly(false);
+    setLocalTitle('');
+    setClientSort(null);
+    setFilters({ ...createDefaultFilters(), sellerName });
+  }, []);
+
+  const handleBrowseFromValuate = useCallback(({ brand, model }) => {
+    setActiveTab('browse');
+    setCarUrl(null);
+    setShowFavsOnly(false);
+    setLocalTitle('');
+    setClientSort(null);
+    setFilters({
+      ...createDefaultFilters(),
+      brands: brand ? [brand] : [],
+      models: model ? [model] : [],
+    });
+  }, []);
+
   const handleAnalyzeWithCopilot = useCallback((carsToAnalyze) => {
     setAttachedCars(carsToAnalyze.slice(0, MAX_COPILOT_CARS));
     setIsCopilotOpen(true);
@@ -203,9 +249,20 @@ function App() {
           <FavoritesPage 
             viewMode={favsViewMode} 
             setViewMode={handleSetFavsViewMode} 
+            onApplySavedSearch={handleApplySavedSearch}
+            onFilterBySeller={handleFilterBySeller}
           />
         );
-      case 'stats': return <StatsPage />;
+      case 'valuate':
+        return (
+          <ValuatePage
+            valuateParams={valuateParams}
+            onUpdateParams={setValuateParams}
+            onBrowseSimilar={handleBrowseFromValuate}
+            onFilterBySeller={handleFilterBySeller}
+          />
+        );
+      case 'stats': return <StatsPage onOpenValuate={() => goToTab('valuate')} />;
       case 'about': return <AboutPage stats={stats} />;
       case 'bargains': 
         return (
@@ -230,6 +287,8 @@ function App() {
             carUrl={carUrl}
             onOpenCar={handleOpenCar}
             onCloseCar={handleCloseCar}
+            onOpenValuate={() => goToTab('valuate')}
+            onFilterBySeller={handleFilterBySeller}
           />
         );
     }
@@ -300,6 +359,7 @@ function App() {
               <StarIcon size={16} color="var(--icon-gold)" />
               <span className="nav-link-text nav-link-text-secondary">{t('favorites')}</span>
               {favCount > 0 && <span className="nav-fav-count">{favCount}</span>}
+              {totalAlerts > 0 && <span className="nav-alert-count">{totalAlerts}</span>}
             </button>
             <button 
               className={activeTab === 'bargains' ? 'active' : ''} 
@@ -307,6 +367,13 @@ function App() {
             >
               <TagIcon size={16} color="var(--icon-gold)" />
               <span className="nav-link-text nav-link-text-secondary">{t('bargainsTab')}</span>
+            </button>
+            <button 
+              className={activeTab === 'valuate' ? 'active' : ''} 
+              onClick={() => goToTab('valuate')}
+            >
+              <CalculatorIcon size={16} color="var(--icon-gold)" />
+              <span className="nav-link-text nav-link-text-secondary">{t('navValuate')}</span>
             </button>
             <button 
               className={activeTab === 'stats' ? 'active' : ''} 
@@ -332,6 +399,7 @@ function App() {
             stats={stats}
             onExploreGoodDeals={handleExploreGoodDeals}
             onOpenBargains={() => goToTab('bargains')}
+            onOpenValuate={() => goToTab('valuate')}
           />
         )}
         {renderPage()}
@@ -355,7 +423,11 @@ function App() {
             <StarIcon size={20} color="var(--icon-gold)" />
           </span>
           <span>{t('navFavs')}</span>
-          {favCount > 0 && <span className="bottom-nav-badge">{favCount}</span>}
+          {(favCount > 0 || totalAlerts > 0) && (
+            <span className={`bottom-nav-badge ${totalAlerts > 0 ? 'has-alerts' : ''}`}>
+              {totalAlerts > 0 ? `${favCount}·+${totalAlerts}` : favCount}
+            </span>
+          )}
         </button>
         <button 
           className={`bottom-nav-btn ${activeTab === 'bargains' ? 'active' : ''}`}

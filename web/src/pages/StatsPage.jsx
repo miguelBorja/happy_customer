@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { fetchDetailedStats } from '../api/client';
 import { useLanguage } from '../context/LanguageContext';
+import { CalculatorIcon } from '../components/icons/AppIcons';
 
-function StatsPage() {
+function StatsPage({ onOpenValuate }) {
   const { t } = useLanguage();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -550,6 +551,19 @@ function StatsPage() {
 
       {/* Summary numeric counters */}
       {renderSummaryCards()}
+
+      {onOpenValuate && (
+        <div className="valuate-promo-card">
+          <div className="valuate-promo-copy">
+            <h3>{t('valuatePromoTitle')}</h3>
+            <p>{t('valuatePromoDesc')}</p>
+          </div>
+          <button type="button" className="btn-valuate-promo" onClick={onOpenValuate}>
+            <CalculatorIcon size={16} color="currentColor" />
+            <span>{t('valuatePromoBtn')}</span>
+          </button>
+        </div>
+      )}
 
       {/* Page Tabs */}
       {renderTabSelector()}

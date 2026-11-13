@@ -261,3 +261,49 @@ func TestServeIndexHTML(t *testing.T) {
 		t.Errorf("missing file status = %d, want 404", rec.Code)
 	}
 }
+
+func TestRenderIndexHTMLCompareAndValuate(t *testing.T) {
+	database, err := db.Init(filepath.Join(t.TempDir(), "test.db"))
+	if err != nil {
+		t.Fatalf("db.Init: %v", err)
+	}
+	defer database.Close()
+	resetMarketStatsCache()
+	t.Cleanup(resetMarketStatsCache)
+
+	baseTime := time.Date(2026, 11, 12, 12, 0, 0, 0, time.UTC)
+	u1 := "https://crautos.com/clasificados/usados/a?c=111111"
+	u2 := "https://crautos.com/clasificados/usados/b?c=222222"
+	cars := []db.Car{
+		{URL: u1, Title: "Toyota RAV4 2021", Brand: "Toyota", Model: "RAV4", Year: 2021, Price: 28000, Kilometraje: 45000, Placa: "Termina en 1", ColorExterior: "BLANCO", SellerPhone: "8888-0001", ScrapedAt: baseTime, LastSeenAt: baseTime},
+		{URL: u2, Title: "Honda CR-V 2020", Brand: "Honda", Model: "CR-V", Year: 2020, Price: 25000, Kilometraje: 60000, Placa: "Termina en 2", ColorExterior: "GRIS", SellerPhone: "8888-0002", ScrapedAt: baseTime, LastSeenAt: baseTime},
+	}
+	if err := database.UpsertCarBatch(cars); err != nil {
+		t.Fatalf("UpsertCarBatch: %v", err)
+	}
+
+	srv := &Server{DB: database}
+	reqCompare := httptest.NewRequest(http.MethodGet, "/?compare="+url.QueryEscape(u1+","+u2), nil)
+	gotCompare := srv.RenderIndexHTML(reqCompare, testBaseHTML)
+	if !strings.Contains(gotCompare, "Comparativa: Toyota RAV4 2021 vs Honda CR-V 2020 | Happy Customer") {
+		t.Errorf("compare title missing:\n%s", gotCompare)
+	}
+	if !strings.Contains(gotCompare, `content="https://crautos.com/clasificados/usados/111111-1.jpg"`) {
+		t.Errorf("compare og:image missing first active car photo:\n%s", gotCompare)
+	}
+	if !strings.Contains(gotCompare, `twitter:card" content="summary_large_image"`) {
+		t.Errorf("compare twitter:card not summary_large_image:\n%s", gotCompare)
+	}
+
+	reqValuate := httptest.NewRequest(http.MethodGet, "/?tab=valuate&brand=Toyota&model=Hilux&year=2020", nil)
+	gotValuate := srv.RenderIndexHTML(reqValuate, testBaseHTML)
+	if !strings.Contains(gotValuate, "¿Cuánto vale un Toyota Hilux 2020 en Costa Rica? | Happy Customer") {
+		t.Errorf("valuate title missing:\n%s", gotValuate)
+	}
+
+	payload := `<script>alert(1)</script>`
+	gotXSS := srv.RenderIndexHTML(httptest.NewRequest(http.MethodGet, "/?tab=valuate&brand="+url.QueryEscape(payload)+"&model=X", nil), testBaseHTML)
+	if strings.Contains(gotXSS, "<script>") {
+		t.Errorf("valuate XSS not escaped:\n%s", gotXSS)
+	}
+}

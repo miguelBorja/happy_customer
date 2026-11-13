@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useCompare } from '../hooks/useCompare';
 import { useLanguage } from '../context/LanguageContext';
@@ -7,7 +7,9 @@ import MarketBadge from './MarketBadge';
 import PriceDropBadge from './PriceDropBadge';
 import { getMarketDeal, formatUSD } from '../utils/marketDeal';
 import { sortEquipments, FEATURED_EQUIPMENTS } from '../utils/equipmentPriority';
-import { getWhatsAppPhone, buildWhatsAppLink } from '../utils/phone';
+import { getWhatsAppPhone, buildWhatsAppLink, buildComparisonWhatsAppLink } from '../utils/phone';
+import { estimateCrCosts, formatCRC } from '../utils/crCostEstimator';
+import { WhatsAppIcon } from './icons/AppIcons';
 
 const shortTitle = (title = '') => (title.length > 30 ? `${title.slice(0, 29)}…` : title);
 
@@ -15,6 +17,12 @@ const CompareWidget = ({ onAnalyzeWithCopilot }) => {
   const { compareCars, removeCompare, clearCompare, isCompareOpen, setIsCompareOpen, maxCars } = useCompare();
   const { language, t } = useLanguage();
   const [onlyDiffs, setOnlyDiffs] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const copyTimerRef = useRef(null);
+
+  useEffect(() => () => {
+    if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+  }, []);
 
   // Close the modal on Escape.
   useEffect(() => {
@@ -43,9 +51,95 @@ const CompareWidget = ({ onAnalyzeWithCopilot }) => {
     return [...featured, ...rest].slice(0, 12);
   }, [compareCars]);
 
+  const costsByUrl = useMemo(() => (
+    new Map(compareCars.map((car) => [car.URL, estimateCrCosts(car)]))
+  ), [compareCars]);
+
+  const shareCompareUrl = useMemo(() => {
+    if (compareCars.length < 2 || typeof window === 'undefined') return '';
+    const params = new URLSearchParams();
+    params.set('compare', compareCars.map((c) => c.URL).filter(Boolean).join(','));
+    return `${window.location.origin}${window.location.pathname}?${params.toString()}`;
+  }, [compareCars]);
+
+  const verdictItems = useMemo(() => {
+    if (compareCars.length < 2) return [];
+    const items = [];
+
+    let bestDealCar = null;
+    let bestDeal = null;
+    compareCars.forEach((car) => {
+      const d = getMarketDeal(car);
+      if (d && d.level !== 'check' && (!bestDeal || d.pct < bestDeal.pct)) {
+        bestDeal = d;
+        bestDealCar = car;
+      }
+    });
+    if (bestDealCar && bestDeal) {
+      const pctText = `${bestDeal.pct > 0 ? '+' : ''}${Math.round(bestDeal.pct)}`;
+      items.push({
+        key: 'best-market',
+        text: t('compareBestMarket', { title: shortTitle(bestDealCar.Title), pct: pctText }),
+      });
+    }
+
+    let minTurnkeyCar = null;
+    let minTurnkey = null;
+    compareCars.forEach((car) => {
+      const c = costsByUrl.get(car.URL);
+      if (c && c.turnkeyUSD > 0 && (minTurnkey === null || c.turnkeyUSD < minTurnkey)) {
+        minTurnkey = c.turnkeyUSD;
+        minTurnkeyCar = car;
+      }
+    });
+    if (minTurnkeyCar && minTurnkey !== null) {
+      items.push({
+        key: 'lowest-turnkey',
+        text: t('compareLowestTurnkey', { title: shortTitle(minTurnkeyCar.Title), amount: formatUSD(minTurnkey) }),
+      });
+    }
+
+    let minKmCar = null;
+    let minKm = null;
+    compareCars.forEach((car) => {
+      const km = Number(car.Kilometraje) || 0;
+      if (km > 0 && (minKm === null || km < minKm)) {
+        minKm = km;
+        minKmCar = car;
+      }
+    });
+    if (minKmCar && minKm !== null) {
+      items.push({
+        key: 'lowest-km',
+        text: t('compareLowestKm', { title: shortTitle(minKmCar.Title), km: `${minKm.toLocaleString()} km` }),
+      });
+    }
+
+    let mostEquippedCar = null;
+    let maxEquip = 0;
+    const eqCounts = compareCars.map((car) => {
+      const count = car?.Equipments ? Object.values(car.Equipments).filter(Boolean).length : 0;
+      if (count > maxEquip) {
+        maxEquip = count;
+        mostEquippedCar = car;
+      }
+      return count;
+    });
+    if (mostEquippedCar && maxEquip > 0 && new Set(eqCounts).size > 1) {
+      items.push({
+        key: 'most-equipped',
+        text: t('compareMostEquipped', { title: shortTitle(mostEquippedCar.Title), count: maxEquip }),
+      });
+    }
+
+    return items;
+  }, [compareCars, costsByUrl, t]);
+
   // Build the spec rows for the comparison table.
   const rows = useMemo(() => {
     const priceValues = compareCars.map((car) => Number(car.Price) || 0);
+    const turnkeyValues = compareCars.map((car) => costsByUrl.get(car.URL)?.turnkeyUSD || 0);
+    const marchamoValues = compareCars.map((car) => costsByUrl.get(car.URL)?.marchamoCRC || 0);
     const yearValues = compareCars.map((car) => Number(car.Year) || 0);
     const kmValues = compareCars.map((car) => Number(car.Kilometraje) || 0);
     const deals = compareCars.map((car) => getMarketDeal(car));
@@ -57,6 +151,10 @@ const CompareWidget = ({ onAnalyzeWithCopilot }) => {
 
     const priceMin = lowestPositive(priceValues);
     const priceDiff = new Set(priceValues).size > 1;
+    const turnkeyMin = lowestPositive(turnkeyValues);
+    const turnkeyDiff = new Set(turnkeyValues).size > 1;
+    const marchamoMin = lowestPositive(marchamoValues);
+    const marchamoDiff = new Set(marchamoValues).size > 1;
     const yearMax = yearValues.length ? Math.max(...yearValues) : null;
     const yearDiff = new Set(yearValues).size > 1;
     const kmMin = lowestPositive(kmValues);
@@ -105,6 +203,41 @@ const CompareWidget = ({ onAnalyzeWithCopilot }) => {
       },
     });
 
+    // 2b. Estimated Turnkey & Marchamo
+    out.push({
+      key: 'turnkey',
+      label: t('compareRowTurnkey'),
+      always: true,
+      render: (car) => {
+        const c = costsByUrl.get(car.URL);
+        if (!c || c.turnkeyUSD <= 0) return <span>—</span>;
+        const best = turnkeyDiff && c.turnkeyUSD === turnkeyMin;
+        return (
+          <span className="compare-cost-cell">
+            <span className={best ? 'compare-cell-best' : undefined}>~{formatUSD(c.turnkeyUSD)}</span>
+            <span className="compare-cost-sub">{formatCRC(c.turnkeyCRC)}</span>
+          </span>
+        );
+      },
+    });
+
+    out.push({
+      key: 'marchamo',
+      label: t('compareRowMarchamo'),
+      diff: marchamoDiff,
+      render: (car) => {
+        const c = costsByUrl.get(car.URL);
+        if (!c || c.marchamoCRC <= 0) return <span>—</span>;
+        const best = marchamoDiff && c.marchamoCRC === marchamoMin;
+        return (
+          <span className="compare-cost-cell">
+            <span className={best ? 'compare-cell-best' : undefined}>~{formatCRC(c.marchamoCRC)}</span>
+            <span className="compare-cost-sub">~{formatUSD(c.marchamoUSD)}</span>
+          </span>
+        );
+      },
+    });
+
     // 3. Year
     out.push({
       key: 'year',
@@ -147,6 +280,23 @@ const CompareWidget = ({ onAnalyzeWithCopilot }) => {
     out.push(simpleRow('province', t('province'), (car) => car.Provincia || ''));
     out.push(simpleRow('negotiable', t('specNegotiableTrades'), (car) => [car.PrecioNegociable, car.SeRecibe].filter((value) => value && value !== '-').join(' · ')));
 
+    out.push({
+      key: 'seller',
+      label: t('compareRowSeller'),
+      diff: true,
+      render: (car) => {
+        const name = car.SellerName && String(car.SellerName).trim() !== '-' ? String(car.SellerName).trim() : '';
+        const count = Number(car.SellerActiveCount) || 0;
+        if (!name && !count) return <span>—</span>;
+        return (
+          <span className="compare-cost-cell">
+            <span>{name || '—'}</span>
+            {count >= 2 && <span className="compare-cost-sub">{t('compareSellerActive', { count })}</span>}
+          </span>
+        );
+      },
+    });
+
     // 10. Featured equipment (one row per key)
     equipmentKeys.forEach((eq) => {
       const present = compareCars.map((car) => Boolean(car?.Equipments && car.Equipments[eq]));
@@ -165,7 +315,28 @@ const CompareWidget = ({ onAnalyzeWithCopilot }) => {
     });
 
     return out;
-  }, [compareCars, equipmentKeys, t]);
+  }, [compareCars, equipmentKeys, costsByUrl, t]);
+
+  const handleCopyShareLink = () => {
+    if (!shareCompareUrl) return;
+    const copyPromise = navigator.clipboard?.writeText
+      ? navigator.clipboard.writeText(shareCompareUrl)
+      : Promise.reject();
+    copyPromise
+      .then(() => {
+        setCopiedLink(true);
+        if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+        copyTimerRef.current = setTimeout(() => setCopiedLink(false), 2000);
+      })
+      .catch(() => {
+        window.prompt(t('compareCopyLink'), shareCompareUrl);
+      });
+  };
+
+  const compareWaShareHref = useMemo(
+    () => buildComparisonWhatsAppLink(compareCars, shareCompareUrl, language),
+    [compareCars, shareCompareUrl, language]
+  );
 
   const visibleRows = onlyDiffs ? rows.filter((row) => row.always || row.diff) : rows;
 
@@ -241,24 +412,44 @@ const CompareWidget = ({ onAnalyzeWithCopilot }) => {
               <h3 className="compare-modal-title">
                 {t('compareModalTitle')}
               </h3>
-              <button
-                className={`compare-diff-toggle ${onlyDiffs ? 'active' : ''}`.trim()}
-                type="button"
-                aria-pressed={onlyDiffs}
-                onClick={() => setOnlyDiffs((value) => !value)}
-              >
-                {t('compareOnlyDiffs')}
-              </button>
-              <button
-                className="btn-compare-copilot"
-                type="button"
-                onClick={() => {
-                  setIsCompareOpen(false);
-                  onAnalyzeWithCopilot && onAnalyzeWithCopilot(compareCars);
-                }}
-              >
-                {t('compareAskCopilot')}
-              </button>
+              <div className="compare-header-actions">
+                <button
+                  className={`compare-diff-toggle ${onlyDiffs ? 'active' : ''}`.trim()}
+                  type="button"
+                  aria-pressed={onlyDiffs}
+                  onClick={() => setOnlyDiffs((value) => !value)}
+                >
+                  {t('compareOnlyDiffs')}
+                </button>
+                <button
+                  className="btn-compare-share"
+                  type="button"
+                  onClick={handleCopyShareLink}
+                >
+                  {copiedLink ? t('compareLinkCopied') : `🔗 ${t('compareCopyLink')}`}
+                </button>
+                {compareWaShareHref && (
+                  <a
+                    className="btn-compare-wa-share"
+                    href={compareWaShareHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <WhatsAppIcon size={14} color="currentColor" />
+                    <span>{t('compareShareWhatsApp')}</span>
+                  </a>
+                )}
+                <button
+                  className="btn-compare-copilot"
+                  type="button"
+                  onClick={() => {
+                    setIsCompareOpen(false);
+                    onAnalyzeWithCopilot && onAnalyzeWithCopilot(compareCars);
+                  }}
+                >
+                  {t('compareAskCopilot')}
+                </button>
+              </div>
               <button
                 className="compare-modal-close"
                 type="button"
@@ -268,6 +459,17 @@ const CompareWidget = ({ onAnalyzeWithCopilot }) => {
                 ×
               </button>
             </div>
+
+            {verdictItems.length > 0 && (
+              <div className="compare-verdict-banner">
+                <span className="compare-verdict-title">⚖️ {t('compareVerdictTitle')}:</span>
+                <div className="compare-verdict-pills">
+                  {verdictItems.map((item) => (
+                    <span key={item.key} className="compare-verdict-pill">{item.text}</span>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="compare-table-wrap">
               <table className="compare-table">

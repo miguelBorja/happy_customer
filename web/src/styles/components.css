@@ -687,3 +687,672 @@
 [data-theme="light"] .share-btn:hover {
   background-color: #166534;
 }
+
+/* --- Conversion: WhatsApp button on CarCard --- */
+.whatsapp-btn-card {
+  position: absolute;
+  top: 1.5rem;
+  right: 6.7rem;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  background: rgba(16, 185, 129, 0.22);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(52, 211, 153, 0.4);
+  color: #6ee7b7;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  z-index: 5;
+  opacity: 0;
+  transition: opacity 0.18s ease, transform 0.18s ease, background-color 0.18s ease, border-color 0.18s ease;
+}
+
+.car-card:hover .whatsapp-btn-card,
+.car-card:focus-within .whatsapp-btn-card,
+.whatsapp-btn-card:focus-visible {
+  opacity: 0.95;
+}
+
+.whatsapp-btn-card:hover {
+  background: #15803d;
+  color: #ffffff;
+  border-color: #22c55e;
+  transform: scale(1.08);
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .whatsapp-btn-card {
+    opacity: 0.92;
+  }
+}
+
+[data-theme="light"] .whatsapp-btn-card {
+  background: rgba(255, 255, 255, 0.94);
+  border-color: rgba(21, 128, 61, 0.35);
+  color: #15803d;
+}
+
+[data-theme="light"] .whatsapp-btn-card:hover {
+  background: #15803d;
+  color: #ffffff;
+  border-color: #166534;
+}
+
+/* --- Navbar alert count pill for saved searches --- */
+.nav-alert-count {
+  background: rgba(16, 185, 129, 0.22);
+  color: #6ee7b7;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.1rem 0.38rem;
+  border-radius: 9999px;
+}
+
+[data-theme="light"] .nav-alert-count {
+  background: #15803d;
+  color: #ffffff;
+}
+
+.bottom-nav-badge.has-alerts {
+  background: #15803d;
+  color: #ffffff;
+}
+
+/* --- CR Real Cost Estimator --- */
+.cost-estimator-card {
+  margin: 0.9rem 0;
+  padding: 0.9rem 1rem;
+  border-radius: 10px;
+  background: rgba(30, 41, 59, 0.72);
+  border: 1px solid rgba(56, 189, 248, 0.24);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.cost-estimator-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.cost-estimator-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.cost-estimator-toggle {
+  background: rgba(56, 189, 248, 0.14);
+  color: #7dd3fc;
+  border: 1px solid rgba(56, 189, 248, 0.32);
+  border-radius: 9999px;
+  padding: 0.25rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cost-estimator-toggle:hover {
+  background: rgba(56, 189, 248, 0.24);
+}
+
+.cost-estimator-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+@media (max-width: 640px) {
+  .cost-estimator-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.cost-est-metric {
+  background: rgba(15, 23, 42, 0.52);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 0.55rem 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+}
+
+.cost-est-metric-primary {
+  border-color: rgba(56, 189, 248, 0.35);
+  background: rgba(14, 116, 144, 0.2);
+}
+
+.cost-est-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.cost-est-value {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.cost-est-sub {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.cost-est-tax-note {
+  font-size: 0.76rem;
+  color: #fcd34d;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  border-radius: 6px;
+  padding: 0.4rem 0.6rem;
+}
+
+.cost-estimator-controls {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.cost-control-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+@media (max-width: 520px) {
+  .cost-control-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.cost-control-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+
+.cost-control-field input[type="number"],
+.cost-control-field select {
+  background: var(--bg-input, #0f172a);
+  color: var(--text-main);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.38rem 0.55rem;
+  font-size: 0.84rem;
+}
+
+.cost-estimator-summary-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.9rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.cost-estimator-summary-line strong {
+  color: var(--text-main);
+}
+
+.cost-estimator-disclaimer {
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: var(--text-muted);
+}
+
+[data-theme="light"] .cost-estimator-card {
+  background: #f8fafc;
+  border-color: rgba(37, 99, 235, 0.22);
+}
+
+[data-theme="light"] .cost-estimator-toggle {
+  background: rgba(37, 99, 235, 0.1);
+  color: #1d4ed8;
+  border-color: rgba(37, 99, 235, 0.28);
+}
+
+[data-theme="light"] .cost-est-metric {
+  background: #ffffff;
+  border-color: #cbd5e1;
+}
+
+[data-theme="light"] .cost-est-metric-primary {
+  background: rgba(37, 99, 235, 0.08);
+  border-color: rgba(37, 99, 235, 0.35);
+}
+
+[data-theme="light"] .cost-est-tax-note {
+  color: #92400e;
+  background: #fef3c7;
+  border-color: rgba(180, 83, 9, 0.3);
+}
+
+[data-theme="light"] .cost-estimator-controls {
+  border-top-color: #cbd5e1;
+}
+
+/* --- Seller Trust Badges & View Seller Cars --- */
+.details-seller-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.details-seller-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.16rem 0.5rem;
+  border-radius: 9999px;
+}
+
+.details-seller-badge--individual {
+  background: rgba(16, 185, 129, 0.15);
+  color: #6ee7b7;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.details-seller-badge--multi {
+  background: rgba(56, 189, 248, 0.15);
+  color: #7dd3fc;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.details-seller-badge--agency {
+  background: rgba(245, 158, 11, 0.16);
+  color: #fcd34d;
+  border: 1px solid rgba(245, 158, 11, 0.32);
+}
+
+.details-seller-name-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.btn-seller-cars {
+  background: rgba(59, 130, 246, 0.16);
+  color: #93c5fd;
+  border: 1px solid rgba(59, 130, 246, 0.34);
+  border-radius: 6px;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-seller-cars:hover {
+  background: rgba(59, 130, 246, 0.28);
+}
+
+[data-theme="light"] .details-seller-badge--individual {
+  background: #dcfce7;
+  color: #166534;
+  border-color: rgba(22, 101, 52, 0.28);
+}
+
+[data-theme="light"] .details-seller-badge--multi {
+  background: #dbeafe;
+  color: #1e40af;
+  border-color: rgba(30, 64, 175, 0.28);
+}
+
+[data-theme="light"] .details-seller-badge--agency {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: rgba(180, 83, 9, 0.3);
+}
+
+[data-theme="light"] .btn-seller-cars {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: rgba(37, 99, 235, 0.35);
+}
+
+[data-theme="light"] .btn-seller-cars:hover {
+  background: #dbeafe;
+}
+
+/* --- WhatsApp Quick-Intent Chips in Details Modal --- */
+.details-wa-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  width: 100%;
+}
+
+.wa-intent-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.38rem;
+}
+
+.wa-intent-chip {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  padding: 0.24rem 0.6rem;
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.wa-intent-chip.active,
+.wa-intent-chip:hover {
+  background: rgba(16, 185, 129, 0.18);
+  color: #6ee7b7;
+  border-color: rgba(52, 211, 153, 0.45);
+}
+
+[data-theme="light"] .wa-intent-chip {
+  background: #f1f5f9;
+  color: #334155;
+  border-color: #cbd5e1;
+}
+
+[data-theme="light"] .wa-intent-chip.active,
+[data-theme="light"] .wa-intent-chip:hover {
+  background: #dcfce7;
+  color: #166534;
+  border-color: rgba(22, 101, 52, 0.4);
+}
+
+/* --- Compare 2.0 --- */
+.compare-header-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.btn-compare-share,
+.btn-compare-wa-share {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.38rem 0.72rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-main);
+}
+
+.btn-compare-share:hover {
+  background: rgba(59, 130, 246, 0.18);
+  border-color: rgba(96, 165, 250, 0.45);
+}
+
+.btn-compare-wa-share {
+  background: rgba(16, 185, 129, 0.16);
+  border-color: rgba(52, 211, 153, 0.4);
+  color: #6ee7b7;
+}
+
+.btn-compare-wa-share:hover {
+  background: #15803d;
+  color: #ffffff;
+}
+
+.compare-verdict-banner {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  padding: 0.65rem 1.25rem;
+  background: rgba(16, 185, 129, 0.08);
+  border-bottom: 1px solid var(--border);
+}
+
+.compare-verdict-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #6ee7b7;
+}
+
+.compare-verdict-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.compare-verdict-pill {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+  padding: 0.18rem 0.6rem;
+}
+
+.compare-cost-cell {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.compare-cost-sub {
+  font-size: 0.73rem;
+  color: var(--text-muted);
+}
+
+[data-theme="light"] .btn-compare-share {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+
+[data-theme="light"] .btn-compare-wa-share {
+  background: #dcfce7;
+  color: #166534;
+  border-color: rgba(22, 101, 52, 0.35);
+}
+
+[data-theme="light"] .btn-compare-wa-share:hover {
+  background: #15803d;
+  color: #ffffff;
+}
+
+[data-theme="light"] .compare-verdict-banner {
+  background: #ecfdf5;
+}
+
+[data-theme="light"] .compare-verdict-title {
+  color: #166534;
+}
+
+[data-theme="light"] .compare-verdict-pill {
+  background: #ffffff;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+
+@media (max-width: 768px) {
+  .compare-modal {
+    width: 100vw;
+    max-width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+  }
+
+  .compare-label-col,
+  .compare-row-label {
+    min-width: 105px;
+    max-width: 118px;
+    font-size: 0.74rem;
+    padding: 0.45rem 0.5rem;
+  }
+
+  .compare-verdict-banner {
+    padding: 0.55rem 0.85rem;
+  }
+}
+
+/* --- Saved Search Controls & Chips --- */
+.quick-chip--valuate {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-color: rgba(251, 191, 36, 0.38);
+  color: #fcd34d;
+}
+
+[data-theme="light"] .quick-chip--valuate {
+  border-color: rgba(180, 83, 9, 0.38);
+  color: #92400e;
+  background: #fffbeb;
+}
+
+.saved-searches-strip {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-bottom: 0.65rem;
+}
+
+.saved-searches-strip-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.saved-search-chip-wrap {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.saved-search-chip {
+  background: transparent;
+  border: none;
+  color: var(--text-main);
+  padding: 0.26rem 0.55rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+}
+
+.saved-search-chip:hover {
+  background: rgba(59, 130, 246, 0.16);
+}
+
+.saved-search-chip-badge {
+  background: #15803d;
+  color: #ffffff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.06rem 0.38rem;
+  border-radius: 9999px;
+}
+
+.saved-search-chip-remove {
+  background: transparent;
+  border: none;
+  border-left: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: 0.26rem 0.45rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.saved-search-chip-remove:hover {
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.15);
+}
+
+.btn-save-search-tag,
+.btn-save-search-modal {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+  border-radius: 9999px;
+  padding: 0.25rem 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: rgba(251, 191, 36, 0.14);
+  color: #fcd34d;
+  border: 1px solid rgba(251, 191, 36, 0.38);
+}
+
+.btn-save-search-modal {
+  border-radius: 8px;
+  padding: 0.55rem 0.9rem;
+  font-size: 0.85rem;
+}
+
+.btn-save-search-tag.saved,
+.btn-save-search-modal.saved {
+  background: rgba(16, 185, 129, 0.16);
+  color: #6ee7b7;
+  border-color: rgba(52, 211, 153, 0.38);
+  cursor: default;
+}
+
+[data-theme="light"] .saved-search-chip-wrap {
+  background: #f8fafc;
+}
+
+[data-theme="light"] .saved-search-chip-remove:hover {
+  color: #b91c1c;
+  background: #fee2e2;
+}
+
+[data-theme="light"] .btn-save-search-tag,
+[data-theme="light"] .btn-save-search-modal {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: rgba(180, 83, 9, 0.38);
+}
+
+[data-theme="light"] .btn-save-search-tag.saved,
+[data-theme="light"] .btn-save-search-modal.saved {
+  background: #dcfce7;
+  color: #166534;
+  border-color: rgba(22, 101, 52, 0.35);
+}
+
+.whatsapp-btn-card:focus-visible,
+.wa-intent-chip:focus-visible,
+.cost-estimator-toggle:focus-visible,
+.btn-seller-cars:focus-visible,
+.btn-compare-share:focus-visible,
+.btn-compare-wa-share:focus-visible,
+.btn-save-search-tag:focus-visible,
+.btn-save-search-modal:focus-visible,
+.saved-search-chip:focus-visible,
+.saved-search-chip-remove:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}

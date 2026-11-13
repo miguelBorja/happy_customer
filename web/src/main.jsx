@@ -8,6 +8,7 @@ import App from './App.jsx'
 import { ThemeProvider } from './context/ThemeContext.jsx'
 import { LanguageProvider } from './context/LanguageContext.jsx'
 import { FavoritesProvider } from './context/FavoritesContext.jsx'
+import { SavedSearchesProvider } from './context/SavedSearchesContext.jsx'
 import { CompareProvider } from './context/CompareContext.jsx'
 import { initGA } from './utils/analytics'
 
@@ -19,9 +20,11 @@ createRoot(document.getElementById('root')).render(
     <ThemeProvider>
       <LanguageProvider>
         <FavoritesProvider>
-          <CompareProvider>
-            <App />
-          </CompareProvider>
+          <SavedSearchesProvider>
+            <CompareProvider>
+              <App />
+            </CompareProvider>
+          </SavedSearchesProvider>
         </FavoritesProvider>
       </LanguageProvider>
     </ThemeProvider>

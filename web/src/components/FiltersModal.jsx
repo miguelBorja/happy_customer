@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLanguage } from '../context/LanguageContext';
-import { FilterFunnelIcon } from './icons/AppIcons';
+import { FilterFunnelIcon, BellIcon } from './icons/AppIcons';
 import ExcelMultiSelect from './ExcelMultiSelect';
 
 const commonEquipments = [
@@ -68,7 +68,10 @@ const FiltersModal = ({
   provinces = [],
   sellers = [],
   models = [],
-  styles = []
+  styles = [],
+  hasActiveFilters = false,
+  isSearchSaved = false,
+  onSaveSearch
 }) => {
   const { t } = useLanguage();
 
@@ -515,6 +518,17 @@ const FiltersModal = ({
           <button className="btn-reset-filters" onClick={onReset}>
             {t('resetFilters')}
           </button>
+          {hasActiveFilters && onSaveSearch && (
+            <button
+              type="button"
+              className={`btn-save-search-modal ${isSearchSaved ? 'saved' : ''}`}
+              disabled={isSearchSaved}
+              onClick={onSaveSearch}
+            >
+              <BellIcon size={14} color="currentColor" />
+              <span>{isSearchSaved ? t('searchSavedBtn') : t('saveSearchBtn')}</span>
+            </button>
+          )}
           <button className="btn-primary" onClick={onClose}>
             {t('showResultsCount', { count: resultsCount })}
           </button>
