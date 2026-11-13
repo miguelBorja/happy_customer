@@ -5,6 +5,7 @@ import './styles/photos.css'
 import './styles/components.css'
 import './styles/pages.css'
 import App from './App.jsx'
+import { ThemeProvider } from './context/ThemeContext.jsx'
 import { LanguageProvider } from './context/LanguageContext.jsx'
 import { FavoritesProvider } from './context/FavoritesContext.jsx'
 import { CompareProvider } from './context/CompareContext.jsx'
@@ -15,12 +16,14 @@ initGA();
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <LanguageProvider>
-      <FavoritesProvider>
-        <CompareProvider>
-          <App />
-        </CompareProvider>
-      </FavoritesProvider>
-    </LanguageProvider>
+    <ThemeProvider>
+      <LanguageProvider>
+        <FavoritesProvider>
+          <CompareProvider>
+            <App />
+          </CompareProvider>
+        </FavoritesProvider>
+      </LanguageProvider>
+    </ThemeProvider>
   </StrictMode>,
 )

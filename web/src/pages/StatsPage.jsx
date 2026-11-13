@@ -156,7 +156,7 @@ function StatsPage() {
                           y1={yPos}
                           x2={chartWidth - 20}
                           y2={yPos}
-                          stroke="rgba(255, 255, 255, 0.05)"
+                          stroke="var(--chart-grid, rgba(255, 255, 255, 0.05))"
                           strokeWidth="1"
                         />
                         <text
@@ -195,9 +195,9 @@ function StatsPage() {
                           y={y}
                           width={colWidth - spacing}
                           height={h}
-                          fill="rgba(59, 130, 246, 0.15)"
+                          fill="var(--chart-bar-bg, rgba(59, 130, 246, 0.15))"
                           rx="4"
-                          stroke="rgba(59, 130, 246, 0.3)"
+                          stroke="var(--chart-bar-stroke, rgba(59, 130, 246, 0.3))"
                           strokeWidth="1"
                         />
 

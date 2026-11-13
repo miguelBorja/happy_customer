@@ -66,10 +66,10 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage, onOpenD
   const getDynamicColors = (percent) => {
     const hue = Math.max(0, Math.min(120, 120 - (percent * 1.2)));
     return {
-      text: `hsl(${hue}, 90%, 65%)`,
-      fill: `hsla(${hue}, 85%, 48%, 0.2)`,
-      border: `hsla(${hue}, 85%, 48%, 0.25)`,
-      bg: `hsla(${hue}, 85%, 48%, 0.03)`
+      text: `hsl(${hue}, var(--bar-card-text-s, 90%), var(--bar-card-text-l, 65%))`,
+      fill: `hsla(${hue}, 85%, 48%, var(--bar-card-fill-a, 0.2))`,
+      border: `hsla(${hue}, 85%, 48%, var(--bar-card-border-a, 0.25))`,
+      bg: `hsla(${hue}, 85%, 48%, var(--bar-card-bg-a, 0.03))`
     };
   };
 
@@ -117,7 +117,7 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage, onOpenD
         onClick={(e) => { e.stopPropagation(); onToggleFav && onToggleFav(car.URL); }}
         title={isFav ? t('removeFromFavorites') : t('addToFavorites')}
       >
-        <StarIcon size={16} color="#fbbf24" filled={isFav} />
+        <StarIcon size={16} color="var(--icon-gold)" filled={isFav} />
       </button>
 
       <div className="car-card-body">
@@ -194,7 +194,7 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage, onOpenD
               <>
                 <span className="car-spec-dot">•</span>
                 <span className="spec-province">
-                  <LocationPinIcon size={13} color="#94a3b8" />
+                  <LocationPinIcon size={13} color="currentColor" />
                   <span>{car.Provincia}</span>
                 </span>
               </>
@@ -214,7 +214,7 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage, onOpenD
         <div className="car-extra-details">
           {car.Transmision && (
             <span className="detail-item">
-              <AutoTransmissionIcon size={16} color="#fbbf24" />
+              <AutoTransmissionIcon size={16} color="var(--icon-gold)" />
               <span>{car.Transmision}</span>
             </span>
           )}
@@ -223,7 +223,7 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage, onOpenD
               {String(car.Combustible).toLowerCase().includes('eléctrico') || 
                String(car.Combustible).toLowerCase().includes('electrico') || 
                String(car.Combustible).toLowerCase().includes('electric') ? (
-                <ElectricPlugIcon size={16} color="#38bdf8" />
+                <ElectricPlugIcon size={16} color="var(--icon-electric)" />
               ) : (
                 <FuelPumpIcon />
               )}

@@ -1,6 +1,7 @@
 package scraper
 
 import (
+	"context"
 	"fmt"
 	"html"
 	"io"
@@ -69,6 +70,8 @@ type Scraper struct {
 	DB                 *db.DB
 	Force              bool
 	SkipRefreshedHours int
+	BaseURL            string
+	HTTPClient         *http.Client
 }
 
 func NewScraper(database *db.DB, force bool, skipRefreshedHours int) *Scraper {
@@ -76,13 +79,54 @@ func NewScraper(database *db.DB, force bool, skipRefreshedHours int) *Scraper {
 		DB:                 database,
 		Force:              force,
 		SkipRefreshedHours: skipRefreshedHours,
+		BaseURL:            "https://crautos.com",
 	}
 }
 
-func (s *Scraper) Run() {
+func (s *Scraper) baseURL() string {
+	if trimmed := strings.TrimRight(strings.TrimSpace(s.BaseURL), "/"); trimmed != "" {
+		return trimmed
+	}
+	return "https://crautos.com"
+}
+
+func (s *Scraper) httpClient() *http.Client {
+	if s.HTTPClient != nil {
+		return s.HTTPClient
+	}
+	return createHTTPClient()
+}
+
+func normalizeContext(ctx context.Context) context.Context {
+	if ctx == nil {
+		return context.Background()
+	}
+	return ctx
+}
+
+func sleepContext(ctx context.Context, d time.Duration) bool {
+	if ctx.Err() != nil {
+		return false
+	}
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return false
+	case <-timer.C:
+		return true
+	}
+}
+
+func (s *Scraper) Run(ctx context.Context) {
+	ctx = normalizeContext(ctx)
 	for brandName, brandID := range targetBrands {
+		if ctx.Err() != nil {
+			log.Printf("=== Scrape Run Canceled Before Brand %s (%v) ===", brandName, ctx.Err())
+			return
+		}
 		log.Printf("=== Starting Brand: %s ===\n", brandName)
-		s.ProcessBrand(brandName, brandID)
+		s.ProcessBrand(ctx, brandName, brandID)
 	}
 	log.Println("=== Scrape Run Completed ===")
 }
@@ -100,7 +144,8 @@ func createHTTPClient() *http.Client {
 	}
 }
 
-func (s *Scraper) BackfillSellers() {
+func (s *Scraper) BackfillSellers(ctx context.Context) {
+	ctx = normalizeContext(ctx)
 	urls, err := s.DB.GetURLsWithoutSeller()
 	if err != nil {
 		log.Printf("Error getting URLs without seller: %v", err)
@@ -114,12 +159,12 @@ func (s *Scraper) BackfillSellers() {
 
 	workerCount := 20
 	jobs := make(chan string, len(urls))
-	for _, url := range urls {
-		jobs <- url
+	for _, u := range urls {
+		jobs <- u
 	}
 	close(jobs)
 
-	client := createHTTPClient()
+	client := s.httpClient()
 	var wg sync.WaitGroup
 	var updatedCount uint64
 	var totalChecked uint64
@@ -128,15 +173,21 @@ func (s *Scraper) BackfillSellers() {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for url := range jobs {
-				name, phone, address, err := s.fetchSellerHTTP(client, url)
+			for u := range jobs {
+				if ctx.Err() != nil {
+					return
+				}
+				name, phone, address, err := s.fetchSellerHTTP(ctx, client, u)
 				if err != nil {
-					log.Printf("Error fetching seller for %s: %v", url, err)
+					if ctx.Err() != nil {
+						return
+					}
+					log.Printf("Error fetching seller for %s: %v", u, err)
 					continue
 				}
 				if name != "" || phone != "" || address != "" {
-					if err := s.DB.UpdateSeller(url, name, phone, address); err != nil {
-						log.Printf("Error updating seller for %s: %v", url, err)
+					if err := s.DB.UpdateSeller(u, name, phone, address); err != nil {
+						log.Printf("Error updating seller for %s: %v", u, err)
 					} else {
 						atomic.AddUint64(&updatedCount, 1)
 					}
@@ -153,8 +204,9 @@ func (s *Scraper) BackfillSellers() {
 	log.Printf("Seller backfill complete. Checked %d cars, updated %d sellers.", len(urls), updatedCount)
 }
 
-func (s *Scraper) fetchSellerHTTP(client *http.Client, url string) (name, phone, address string, err error) {
-	req, err := http.NewRequest("GET", url, nil)
+func (s *Scraper) fetchSellerHTTP(ctx context.Context, client *http.Client, targetURL string) (name, phone, address string, err error) {
+	ctx = normalizeContext(ctx)
+	req, err := http.NewRequestWithContext(ctx, "GET", targetURL, nil)
 	if err != nil {
 		return "", "", "", err
 	}
@@ -221,7 +273,8 @@ func (s *Scraper) fetchSellerHTTP(client *http.Client, url string) (name, phone,
 	return name, phone, address, nil
 }
 
-func (s *Scraper) BackfillComments() {
+func (s *Scraper) BackfillComments(ctx context.Context) {
+	ctx = normalizeContext(ctx)
 	urls, err := s.DB.GetURLsWithoutComment()
 	if err != nil {
 		log.Printf("Error getting URLs without comment: %v", err)
@@ -234,8 +287,8 @@ func (s *Scraper) BackfillComments() {
 	log.Printf("Backfilling comments for %d cars...", len(urls))
 
 	jobs := make(chan string, len(urls))
-	for _, url := range urls {
-		jobs <- url
+	for _, u := range urls {
+		jobs <- u
 	}
 	close(jobs)
 
@@ -249,14 +302,17 @@ func (s *Scraper) BackfillComments() {
 	var noCommentCount uint64
 	var totalChecked uint64
 
-	client := createHTTPClient()
+	client := s.httpClient()
 
 	for i := 0; i < workerCount; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for url := range jobs {
-				req, err := http.NewRequest("GET", url, nil)
+			for u := range jobs {
+				if ctx.Err() != nil {
+					return
+				}
+				req, err := http.NewRequestWithContext(ctx, "GET", u, nil)
 				if err != nil {
 					continue
 				}
@@ -264,7 +320,16 @@ func (s *Scraper) BackfillComments() {
 
 				resp, err := client.Do(req)
 				if err != nil {
-					log.Printf("Error fetching %s: %v", url, err)
+					if ctx.Err() != nil {
+						return
+					}
+					log.Printf("Error fetching %s: %v", u, err)
+					continue
+				}
+
+				if resp.StatusCode != http.StatusOK {
+					resp.Body.Close()
+					log.Printf("Unexpected status %d fetching comment for %s", resp.StatusCode, u)
 					continue
 				}
 
@@ -289,9 +354,9 @@ func (s *Scraper) BackfillComments() {
 
 				comment = html.UnescapeString(comment)
 
-				err = s.DB.UpdateComment(url, comment)
+				err = s.DB.UpdateComment(u, comment)
 				if err != nil {
-					log.Printf("Error updating comment for %s: %v", url, err)
+					log.Printf("Error updating comment for %s: %v", u, err)
 				} else {
 					if db.CleanComment(comment) != "" {
 						atomic.AddUint64(&successCount, 1)
@@ -326,7 +391,12 @@ func isRecentlyRefreshed(lastSeen time.Time, skipHours int) bool {
 	return false
 }
 
-func (s *Scraper) ProcessBrand(brandName, brandID string) {
+func (s *Scraper) ProcessBrand(ctx context.Context, brandName, brandID string) {
+	ctx = normalizeContext(ctx)
+	if ctx.Err() != nil {
+		return
+	}
+
 	var activeCars map[string]time.Time
 	var err error
 	if brandName == "electric" {
@@ -343,20 +413,20 @@ func (s *Scraper) ProcessBrand(brandName, brandID string) {
 	results := make(chan db.Car, 300)
 	var wg sync.WaitGroup
 
-	httpClient := createHTTPClient()
+	httpClient := s.httpClient()
 
 	// Spawn fast HTTP workers (Zero Chrome memory footprint)
 	for i := 0; i < HTTPWorkerCount; i++ {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
-			s.worker(id, httpClient, jobs, results)
+			s.worker(ctx, id, httpClient, jobs, results)
 		}(i)
 	}
 
 	producerDone := make(chan map[string]bool)
 	go func() {
-		seen := s.producer(httpClient, brandName, brandID, jobs, activeCars)
+		seen := s.producer(ctx, httpClient, brandName, brandID, jobs, activeCars)
 		close(jobs)
 		producerDone <- seen
 	}()
@@ -413,7 +483,9 @@ func (s *Scraper) ProcessBrand(brandName, brandID string) {
 	savedCount := <-doneCollecting
 	seenUrls := <-producerDone
 
-	if len(seenUrls) > 0 {
+	if ctx.Err() != nil {
+		log.Printf("Skipping MarkSold for %s: scrape canceled (%v).", brandName, ctx.Err())
+	} else if len(seenUrls) > 0 {
 		var sold []string
 		for url := range activeCars {
 			if !seenUrls[url] {
@@ -432,7 +504,7 @@ func (s *Scraper) ProcessBrand(brandName, brandID string) {
 	log.Printf("Finished brand %s. Saved/updated %d cars.\n", brandName, savedCount)
 }
 
-func (s *Scraper) producer(client *http.Client, brandName, brandID string, jobs chan<- string, active map[string]time.Time) map[string]bool {
+func (s *Scraper) producer(ctx context.Context, client *http.Client, brandName, brandID string, jobs chan<- string, active map[string]time.Time) map[string]bool {
 	form := url.Values{
 		"brand":     {"00"},
 		"modelstr":  {""},
@@ -460,27 +532,38 @@ func (s *Scraper) producer(client *http.Client, brandName, brandID string, jobs 
 		form.Set("brand", brandID)
 	}
 
+	base := s.baseURL()
+	encodedForm := form.Encode()
 	seenUrls := make(map[string]bool)
 	queuedCount := 0
 	skippedCount := 0
 	hadError := false
 
 	for page := 1; ; page++ {
-		targetURL := fmt.Sprintf("https://crautos.com/autosusados/searchresults.cfm?p=%d", page)
-		req, err := http.NewRequest("POST", targetURL, strings.NewReader(form.Encode()))
-		if err != nil {
-			log.Printf("[%s] Error building request for page %d: %v", brandName, page, err)
+		if ctx.Err() != nil {
 			hadError = true
 			break
 		}
-		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36")
-		req.Header.Set("Referer", "https://crautos.com/autosusados/index.cfm")
 
-		resp, err := client.Do(req)
+		targetURL := fmt.Sprintf("%s/autosusados/searchresults.cfm?p=%d", base, page)
+		doSearchPost := func() (*http.Response, error) {
+			req, err := http.NewRequestWithContext(ctx, "POST", targetURL, strings.NewReader(encodedForm))
+			if err != nil {
+				return nil, err
+			}
+			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+			req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36")
+			req.Header.Set("Referer", base+"/autosusados/index.cfm")
+			return client.Do(req)
+		}
+
+		resp, err := doSearchPost()
 		if err != nil {
-			time.Sleep(500 * time.Millisecond)
-			resp, err = client.Do(req)
+			if ctx.Err() != nil || !sleepContext(ctx, 500*time.Millisecond) {
+				hadError = true
+				break
+			}
+			resp, err = doSearchPost()
 			if err != nil {
 				log.Printf("[%s] Error fetching search page %d: %v", brandName, page, err)
 				hadError = true
@@ -504,15 +587,19 @@ func (s *Scraper) producer(client *http.Client, brandName, brandID string, jobs 
 		}
 
 		pageCarCount := 0
-		doc.Find("td.brandtitle a").Each(func(i int, el *goquery.Selection) {
+		doc.Find("td.brandtitle a").EachWithBreak(func(i int, el *goquery.Selection) bool {
+			if ctx.Err() != nil {
+				hadError = true
+				return false
+			}
 			href, exists := el.Attr("href")
 			href = strings.TrimSpace(href)
 			if exists && href != "" && strings.Contains(href, "cardetail.cfm") {
 				if !strings.HasPrefix(href, "http") {
 					if strings.HasPrefix(href, "/") {
-						href = "https://crautos.com" + href
+						href = base + href
 					} else {
-						href = "https://crautos.com/autosusados/" + href
+						href = base + "/autosusados/" + href
 					}
 				}
 
@@ -533,21 +620,27 @@ func (s *Scraper) producer(client *http.Client, brandName, brandID string, jobs 
 					}
 
 					if shouldScrape {
-						jobs <- href
-						queuedCount++
+						select {
+						case <-ctx.Done():
+							hadError = true
+							return false
+						case jobs <- href:
+							queuedCount++
+						}
 					}
 				}
 			}
+			return true
 		})
 
-		if pageCarCount == 0 {
+		if hadError || pageCarCount == 0 {
 			break
 		}
 
 		// Check if there is a next page element (.page-item.page-next)
 		hasNext := false
-		doc.Find(".page-item.page-next .page-link, .page-item .page-link").Each(func(i int, s *goquery.Selection) {
-			txt := strings.TrimSpace(s.Text())
+		doc.Find(".page-item.page-next .page-link, .page-item .page-link").Each(func(i int, sel *goquery.Selection) {
+			txt := strings.TrimSpace(sel.Text())
 			if txt == ">" || txt == "»" {
 				hasNext = true
 			}
@@ -557,7 +650,10 @@ func (s *Scraper) producer(client *http.Client, brandName, brandID string, jobs 
 			break
 		}
 
-		time.Sleep(100 * time.Millisecond)
+		if !sleepContext(ctx, 100*time.Millisecond) {
+			hadError = true
+			break
+		}
 	}
 
 	if skippedCount > 0 {
@@ -573,29 +669,42 @@ func (s *Scraper) producer(client *http.Client, brandName, brandID string, jobs 
 	return seenUrls
 }
 
-func (s *Scraper) worker(id int, client *http.Client, jobs <-chan string, results chan<- db.Car) {
-	for url := range jobs {
-		car, err := s.scrapeCarHTTP(client, url)
+func (s *Scraper) worker(ctx context.Context, id int, client *http.Client, jobs <-chan string, results chan<- db.Car) {
+	for u := range jobs {
+		if ctx.Err() != nil {
+			return
+		}
+		car, err := s.scrapeCarHTTP(ctx, client, u)
 		if err != nil {
-			time.Sleep(500 * time.Millisecond)
-			car, err = s.scrapeCarHTTP(client, url)
+			if ctx.Err() != nil || !sleepContext(ctx, 500*time.Millisecond) {
+				return
+			}
+			car, err = s.scrapeCarHTTP(ctx, client, u)
 			if err != nil {
-				log.Printf("Worker %d failed to fetch URL %s: %v", id, url, err)
+				if ctx.Err() != nil {
+					return
+				}
+				log.Printf("Worker %d failed to fetch URL %s: %v", id, u, err)
 				continue
 			}
 		}
 
 		if car.Title == "" || car.Price <= 0 || car.Year <= 0 {
-			log.Printf("Warning: Worker %d parsed invalid/empty details for %s (Title: %q, Price: %d, Year: %d). Skipping DB update.", id, url, car.Title, car.Price, car.Year)
+			log.Printf("Warning: Worker %d parsed invalid/empty details for %s (Title: %q, Price: %d, Year: %d). Skipping DB update.", id, u, car.Title, car.Price, car.Year)
 			continue
 		}
 
-		results <- *car
+		select {
+		case <-ctx.Done():
+			return
+		case results <- *car:
+		}
 	}
 }
 
-func (s *Scraper) scrapeCarHTTP(client *http.Client, url string) (*db.Car, error) {
-	req, err := http.NewRequest("GET", url, nil)
+func (s *Scraper) scrapeCarHTTP(ctx context.Context, client *http.Client, targetURL string) (*db.Car, error) {
+	ctx = normalizeContext(ctx)
+	req, err := http.NewRequestWithContext(ctx, "GET", targetURL, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -617,14 +726,14 @@ func (s *Scraper) scrapeCarHTTP(client *http.Client, url string) (*db.Car, error
 	}
 
 	car := &db.Car{
-		URL:        url,
+		URL:        targetURL,
 		ScrapedAt:  time.Now(),
 		LastSeenAt: time.Now(),
 		Equipments: make(map[string]bool),
 		Comment:    "-",
 	}
 
-	if strings.Contains(url, "/autosnuevos/") {
+	if strings.Contains(targetURL, "/autosnuevos/") {
 		s.scrapeNewCarHTTP(doc, car)
 	} else {
 		s.scrapeUsedCarHTTP(doc, car)

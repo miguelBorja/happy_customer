@@ -602,7 +602,57 @@
 .btn-view-toggle:focus-visible,
 .btn-all-filters:focus-visible,
 .nav-links button:focus-visible,
+.nav-theme-btn:focus-visible,
 .nav-lang-btn:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+/* Light Theme Overrides */
+[data-theme="light"] .ai-avatar-glow {
+  background: radial-gradient(circle, rgba(79, 70, 229, 0.18) 0%, rgba(37, 99, 235, 0.1) 40%, transparent 75%);
+}
+
+[data-theme="light"] .ai-assistant-bubble {
+  color: var(--text-main);
+}
+
+[data-theme="light"] .ai-copilot-messages::after {
+  color: rgba(15, 23, 42, 0.14);
+}
+
+[data-theme="light"] .ai-comparison-card,
+[data-theme="light"] .ai-car-stat-row,
+[data-theme="light"] .ai-verdict-box {
+  background: #f8fafc;
+  border-color: var(--border);
+}
+
+[data-theme="light"] .ai-verdict-text {
+  color: #1e293b;
+}
+
+[data-theme="light"] .ai-stat-track {
+  background: rgba(15, 23, 42, 0.1);
+}
+
+[data-theme="light"] .ai-stat-fill {
+  background: rgba(37, 99, 235, 0.55);
+}
+
+[data-theme="light"] .ai-stat-pointer {
+  border-color: #ffffff;
+}
+
+[data-theme="light"] .ai-stat-diff {
+  color: #92400e;
+}
+
+[data-theme="light"] .share-btn {
+  background-color: #15803d;
+  color: #ffffff;
+}
+
+[data-theme="light"] .share-btn:hover {
+  background-color: #166534;
 }

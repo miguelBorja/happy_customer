@@ -749,7 +749,7 @@ const AICopilotWindow = ({
                     title={t('aiExpandSuggestions')}
                     aria-label={t('aiExpandSuggestions')}
                   >
-                    <SparkleIcon size={13} color="#fef08a" />
+                    <SparkleIcon size={13} color="var(--icon-sparkle)" />
                     <span>{t('aiSuggestedQuestions')}</span>
                     <ChevronDownIcon size={14} />
                   </button>
@@ -792,7 +792,7 @@ const AICopilotWindow = ({
                             }}
                             title={isFavorite(car.URL) ? t('removeFromFavorites') : t('addToFavorites')}
                           >
-                            <StarIcon size={12} color="#fbbf24" filled={isFavorite(car.URL)} />
+                            <StarIcon size={12} color="var(--icon-gold)" filled={isFavorite(car.URL)} />
                           </button>
                           <a href={car.URL} target="_blank" rel="noreferrer" className="ai-chip-name">
                             {car.Title} ({car.Year})

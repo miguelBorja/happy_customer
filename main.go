@@ -69,6 +69,9 @@ func main() {
 
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
 
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
 	// If the migrate flag is set, run migration and exit
 	if *migrateFlag {
 		log.Println("Starting data migration from SQLite to Supabase...")
@@ -114,6 +117,9 @@ func main() {
 			go func() {
 				defer wg.Done()
 				for car := range jobs {
+					if ctx.Err() != nil {
+						return
+					}
 					err := remoteDB.UpsertCar(car)
 					atomic.AddUint64(&processedCount, 1)
 					if err != nil {
@@ -161,27 +167,32 @@ func main() {
 		}
 	}
 
+	var scraperDone chan struct{}
 	if *scrapeFlag || *backfillFlag || *backfillCommentsFlag {
 		runScraper := func() {
 			s := scraper.NewScraper(database, *forceScrapeFlag, *skipRefreshedHoursFlag)
 
-			if *backfillFlag {
+			if *backfillFlag && ctx.Err() == nil {
 				log.Println("Starting seller backfill...")
-				s.BackfillSellers()
+				s.BackfillSellers(ctx)
 			}
-			if *backfillCommentsFlag {
+			if *backfillCommentsFlag && ctx.Err() == nil {
 				log.Println("Starting comment backfill...")
-				s.BackfillComments()
+				s.BackfillComments(ctx)
 			}
-			if *scrapeFlag {
+			if *scrapeFlag && ctx.Err() == nil {
 				log.Println("Starting scraper...")
-				s.Run()
+				s.Run(ctx)
 			}
 		}
 
 		if *serveFlag {
 			// If serving, run the scraper asynchronously in a goroutine so the API server can start
-			go runScraper()
+			scraperDone = make(chan struct{})
+			go func() {
+				defer close(scraperDone)
+				runScraper()
+			}()
 		} else {
 			// If not serving, run synchronously in the main thread so the program exits cleanly when finished
 			runScraper()
@@ -223,9 +234,6 @@ func main() {
 
 		log.Printf("Starting API server on :%s...\n", *portFlag)
 
-		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-		defer stop()
-
 		httpServer := &http.Server{
 			Addr:              ":" + *portFlag,
 			Handler:           mux,
@@ -249,6 +257,15 @@ func main() {
 			defer cancel()
 			if err := httpServer.Shutdown(shutdownCtx); err != nil {
 				log.Printf("Server shutdown error: %v", err)
+			}
+			if scraperDone != nil {
+				waitTimer := time.NewTimer(10 * time.Second)
+				select {
+				case <-scraperDone:
+				case <-waitTimer.C:
+					log.Println("Timed out waiting for background scraper to finish.")
+				}
+				waitTimer.Stop()
 			}
 		}
 	}

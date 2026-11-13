@@ -76,7 +76,7 @@ const BargainsPage = ({ viewMode, setViewMode }) => {
       <div className="bargains-header">
           <div>
             <h2 className="bargains-title">
-              <TagIcon size={26} color="#fbbf24" />
+              <TagIcon size={26} color="var(--icon-gold)" />
               <span>{t('bargainsTitle')}</span>
             </h2>
             <p className="bargains-subtitle">

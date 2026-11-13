@@ -13,10 +13,10 @@ const formatPrice = (price) => {
 const getDynamicColors = (percent) => {
   const hue = Math.max(0, Math.min(120, 120 - (percent * 1.2)));
   return {
-    text: `hsl(${hue}, 85%, 48%)`,
-    fill: `hsla(${hue}, 85%, 48%, 0.3)`,
-    border: `hsla(${hue}, 85%, 48%, 0.25)`,
-    bg: `hsla(${hue}, 85%, 48%, 0.03)`
+    text: `hsl(${hue}, var(--bar-table-text-s, 85%), var(--bar-table-text-l, 48%))`,
+    fill: `hsla(${hue}, 85%, 48%, var(--bar-table-fill-a, 0.3))`,
+    border: `hsla(${hue}, 85%, 48%, var(--bar-table-border-a, 0.25))`,
+    bg: `hsla(${hue}, 85%, 48%, var(--bar-table-bg-a, 0.03))`
   };
 };
 

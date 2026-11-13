@@ -1139,3 +1139,172 @@
 .stats-boost-sample-without {
   color: var(--text-muted);
 }
+
+/* Light Theme Overrides */
+[data-theme="light"] .bargains-hero,
+[data-theme="light"] .bargain-highlight-card,
+[data-theme="light"] .stats-bar-card {
+  background: #ffffff;
+  border-color: var(--border);
+  box-shadow: var(--shadow);
+}
+
+[data-theme="light"] .bargain-card-badge {
+  background: #047857;
+  color: #ffffff;
+}
+
+[data-theme="light"] .bargain-savings-pill {
+  background: rgba(5, 150, 105, 0.12);
+  border-color: rgba(5, 150, 105, 0.35);
+  color: #065f46;
+}
+
+[data-theme="light"] .bargain-savings-pct {
+  color: #047857;
+}
+
+[data-theme="light"] .about-hero-section {
+  background: linear-gradient(135deg, #ffffff, #eff6ff);
+  border-color: rgba(37, 99, 235, 0.25);
+}
+
+[data-theme="light"] .about-hero-section h1,
+[data-theme="light"] .about-creator-title {
+  background: linear-gradient(to right, #1d4ed8, #6d28d9);
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+[data-theme="light"] .about-stat-item {
+  background: #f8fafc;
+  border-color: var(--border);
+}
+
+[data-theme="light"] .about-stat-value.active {
+  color: #047857;
+}
+
+[data-theme="light"] .about-stat-value.sold {
+  color: #dc2626;
+}
+
+[data-theme="light"] .about-stat-value.total,
+[data-theme="light"] .about-feature-card h3 {
+  color: #1d4ed8;
+}
+
+[data-theme="light"] .about-feature-card-secondary h3 {
+  color: #6d28d9;
+}
+
+[data-theme="light"] .tech-badge {
+  background-color: rgba(15, 23, 42, 0.06);
+  color: #334155;
+}
+
+[data-theme="light"] .tech-badge.golang {
+  background-color: rgba(0, 173, 216, 0.12);
+  color: #0369a1;
+}
+
+[data-theme="light"] .tech-badge.react {
+  background-color: rgba(37, 99, 235, 0.1);
+  color: #1d4ed8;
+}
+
+[data-theme="light"] .tech-badge.sqlite {
+  background-color: rgba(5, 150, 105, 0.12);
+  color: #065f46;
+}
+
+[data-theme="light"] .tech-badge.docker {
+  background-color: rgba(36, 150, 237, 0.12);
+  color: #1d4ed8;
+}
+
+[data-theme="light"] .about-feature-item {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+[data-theme="light"] .stats-kpi-card {
+  background: linear-gradient(135deg, #ffffff, #f8fafc);
+  border-color: var(--border);
+}
+
+[data-theme="light"] .stats-kpi-card.active-kpi {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), #ffffff);
+  border-color: rgba(5, 150, 105, 0.35);
+}
+
+[data-theme="light"] .stats-kpi-card.sold-kpi {
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.1), #ffffff);
+  border-color: rgba(37, 99, 235, 0.3);
+}
+
+[data-theme="light"] .stats-kpi-value.active {
+  color: #047857;
+}
+
+[data-theme="light"] .stats-kpi-value.sold {
+  color: #1d4ed8;
+}
+
+[data-theme="light"] .stats-bar-fill-active {
+  background: linear-gradient(to right, var(--accent), #3b82f6);
+}
+
+[data-theme="light"] .stats-bar-fill-sold {
+  background: linear-gradient(to right, #6d28d9, #7c3aed);
+}
+
+[data-theme="light"] .stats-bar-bg,
+[data-theme="light"] .stats-pill-bg {
+  background-color: rgba(15, 23, 42, 0.08);
+}
+
+[data-theme="light"] .stats-list-item {
+  border-bottom-color: #e2e8f0;
+}
+
+[data-theme="light"] .stats-submetric-val {
+  color: #1d4ed8;
+}
+
+[data-theme="light"] .stats-insight-card {
+  background: rgba(37, 99, 235, 0.06);
+  border-color: rgba(37, 99, 235, 0.2);
+}
+
+[data-theme="light"] .stats-insight-val {
+  color: #1e40af;
+}
+
+[data-theme="light"] .stats-insight-sub,
+[data-theme="light"] .stats-boost-row {
+  background: #f8fafc;
+}
+
+[data-theme="light"] .stats-sort-btn {
+  background: #f1f5f9;
+  color: var(--text-main);
+  border-color: var(--border);
+}
+
+[data-theme="light"] .stats-sort-btn:hover {
+  background: #e2e8f0;
+}
+
+[data-theme="light"] .stats-sort-btn.active {
+  background: var(--accent);
+  color: #ffffff;
+  border-color: var(--accent);
+}
+
+[data-theme="light"] .stats-top-item.active,
+[data-theme="light"] .stats-toggle-btn.active {
+  background: rgba(37, 99, 235, 0.14);
+  border-color: rgba(37, 99, 235, 0.45);
+  color: #1e40af;
+}

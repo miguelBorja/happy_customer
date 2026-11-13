@@ -83,29 +83,27 @@ CrautosDB is a Go-based system that scrapes vehicle listings, stores them in SQL
 * **Current State:**
   * Replaced blocking `http.ListenAndServe` in `main.go` with `signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)` and `&http.Server{ReadHeaderTimeout: 10s, IdleTimeout: 120s}` calling `Shutdown` with a 10-second drain timeout (while avoiding a short `WriteTimeout` so SSE streams on `/api/ai/compare` remain uninterrupted).
 
-### ✅ Multi-Stage Alpine `Dockerfile`, CI Format/Lint Gate & Unit Tests
+### ✅ Multi-Stage Alpine `Dockerfile`, `.dockerignore`, CI Quality Gate (`gofmt`/`go vet`/`go test`) & Unit Tests
 * **Current State:**
-  * Multi-stage Alpine [Dockerfile](../Dockerfile) runs `npm run lint` (`eslint .`), `npm run build`, and `gofmt -l main.go api db scraper cmd` before building a minimal static Linux binary without Chrome/ChromeDriver.
-  * Automated unit test coverage across `scraper/` (`scraper_test.go`), `db/` (`db_optimizations_test.go`, `count_cars_test.go`, `market_test.go`, `market_flags_test.go`, `price_history_test.go`, `queries_test.go`), and `api/` (`cache_errors_test.go`, `deals_test.go`, `price_history_test.go`).
+  * Multi-stage Alpine [Dockerfile](../Dockerfile) (with [.dockerignore](../.dockerignore) excluding local DBs, secrets, binaries, and `node_modules`) runs `npm run lint` (`eslint .`), `npm run build`, `gofmt -l main.go api db scraper cmd`, `CGO_ENABLED=0 go vet`, and `CGO_ENABLED=0 go test -count=1` across all Go packages before compiling the static Linux binary.
+  * Automated unit test coverage across `scraper/` (`scraper_test.go` + offline HTML fixtures in `scraper/testdata/`), `db/` (`db_optimizations_test.go`, `count_cars_test.go`, `market_test.go`, `market_flags_test.go`, `price_history_test.go`, `queries_test.go`), and `api/` (`cache_errors_test.go`, `deals_test.go`, `price_history_test.go`).
+
+### ✅ Scraper Context Propagation & Cancellation Safety
+* **Current State:**
+  * Shared `signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)` in [main.go](../main.go) propagates into `scraper.Run(ctx)`, `ProcessBrand(ctx, ...)`, `BackfillSellers(ctx)`, and `BackfillComments(ctx)`, plus `-migrate` workers and graceful background scraper drain on server shutdown.
+  * Search POSTs (`producer`) and detail/backfill GETs (`scrapeCarHTTP`, `fetchSellerHTTP`, `BackfillComments`) use `http.NewRequestWithContext`, interruptible sleeps (`sleepContext`), HTTP `200 OK` validation before comment backfill writes, and skip `MarkSold` whenever `ctx.Err() != nil` so partial scrapes never misclassify remaining inventory as sold.
+
+### ✅ Offline Scraper HTML Fixtures & End-to-End Tests
+* **Current State:**
+  * Added representative offline HTML fixtures in `scraper/testdata/` (`used_car_detail.html`, `used_car_fallback.html`, `new_car_detail.html`, `search_results_page1.html`) paired with `httptest.Server` + SQLite `:memory:` tests in `scraper/scraper_test.go`.
+  * Verifies `scrapeUsedCarHTTP` (standard + colones/miles/fallback table), `scrapeNewCarHTTP`, `BackfillSellers`, `BackfillComments` (including HTTP 500 preservation), and `ProcessBrand` end-to-end (`MarkSold` on complete runs vs. preservation on canceled `ctx`).
 
 ---
 
 ## 3. Remaining Optional Enhancements (Backlog)
 
-### A. Context Propagation into Scraper Worker Loops (`Partial`)
-* **Location:** `main.go`, `scraper/scraper.go`, `db/queries.go`
-* **Gap:** HTTP server shutdown is graceful, but `scraper.Run()` and its worker goroutines still use blocking `http.Get`/`http.PostForm` and `d.Query`/`d.Exec` without accepting a `ctx context.Context`.
-* **Next Step:** Pass the `signal.NotifyContext` down into `scraper.NewScraper` / `Run(ctx)` and switch detail/search requests to `http.NewRequestWithContext` so `SIGINT`/`SIGTERM` cleanly cancels in-progress scrapes and flushes pending batches.
-
-### B. Offline HTML Detail Fixture Tests (`Partial`)
-* **Location:** `scraper/scraper_test.go`
-* **Gap:** Title, price, and mileage parsing helpers are unit tested, whereas full detail HTML extraction (`scrapeUsedCarHTTP`) is not yet covered with saved HTML fixtures.
-* **Next Step:** Add representative saved HTML fixtures + `httptest.Server` tests to catch upstream `crautos.com` DOM layout changes offline.
-
-### C. Automated `go test` & `golangci-lint` in CI (`Partial`)
-* **Location:** [Dockerfile](../Dockerfile) / [cloudbuild.yaml](../cloudbuild.yaml)
-* **Gap:** Cloud Build already enforces `npm run lint` and `gofmt -l`, but does not yet run `go test -count=1 ./...` or `golangci-lint` before producing the image.
-* **Next Step:** Add `go test -count=1 ./...` (and optional `golangci-lint`) as a CI verification step before image push.
+*All planned P1–P3 architectural, CI, and offline-test items are complete. Optional future enhancement:*
+* **`golangci-lint` in CI:** Add `golangci-lint` alongside the existing `gofmt -l`, `go vet`, and `go test -count=1` gates if stricter static analyzers beyond standard `go vet` are desired later.
 
 ---
 
@@ -123,6 +121,6 @@ CrautosDB is a Go-based system that scrapes vehicle listings, stores them in SQL
 | **Completed** | **Standardized JSON Error Responses** | API / Web | Consistent `{"error", "code"}` responses without SQL leaks |
 | **Completed** | **Graceful HTTP Server Shutdown** | Server | Clean `SIGINT`/`SIGTERM` request draining |
 | **Completed** | **Unit Tests (Parsers, DB Optimizations, API Cache/Errors)** | Tests | Guards parser logic, pool/indexes, cache TTL, and JSON errors |
-| **Partial (P3)** | **Scraper Context Propagation** | Scraper | Instant `Ctrl+C` / `SIGTERM` cancellation mid-scrape |
-| **Partial (P3)** | **Offline HTML Detail Fixture Tests** | Scraper | Catch upstream `crautos.com` HTML structure changes |
-| **Partial (P3)** | **Run `go test` / `golangci-lint` in CI** | CI/CD | Automated backend test gate in Cloud Build |
+| **Completed** | **Scraper Context Propagation** | Scraper / CLI | Clean `SIGINT`/`SIGTERM` cancellation & `MarkSold` safety |
+| **Completed** | **Offline HTML Detail Fixture Tests** | Scraper / Tests | Catch upstream `crautos.com` HTML structure changes offline |
+| **Completed** | **Run `go vet` / `go test` in CI + `.dockerignore`** | CI/CD | Automated backend vet & test gate in Cloud Build |

@@ -250,7 +250,7 @@ const CarDetailsModal = ({ isOpen, onClose, car }) => {
                   return { x, y };
                 });
                 const pointsAttr = coords.map((c) => `${c.x.toFixed(1)},${c.y.toFixed(1)}`).join(' ');
-                const strokeColor = historySummary.netDelta <= 0 ? '#38bdf8' : '#fdba74';
+                const strokeColor = historySummary.netDelta <= 0 ? 'var(--sparkline-drop, #38bdf8)' : 'var(--sparkline-rise, #fdba74)';
                 return (
                   <svg className="price-history-sparkline" viewBox="0 0 240 44" aria-hidden="true">
                     <polyline
@@ -267,7 +267,7 @@ const CarDetailsModal = ({ isOpen, onClose, car }) => {
                         cx={c.x}
                         cy={c.y}
                         r={idx === coords.length - 1 ? 3.5 : 2.5}
-                        fill={idx === coords.length - 1 ? strokeColor : '#94a3b8'}
+                        fill={idx === coords.length - 1 ? strokeColor : 'var(--sparkline-dot, #94a3b8)'}
                       />
                     ))}
                   </svg>

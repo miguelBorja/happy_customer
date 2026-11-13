@@ -17,7 +17,7 @@ export const FlagIcon = ({ size = 18, color = 'currentColor', className = '', st
 /**
  * 2. Favorites: Rounded Star Icon
  */
-export const StarIcon = ({ size = 18, color = '#fbbf24', filled = true, className = '', style = {} }) => (
+export const StarIcon = ({ size = 18, color = 'var(--icon-gold, #fbbf24)', filled = true, className = '', style = {} }) => (
   <svg
     width={size}
     height={size}
@@ -37,7 +37,7 @@ export const StarIcon = ({ size = 18, color = '#fbbf24', filled = true, classNam
 /**
  * 3. Bargains: Price Tag Icon
  */
-export const TagIcon = ({ size = 18, color = '#fbbf24', className = '', style = {} }) => (
+export const TagIcon = ({ size = 18, color = 'var(--icon-gold, #fbbf24)', className = '', style = {} }) => (
   <svg
     width={size}
     height={size}
@@ -53,7 +53,7 @@ export const TagIcon = ({ size = 18, color = '#fbbf24', className = '', style = 
 /**
  * 4. Stats: 3-Bar Histogram / Chart
  */
-export const StatsChartIcon = ({ size = 18, color = '#fbbf24', className = '', style = {} }) => (
+export const StatsChartIcon = ({ size = 18, color = 'var(--icon-gold, #fbbf24)', className = '', style = {} }) => (
   <svg
     width={size}
     height={size}
@@ -83,7 +83,7 @@ export const InfoCircleIcon = ({ size = 18, color = 'currentColor', className = 
     <circle cx="12" cy="12" r="11" />
     <path
       d="M12 7.25C12.7 7.25 13.25 6.7 13.25 6C13.25 5.3 12.7 4.75 12 4.75C11.3 4.75 10.75 5.3 10.75 6C10.75 6.7 11.3 7.25 12 7.25ZM13.5 17.5C13.5 18.3 12.8 19 12 19C11.2 19 10.5 18.3 10.5 17.5V10.5C10.5 9.7 11.2 9 12 9C12.8 9 13.5 9.7 13.5 10.5V17.5Z"
-      fill="#0d1117"
+      fill="var(--icon-cutout, #0d1117)"
     />
   </svg>
 );
@@ -190,7 +190,7 @@ export const TableListIcon = ({ size = 18, color = 'currentColor', className = '
 /**
  * 11. Car Details: Automatic Transmission (Gear + Wrench + 'A' Badge)
  */
-export const AutoTransmissionIcon = ({ size = 18, color = '#fbbf24', className = '', style = {} }) => (
+export const AutoTransmissionIcon = ({ size = 18, color = 'var(--icon-gold, #fbbf24)', className = '', style = {} }) => (
   <svg
     width={size}
     height={size}
@@ -209,7 +209,7 @@ export const AutoTransmissionIcon = ({ size = 18, color = '#fbbf24', className =
     <circle cx="20" cy="20" r="7" fill={color} />
     <path
       d="M20 15.5L22.5 23.5H20.9L20.3 21.7H19.7L19.1 23.5H17.5L20 15.5ZM20 17.4L19.4 20.3H20.6L20 17.4Z"
-      fill="#0d1117"
+      fill="var(--bg-card, #0d1117)"
     />
   </svg>
 );
@@ -217,7 +217,7 @@ export const AutoTransmissionIcon = ({ size = 18, color = '#fbbf24', className =
 /**
  * 12. Car Details: Electric Plug (2-Prong Plug)
  */
-export const ElectricPlugIcon = ({ size = 18, color = '#38bdf8', className = '', style = {} }) => (
+export const ElectricPlugIcon = ({ size = 18, color = 'var(--icon-electric, #38bdf8)', className = '', style = {} }) => (
   <svg
     width={size}
     height={size}
@@ -331,7 +331,7 @@ export const AdvisorOrb = ({ size = 110, className = '', style = {} }) => (
         cx="50"
         cy="50"
         r="44"
-        stroke="#c4b5fd"
+        stroke="var(--orb-orbit, #c4b5fd)"
         strokeWidth="3.5"
         strokeLinecap="round"
         strokeDasharray="28 16 38 18 20 16"
@@ -343,7 +343,7 @@ export const AdvisorOrb = ({ size = 110, className = '', style = {} }) => (
         cx="50"
         cy="50"
         r="34"
-        stroke="#a78bfa"
+        stroke="var(--orb-inner-orbit, #a78bfa)"
         strokeWidth="2"
         strokeDasharray="14 12 18 10"
         opacity="0.65"
@@ -353,40 +353,40 @@ export const AdvisorOrb = ({ size = 110, className = '', style = {} }) => (
       {/* Main Center 4-Point Star */}
       <path
         d="M50 20C50 33.2 39.2 44 26 44C39.2 44 50 54.8 50 68C50 54.8 60.8 44 74 44C60.8 44 50 33.2 50 20Z"
-        fill="#ffffff"
-        filter="drop-shadow(0 0 8px rgba(255, 255, 255, 0.95))"
+        fill="var(--orb-star-main, #ffffff)"
+        filter="var(--orb-star-shadow, drop-shadow(0 0 8px rgba(255, 255, 255, 0.95)))"
       />
 
       {/* Surrounding Accent Sparkles */}
       {/* Top Right Sparkle */}
       <path
         d="M68 24C68 28.5 64.5 32 60 32C64.5 32 68 35.5 68 40C68 35.5 71.5 32 76 32C71.5 32 68 28.5 68 24Z"
-        fill="#f5f3ff"
+        fill="var(--orb-sparkle-light, #f5f3ff)"
         opacity="0.95"
       />
       {/* Top Left Sparkle */}
       <path
         d="M34 26C34 29.5 31.5 32 28 32C31.5 32 34 34.5 34 38C34 34.5 36.5 32 40 32C36.5 32 34 29.5 34 26Z"
-        fill="#ddd6fe"
+        fill="var(--orb-sparkle-mid, #ddd6fe)"
         opacity="0.85"
       />
       {/* Bottom Right Sparkle */}
       <path
         d="M66 56C66 60 62.8 63 59 63C62.8 63 66 66 66 70C66 66 69.2 63 73 63C69.2 63 66 60 66 56Z"
-        fill="#ddd6fe"
+        fill="var(--orb-sparkle-mid, #ddd6fe)"
         opacity="0.85"
       />
       {/* Bottom Left Sparkle */}
       <path
         d="M32 54C32 57.5 29.5 60 26 60C29.5 60 32 62.5 32 66C32 62.5 34.5 60 38 60C34.5 60 32 57.5 32 54Z"
-        fill="#f5f3ff"
+        fill="var(--orb-sparkle-light, #f5f3ff)"
         opacity="0.9"
       />
 
       {/* Floating Sparkle Dots */}
-      <circle cx="50" cy="76" r="2" fill="#ede9fe" />
-      <circle cx="24" cy="46" r="1.5" fill="#ede9fe" />
-      <circle cx="76" cy="46" r="1.5" fill="#ede9fe" />
+      <circle cx="50" cy="76" r="2" fill="var(--orb-dot, #ede9fe)" />
+      <circle cx="24" cy="46" r="1.5" fill="var(--orb-dot, #ede9fe)" />
+      <circle cx="76" cy="46" r="1.5" fill="var(--orb-dot, #ede9fe)" />
     </svg>
   </div>
 );
@@ -520,6 +520,48 @@ export const RefreshCwIcon = ({ size = 14, color = 'currentColor', className = '
     <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
     <path d="M3 22v-6h6" />
     <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
+  </svg>
+);
+
+export const SunIcon = ({ size = 15, color = 'currentColor', className = '', style = {} }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth="2.1"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={`hc-icon hc-icon-sun ${className}`}
+    style={style}
+  >
+    <circle cx="12" cy="12" r="4" />
+    <path d="M12 2v2" />
+    <path d="M12 20v2" />
+    <path d="m4.93 4.93 1.41 1.41" />
+    <path d="m17.66 17.66 1.41 1.41" />
+    <path d="M2 12h2" />
+    <path d="M20 12h2" />
+    <path d="m6.34 17.66-1.41 1.41" />
+    <path d="m19.07 4.93-1.41 1.41" />
+  </svg>
+);
+
+export const MoonIcon = ({ size = 15, color = 'currentColor', className = '', style = {} }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth="2.1"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={`hc-icon hc-icon-moon ${className}`}
+    style={style}
+  >
+    <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
   </svg>
 );
 

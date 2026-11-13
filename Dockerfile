@@ -18,6 +18,8 @@ COPY . .
 # Copy the compiled React assets from the first stage
 COPY --from=frontend-builder /app/web/dist ./web/dist
 RUN unformatted="$(gofmt -l main.go api db scraper cmd)" && if [ -n "$unformatted" ]; then echo "gofmt needed on: $unformatted" >&2; exit 1; fi
+RUN CGO_ENABLED=0 go vet . ./api/... ./db/... ./scraper/... ./cmd/...
+RUN CGO_ENABLED=0 go test -count=1 . ./api/... ./db/... ./scraper/... ./cmd/...
 RUN CGO_ENABLED=0 GOOS=linux go build -o main .
 
 # --- Stage 3: Final Production Image ---

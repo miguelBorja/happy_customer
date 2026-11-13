@@ -42,3 +42,9 @@
   border-color: var(--accent);
   font-weight: 600;
 }
+
+[data-theme="light"] .quick-chip.active {
+  color: #1e40af;
+  background-color: rgba(37, 99, 235, 0.12);
+  border-color: var(--accent);
+}

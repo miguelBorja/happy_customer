@@ -13,13 +13,30 @@ Leyenda: `[x]` hecho · `[~]` parcial · `[ ]` pendiente
 
 ---
 
-## 🥇 Prioridad 1 – Mucha ganancia, esfuerzo bajo o medio
+## 📍 Estado actual y qué sigue
+
+- **Avance general:** **22 de 23** mejoras del backlog UX/producto completadas (**Prioridad 1, Prioridad 3, Prioridad 4 y Calidad de datos al 100%**).
+- **Único ítem UX pendiente:** **Alertas guardadas** (Prioridad 2).
+- **Rutas recomendadas a continuación (en orden práctico):**
+  1. **Opción A — ✅ Completada (2026-11-12): Cierre técnico en CI y scraper** ([improvements.md](./improvements.md) §2):
+     - `CGO_ENABLED=0 go vet` y `go test -count=1` agregados en `Dockerfile` junto con `.dockerignore`.
+     - Fixtures HTML offline en `scraper/testdata/` + tests de extremo a extremo y backfill (`scraper/scraper_test.go`).
+     - Propagación de `context.Context` a `scraper.Run(ctx)`, `ProcessBrand` y `Backfill*` con protección de `MarkSold` ante cancelación.
+  2. **Opción B — Búsquedas guardadas / Alertas en dos etapas** (Prioridad 2, único `[ ]` de este documento):
+     - **Etapa 1 sin infraestructura (🟢–🟡, solo `localStorage` + API actual):** "Búsquedas guardadas" con contador de autos nuevos o rebajados desde la última visita (cero cuentas ni correo, valor inmediato de retención).
+     - **Etapa 2 con notificaciones (🔴):** alertas por Telegram o email (link mágico sin contraseña + baja en 1 clic) ejecutadas al final del job diario `crautosdb-scrape-daily` cuando entran anuncios nuevos o bajan de precio.
+  3. **Opción C — Fotos Fase 2 en Cloud Storage** ([fotos-miniaturas-cloud-storage.md](./fotos-miniaturas-cloud-storage.md), esfuerzo 🟡):
+     - Plan técnico ya listo; **bloqueado hasta resolver el Paso 0** (revisar términos/permiso de Crautos para almacenar miniaturas `-t.jpg`).
+
+---
+
+## 🥇 Prioridad 1 – Mucha ganancia, esfuerzo bajo o medio — ✅ Completa
 
 | ✓ | Mejora | Qué ganamos | Esfuerzo |
 |---|---|---|---|
-| [x] | **Botón de WhatsApp al vendedor** (modal y tabla) | Pasar de "lo vi" a "lo contacto" en un clic. En CR los autos se negocian por WhatsApp, así que es la acción más valiosa para el usuario. | 🟢 |
-| [x] | **Búsquedas rápidas** (chips bajo el buscador) | El usuario nuevo encuentra algo interesante en un clic, sin abrir filtros; luce el precio de mercado ("Buenos precios"). | 🟢 |
-| [x] | **"Publicado hace X días"** y encabezados ordenables en la tabla | Mejora directa en la vista más usada: saber qué es reciente y ordenar con un clic. | 🟢 |
+| [x] | **Botón de WhatsApp al vendedor** (modal y tabla) | Pasar de "lo vi" a "lo contacto" en un clic. En CR los autos se negocian por WhatsApp, así que es la acción más valiosa para el usuario. Ver Hecho (2026-10-31). | 🟢 |
+| [x] | **Búsquedas rápidas** (chips bajo el buscador) | El usuario nuevo encuentra algo interesante en un clic, sin abrir filtros; luce el precio de mercado ("Buenos precios"). Ver Hecho (2026-10-31). | 🟢 |
+| [x] | **"Publicado hace X días"** y encabezados ordenables en la tabla | Mejora directa en la vista más usada: saber qué es reciente y ordenar con un clic. Ver Hecho (2026-10-31). | 🟢 |
 | [x] | **Links compartibles y botón "Atrás"** (filtros y pestaña en la URL) | Cada búsqueda o auto compartido por WhatsApp abre lo mismo; "Atrás" deshace filtros y cierra el detalle. Ver Hecho (2026-11-11). | 🟡 (solo frontend) |
 | [x] | **Paginación y total real** ("Cargar más") | Se ve el catálogo completo y el título muestra el total real. Ver Hecho (2026-11-01 y 2026-11-11). | 🟡 |
 | [x] | **"Mejor oferta" en el servidor + filtro "Solo buenos precios"** | El diferenciador (precio de mercado) funciona sobre todo el catálogo, no solo sobre los resultados cargados. Ver Hecho (2026-11-11). | 🟡 |
@@ -29,10 +46,10 @@ Leyenda: `[x]` hecho · `[~]` parcial · `[ ]` pendiente
 | ✓ | Mejora | Qué ganamos | Esfuerzo |
 |---|---|---|---|
 | [x] | **Historial de precio** ("bajó $1,500 hace 5 días") | Confianza y urgencia para comprar. Ver Hecho (2026-11-11 y 2026-11-12). | 🟡 |
-| [ ] | **Alertas guardadas** ("avísenme cuando salga una Hilux 2018+ bajo $25k") | Es lo que más hace volver a la gente: el sitio los busca a ellos. El scraper ya detecta anuncios nuevos. | 🔴 (identificar al usuario y un canal: email, Telegram o push) |
+| [ ] | **Alertas guardadas** ("avísenme cuando salga una Hilux 2018+ bajo $25k") | Es lo que más hace volver a la gente: el sitio los busca a ellos. Puede atacarse en Etapa 1 local (`localStorage`) + Etapa 2 con notificaciones (Telegram / email). | 🔴 (Etapa 2: canal e identidad sin fricción) |
 | [x] | **Precio de mercado ajustado por kilometraje** | Badges más precisos: un auto con muchos km ya no sale como "Gran precio" solo por eso (y uno con pocos km no queda como "Sobre el mercado"). Ver Hecho (2026-11-11). | 🟡 |
 
-## 🧹 Calidad de datos – encontrado en el camino (2026-11-11)
+## 🧹 Calidad de datos – encontrado en el camino (2026-11-11) — ✅ Completa
 
 Salió al revisar Gangas y los precios por verificar. Afecta la credibilidad del precio de mercado, así que va antes del pulido.
 
@@ -42,7 +59,7 @@ Salió al revisar Gangas y los precios por verificar. Afecta la credibilidad del
 | [x] | **Ampliar las frases de "Verificar precio"** (`conditionPhrases` / `debtPhrases` en `db/market_flags.go`) | Frases ampliadas con casos reales de anuncios descontados y negaciones de 1 y 2 palabras (pasa de 4 a 19 activos detectados sin falsos positivos). Ver Hecho (2026-11-11). | 🟢 |
 | [x] | **Excluir de la mediana los autos marcados** (`typo`, `condition`, `debt`) | Los precios con un cero de más/menos y los autos con daño o deuda a ≤ −5% ya no jalan la mediana ni el conteo de comparables. Ver Hecho (2026-11-11). | 🟢 |
 
-## 🥉 Prioridad 3 – Pulido (poca ganancia por ítem, juntos mejoran la impresión)
+## 🥉 Prioridad 3 – Pulido (poca ganancia por ítem, juntos mejoran la impresión) — ✅ Completa
 
 | ✓ | Mejora | Qué ganamos | Esfuerzo |
 |---|---|---|---|
@@ -53,7 +70,7 @@ Salió al revisar Gangas y los precios por verificar. Afecta la credibilidad del
 | [x] | **Comparador lado a lado** (2–4 autos) | Comparar specs, precio vs. mercado y equipamiento en una matriz clara, con pase directo al Copilot. Ver Hecho (2026-11-11). | 🟡 |
 | [x] | **Página de bienvenida** para la primera visita | Explica la propuesta de valor con datos en vivo en la primera visita sin estorbar a quien vuelve o abre un link compartido. Ver Hecho (2026-11-11). | 🟡 |
 
-## ⚙️ Prioridad 4 – Técnico (no se ve, pero facilita lo demás)
+## ⚙️ Prioridad 4 – Técnico (no se ve, pero facilita lo demás) — ✅ Completa
 
 | ✓ | Mejora | Qué ganamos | Esfuerzo |
 |---|---|---|---|
@@ -61,7 +78,7 @@ Salió al revisar Gangas y los precios por verificar. Afecta la credibilidad del
 | [x] | **Estilos inline → CSS** (`CarCard`, `App`, páginas) | Cambios futuros más rápidos; hover y foco consistentes. Ver Hecho (2026-11-12). | 🟡 |
 | [x] | **Textos a `translations.js`** (hay muchos `language === 'es' ? … : …` inline) | Traducciones centralizadas. Ver Hecho (2026-11-12). | 🟡 |
 | [x] | **Contraste de textos grises** (`--text-muted` en tamaños chicos) | Accesibilidad WCAG AA (≥ 4.5:1) en todas las superficies oscuras. Ver Hecho (2026-11-11). | 🟢 |
-| [ ] | **Tema claro** (`prefers-color-scheme`) | Opcional, poca demanda. | 🟡 |
+| [x] | **Tema claro** (`prefers-color-scheme`) | Soporte automático (`prefers-color-scheme`) + botón manual claro/oscuro persistido en `localStorage` (`crautosdb_theme`) con contraste WCAG AA en CSS, íconos, badges y gráficos dinámicos. Ver Hecho (2026-11-12). | 🟡 |
 | [x] | **Errores de lint y formato existentes** | `eslint .` en 0 errores / 0 avisos, `gofmt -l` vacío y ambos verificados automáticamente en `Dockerfile` (Cloud Build). Ver Hecho (2026-11-11). | 🟢 |
 | [x] | **Secretos fuera de `deploy_gcp.ps1`** | `DATABASE_URL` y `OPENROUTER_API_KEY` salen del script y pasan a Google Cloud Secret Manager (`--set-secrets`) en el servicio web, los 2 jobs de scraping y `cloudbuild.yaml`. Ver Hecho (2026-11-11). | 🟢 |
 
@@ -98,3 +115,5 @@ Guardar las miniaturas de los anuncios en Cloud Storage para que no se pierdan c
 | 2026-11-12 | Historial de precio – Paso 2 (API, modal y badge de rebaja) | **Limpieza y caché (`db/price_history.go`, `db/market.go`):** `CleanPriceHistory` y `SummarizePriceHistory` filtran errores 10× (`IsTypoPrice`) y colapsan precios consecutivos iguales; `GetChangedPriceHistories()` carga en una sola consulta los historiales con cambios dentro de `MarketIndex.PriceChanges` (sin consultas extra por request). **API (`api/market.go`, `api/price_history.go`, `main.go`):** `CarWithMarket` agrega `PricePrevious`, `PriceInitial`, `PriceChangedAt` y `PriceChanges` en `/api/cars`, `/api/bargains` y `/api/cars/favorites`, y `GET /api/cars/price-history?url=...` devuelve la serie limpia. **Frontend (`PriceDropBadge.jsx`, `CarDetailsModal.jsx`, `priceHistory.js`, `CarCard.jsx`, `CarsPage.jsx`, `FavoritesPage.jsx`, `BargainsPage.jsx`, `CompareWidget.jsx`):** badge de rebaja (`📉 Bajó $1,500 hace 5 días` en tarjetas / `↓ $1,500` compacto en tablas y comparador) para rebajas genuinas (≥ \$100 y ≥ 1%, sin `MarketFlag`), y bloque **Historial de precio** en el modal con titular del último cambio, sparkline SVG (cuando hay ≥ 3 puntos), línea cronológica con deltas y cambio neto total. Tests: `TestCleanAndSummarizePriceHistory` (`db/price_history_test.go`) y `TestPriceHistoryAPIAndEnrichment` (`api/price_history_test.go`). |
 | 2026-11-12 | Limpieza frontend – Prioridad 4 (`translations.js` + estilos inline → CSS) | **Traducciones centralizadas (`web/src/translations.js`, `LanguageContext.jsx`):** nuevo helper puro `translate(language, key, params)` y ~120 claves consolidadas en ES/EN; se eliminaron todos los `language === 'es' ? … : …` / `const es =` inline y textos/tooltips/`aria-label` fijos en `App.jsx`, `components/**`, `pages/**` y `utils/{listingDate,priceHistory,marketDeal,phone}.js` (conservando `aiSuggestions.js` para prompts dinámicos del LLM y los literales numéricos de `marketDeal.js` validados por `TestDealThresholdsMatchFrontend`). **Estilos inline → CSS (`web/src/styles/components.css`, `web/src/styles/pages.css`, `main.jsx`):** se extrajeron los bloques `style={{ … }}` estáticos de `App`, tarjetas, modales, badges, esqueletos, comparador, Copilot y las 5 páginas con estados `:hover` y `:focus-visible` consistentes, dejando `style` inline únicamente para valores dinámicos en tiempo de ejecución (porcentajes, colores HSL/oferta, posición de vista previa y tamaño de `AdvisorOrb`) y eliminando `web/src/App.css` sin uso. |
 | 2026-11-12 | Optimizaciones cortas de backend | Pool de conexiones `sql.DB` por driver, índices compuestos en `cars`, `CleanUpData` bajo demanda (`-cleanup`), caché TTL de 5 min en `/api/{brands,provinces,sellers/top,stats,stats/detailed}` con conteo en vivo de `/api/visit`, errores JSON estandarizados (`respondError` sin filtrar errores SQL), apagado graceful (`SIGINT`/`SIGTERM`) y carga local de `.env` (`.env.example`). Tests: `db/db_optimizations_test.go`, `api/cache_errors_test.go`. Detalle en [improvements.md](./improvements.md). |
+| 2026-11-12 | Tema claro (`prefers-color-scheme` + botón claro/oscuro) | **Detección e inicialización sin FOUC (`web/index.html`, `ThemeContext.jsx`, `hooks/useTheme.js`, `main.jsx`):** script inline previo al primer pintado lee `crautosdb_theme` o `prefers-color-scheme`, aplica `data-theme`, `colorScheme` y `<meta name="theme-color">`, con listeners reactivos de sistema (`matchMedia`) y pestañas (`storage`). **Botón e internacionalización (`App.jsx`, `AppIcons.jsx`, `translations.js`):** botón `.nav-theme-btn` con `SunIcon`/`MoonIcon` y etiquetas en ES/EN, colapsado responsive en pantallas medianas y móviles. **Tokenización e WCAG AA (`index.css`, `styles/{components,pages,photos,quick-searches}.css`, `marketDeal.js`, `CarCard.jsx`, `{Price,Mileage}Bar.jsx`, `CarDetailsModal.jsx`, `StatsPage.jsx`, `AICopilotWindow.jsx`):** variables `--deal-*`, `--bar-*`, `--sparkline-*`, `--chart-*`, `--icon-*` y `--orb-*` + overrides `[data-theme="light"]` garantizando contraste ≥ 4.5:1 en texto, badges, tablas, modales, Copilot, sparklines y barras HSL dinámicas. |
+| 2026-11-12 | Cierre técnico CI, fixtures HTML offline y `context.Context` en scraper | Compuerta automática `CGO_ENABLED=0 go vet` + `go test -count=1` en [Dockerfile](../Dockerfile) y exclusión de artefactos locales en [.dockerignore](../.dockerignore); 4 fixtures HTML offline en `scraper/testdata/` con tests completos en `scraper/scraper_test.go`; propagación de `signal.NotifyContext` desde `main.go` hacia `scraper.Run(ctx)`, `ProcessBrand`, `BackfillSellers` y `BackfillComments` protegiendo `MarkSold` ante cancelación y drenando el scraper antes de cerrar la BD. Detalle en [improvements.md](./improvements.md). |

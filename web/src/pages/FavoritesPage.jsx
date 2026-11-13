@@ -63,7 +63,7 @@ const FavoritesPage = ({ viewMode, setViewMode }) => {
       <div className="favorites-header">
         <div>
           <h2 className="favorites-title">
-            <StarIcon size={26} color="#fbbf24" />
+            <StarIcon size={26} color="var(--icon-gold)" />
             <span>{t('myFavoritesTitle')}</span>
           </h2>
           <p className="favorites-subtitle">

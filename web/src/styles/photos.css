@@ -399,3 +399,71 @@
 .car-card-photo ~ .car-card-body {
   padding-top: 1rem;
 }
+
+/* Light Theme Overrides */
+[data-theme="light"] .car-thumb-fallback,
+[data-theme="light"] .car-card-photo,
+[data-theme="light"] .car-gallery-main {
+  background: #e2e8f0;
+}
+
+[data-theme="light"] .car-thumb-skeleton,
+[data-theme="light"] .car-gallery-skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(203, 213, 225, 0.45) 25%,
+    rgba(226, 232, 240, 0.85) 37%,
+    rgba(203, 213, 225, 0.45) 63%
+  );
+  background-size: 400% 100%;
+}
+
+[data-theme="light"] .car-card-photo-placeholder {
+  background: linear-gradient(135deg, #e2e8f0, #cbd5e1);
+}
+
+[data-theme="light"] .car-photo-count {
+  background-color: rgba(15, 23, 42, 0.78);
+  color: #ffffff;
+}
+
+[data-theme="light"] .car-gallery-arrow {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(15, 23, 42, 0.16);
+  color: var(--text-main);
+}
+
+[data-theme="light"] .car-gallery-arrow:hover {
+  background: #ffffff;
+}
+
+[data-theme="light"] .car-gallery-counter {
+  background: rgba(15, 23, 42, 0.78);
+  color: #ffffff;
+}
+
+[data-theme="light"] .car-details-hero {
+  background: #f8fafc;
+}
+
+[data-theme="light"] .car-details-price {
+  color: #0369a1;
+}
+
+[data-theme="light"] .details-specs-grid {
+  background: #f8fafc;
+  border-color: var(--border);
+}
+
+[data-theme="light"] .details-spec-row {
+  border-bottom-color: #e2e8f0;
+}
+
+[data-theme="light"] .table-density-toggle {
+  background-color: #f1f5f9;
+  border-color: var(--border);
+}
+
+[data-theme="light"] .btn-density-toggle:hover {
+  background-color: rgba(15, 23, 42, 0.06);
+}

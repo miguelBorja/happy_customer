@@ -22,24 +22,39 @@ export const DEAL_HIGH_MIN_PCT = 10; // "Sobre el mercado"
 const LEVELS = {
   great: {
     labelKey: 'dealGreat',
-    color: '#34d399', bg: 'rgba(16, 185, 129, 0.14)', border: 'rgba(16, 185, 129, 0.45)', icon: '🔥',
+    color: 'var(--deal-great-text)',
+    bg: 'var(--deal-great-bg)',
+    border: 'var(--deal-great-border)',
+    icon: '🔥',
   },
   good: {
     labelKey: 'dealGood',
-    color: '#86efac', bg: 'rgba(34, 197, 94, 0.10)', border: 'rgba(34, 197, 94, 0.35)', icon: '👍',
+    color: 'var(--deal-good-text)',
+    bg: 'var(--deal-good-bg)',
+    border: 'var(--deal-good-border)',
+    icon: '👍',
   },
   fair: {
     labelKey: 'dealFair',
-    color: '#93c5fd', bg: 'rgba(59, 130, 246, 0.10)', border: 'rgba(59, 130, 246, 0.30)', icon: '⚖️',
+    color: 'var(--deal-fair-text)',
+    bg: 'var(--deal-fair-bg)',
+    border: 'var(--deal-fair-border)',
+    icon: '⚖️',
   },
   high: {
     labelKey: 'dealHigh',
-    color: '#fdba74', bg: 'rgba(249, 115, 22, 0.10)', border: 'rgba(249, 115, 22, 0.35)', icon: '▲',
+    color: 'var(--deal-high-text)',
+    bg: 'var(--deal-high-bg)',
+    border: 'var(--deal-high-border)',
+    icon: '▲',
   },
   // The server flagged the price (MarketFlag): likely a typo, damaged car, or partial price.
   check: {
     labelKey: 'dealCheck',
-    color: '#fcd34d', bg: 'rgba(234, 179, 8, 0.10)', border: 'rgba(234, 179, 8, 0.40)', icon: '⚠️',
+    color: 'var(--deal-check-text)',
+    bg: 'var(--deal-check-bg)',
+    border: 'var(--deal-check-border)',
+    icon: '⚠️',
   },
 };
 

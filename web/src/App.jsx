@@ -10,10 +10,13 @@ import WelcomeBanner from './components/WelcomeBanner';
 import { fetchStats, recordVisit } from './api/client';
 import { useFavorites } from './hooks/useFavorites';
 import { useLanguage } from './context/LanguageContext';
+import { useTheme } from './hooks/useTheme';
 import { trackPageView } from './utils/analytics';
 import { parseUrlState, buildUrlSearch, sameFilters, createDefaultFilters } from './utils/urlState';
 import {
   FlagIcon,
+  SunIcon,
+  MoonIcon,
   StarIcon,
   TagIcon,
   StatsChartIcon,
@@ -36,6 +39,7 @@ function App() {
   const [stats, setStats] = useState({ total: 0, active: 0, sold: 0, visits: 0 });
   const { favCount } = useFavorites();
   const { toggleLanguage, t } = useLanguage();
+  const { isLight, toggleTheme } = useTheme();
   const [browseViewMode, setBrowseViewMode] = useState(() => {
     return localStorage.getItem('happy_customer_browse_view_mode') || 'cards';
   });
@@ -247,12 +251,22 @@ function App() {
             <span className="nav-stats-label"> {t('sold')}</span>
           </div>
           
+          <button
+            className="nav-theme-btn"
+            onClick={toggleTheme}
+            title={isLight ? t('switchToDarkTheme') : t('switchToLightTheme')}
+            aria-label={isLight ? t('switchToDarkTheme') : t('switchToLightTheme')}
+          >
+            {isLight ? <MoonIcon size={15} color="currentColor" /> : <SunIcon size={15} color="currentColor" />}
+            <span className="nav-theme-text">{isLight ? t('themeDarkLabel') : t('themeLightLabel')}</span>
+          </button>
+
           <button 
             className="nav-lang-btn"
             onClick={toggleLanguage}
             title={t('switchLanguageTitle')}
           >
-            <FlagIcon size={15} color="#cbd5e1" />
+            <FlagIcon size={15} color="currentColor" />
             <span className="nav-lang-text">{t('switchLanguageLabel')}</span>
           </button>
 
@@ -283,7 +297,7 @@ function App() {
               className={activeTab === 'favorites' ? 'active' : ''} 
               onClick={() => goToTab('favorites')}
             >
-              <StarIcon size={16} color="#fbbf24" />
+              <StarIcon size={16} color="var(--icon-gold)" />
               <span className="nav-link-text nav-link-text-secondary">{t('favorites')}</span>
               {favCount > 0 && <span className="nav-fav-count">{favCount}</span>}
             </button>
@@ -291,21 +305,21 @@ function App() {
               className={activeTab === 'bargains' ? 'active' : ''} 
               onClick={() => goToTab('bargains')}
             >
-              <TagIcon size={16} color="#fbbf24" />
+              <TagIcon size={16} color="var(--icon-gold)" />
               <span className="nav-link-text nav-link-text-secondary">{t('bargainsTab')}</span>
             </button>
             <button 
               className={activeTab === 'stats' ? 'active' : ''} 
               onClick={() => goToTab('stats')}
             >
-              <StatsChartIcon size={16} color="#fbbf24" />
+              <StatsChartIcon size={16} color="var(--icon-gold)" />
               <span className="nav-link-text nav-link-text-secondary">{t('stats')}</span>
             </button>
             <button 
               className={activeTab === 'about' ? 'active' : ''} 
               onClick={() => goToTab('about')}
             >
-              <InfoCircleIcon size={16} color="#cbd5e1" />
+              <InfoCircleIcon size={16} color="currentColor" />
               <span className="nav-link-text nav-link-text-secondary">{t('about')}</span>
             </button>
           </div>
@@ -338,7 +352,7 @@ function App() {
           onClick={() => goToTab('favorites')}
         >
           <span className="bottom-nav-icon">
-            <StarIcon size={20} color="#fbbf24" />
+            <StarIcon size={20} color="var(--icon-gold)" />
           </span>
           <span>{t('navFavs')}</span>
           {favCount > 0 && <span className="bottom-nav-badge">{favCount}</span>}
@@ -348,7 +362,7 @@ function App() {
           onClick={() => goToTab('bargains')}
         >
           <span className="bottom-nav-icon">
-            <TagIcon size={20} color="#fbbf24" />
+            <TagIcon size={20} color="var(--icon-gold)" />
           </span>
           <span>{t('bargainsTab')}</span>
         </button>
@@ -357,7 +371,7 @@ function App() {
           onClick={handleToggleCopilot}
         >
           <span className="bottom-nav-icon">
-            <SparkleClusterIcon size={22} color="#fef08a" />
+            <SparkleClusterIcon size={22} color="var(--icon-sparkle)" />
           </span>
           <span>{t('copilotButton')}</span>
           {attachedCars.length > 0 && <span className="bottom-nav-badge">{attachedCars.length}</span>}
@@ -367,7 +381,7 @@ function App() {
           onClick={() => goToTab('stats')}
         >
           <span className="bottom-nav-icon">
-            <StatsChartIcon size={20} color="#fbbf24" />
+            <StatsChartIcon size={20} color="var(--icon-gold)" />
           </span>
           <span>{t('stats')}</span>
         </button>
@@ -376,7 +390,7 @@ function App() {
           onClick={() => goToTab('about')}
         >
           <span className="bottom-nav-icon">
-            <InfoCircleIcon size={20} color="#cbd5e1" />
+            <InfoCircleIcon size={20} color="currentColor" />
           </span>
           <span>{t('navAbout')}</span>
         </button>
