@@ -503,6 +503,11 @@ const FiltersModal = ({
             </label>
 
             <label className="checkbox-group">
+              <input type="checkbox" checked={filters.motivated === 'true'} onChange={(e) => setFilters(f => ({ ...f, motivated: e.target.checked ? 'true' : '' }))} />
+              <span>{t('motivatedOnly')}</span>
+            </label>
+
+            <label className="checkbox-group">
               <input type="checkbox" checked={filters.seRecibe === 'true'} onChange={(e) => setFilters(f => ({ ...f, seRecibe: e.target.checked ? 'true' : '' }))} />
               <span>{t('tradeInOnly')}</span>
             </label>

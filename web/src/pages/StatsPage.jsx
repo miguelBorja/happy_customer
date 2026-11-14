@@ -1,7 +1,94 @@
 import { useState, useEffect } from 'react';
-import { fetchDetailedStats } from '../api/client';
+import { fetchDetailedStats, fetchFilteredModels } from '../api/client';
 import { useLanguage } from '../context/LanguageContext';
+import DepreciationCurveCard from '../components/DepreciationCurveCard';
 import { CalculatorIcon } from '../components/icons/AppIcons';
+
+function StatsDepreciationTab({ brandStats, onOpenValuate }) {
+  const { t } = useLanguage();
+  const availableBrands = Array.isArray(brandStats)
+    ? brandStats.map((b) => b.brand).filter(Boolean)
+    : [];
+  const [selectedBrand, setSelectedBrand] = useState(() => availableBrands[0] || 'Toyota');
+  const [modelsState, setModelsState] = useState({ brand: '', list: [] });
+  const [chosenModelState, setChosenModelState] = useState({ brand: '', model: '' });
+
+  const effectiveBrand = availableBrands.includes(selectedBrand)
+    ? selectedBrand
+    : (availableBrands[0] || selectedBrand);
+
+  useEffect(() => {
+    if (!effectiveBrand) return undefined;
+    let cancelled = false;
+    fetchFilteredModels({ brand: effectiveBrand })
+      .then((res) => {
+        if (!cancelled && Array.isArray(res)) {
+          setModelsState({ brand: effectiveBrand, list: res });
+        }
+      })
+      .catch(console.error);
+    return () => {
+      cancelled = true;
+    };
+  }, [effectiveBrand]);
+
+  const models = modelsState.brand === effectiveBrand ? modelsState.list : [];
+  const activeModel =
+    chosenModelState.brand === effectiveBrand && models.includes(chosenModelState.model)
+      ? chosenModelState.model
+      : (models[0] || '');
+
+  return (
+    <div className="stats-depreciation-tab">
+      <p className="stats-depreciation-intro">{t('statsDepreciationIntro')}</p>
+
+      <div className="stats-depreciation-controls">
+        <div className="stats-depreciation-field">
+          <label htmlFor="stats-dep-brand">{t('statsSelectBrand')}</label>
+          <select
+            id="stats-dep-brand"
+            value={effectiveBrand}
+            onChange={(e) => {
+              setSelectedBrand(e.target.value);
+              setChosenModelState({ brand: e.target.value, model: '' });
+            }}
+          >
+            {availableBrands.map((b) => (
+              <option key={b} value={b}>{b}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="stats-depreciation-field">
+          <label htmlFor="stats-dep-model">{t('statsSelectModel')}</label>
+          <select
+            id="stats-dep-model"
+            value={activeModel}
+            disabled={models.length === 0}
+            onChange={(e) =>
+              setChosenModelState({ brand: effectiveBrand, model: e.target.value })
+            }
+          >
+            {models.map((m) => (
+              <option key={m} value={m}>{m}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {effectiveBrand && activeModel && (
+        <DepreciationCurveCard
+          brand={effectiveBrand}
+          model={activeModel}
+          onSelectYear={(yr) =>
+            onOpenValuate?.({ brand: effectiveBrand, model: activeModel, year: yr })
+          }
+          onOpenValuate={onOpenValuate}
+        />
+      )}
+    </div>
+  );
+}
 
 function StatsPage({ onOpenValuate }) {
   const { t } = useLanguage();
@@ -64,6 +151,12 @@ function StatsPage({ onOpenValuate }) {
         className={`stats-subtab${activeSubTab === 'boost' ? ' active' : ''}`}
       >
         📈 {t('statsTabBoost')}
+      </button>
+      <button
+        onClick={() => setActiveSubTab('depreciation')}
+        className={`stats-subtab${activeSubTab === 'depreciation' ? ' active' : ''}`}
+      >
+        📉 {t('statsTabDepreciation')}
       </button>
     </div>
   );
@@ -572,6 +665,12 @@ function StatsPage({ onOpenValuate }) {
       {activeSubTab === 'overview' && renderOverviewTab()}
       {activeSubTab === 'factors' && renderFactorsTab()}
       {activeSubTab === 'boost' && renderEquipmentBoostTab()}
+      {activeSubTab === 'depreciation' && (
+        <StatsDepreciationTab
+          brandStats={data.brandStats}
+          onOpenValuate={onOpenValuate}
+        />
+      )}
     </div>
   );
 }

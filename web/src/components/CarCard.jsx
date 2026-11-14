@@ -14,6 +14,7 @@ import { CarThumb } from './CarPhoto';
 import CarDetailsModal from './CarDetailsModal';
 import MarketBadge from './MarketBadge';
 import PriceDropBadge from './PriceDropBadge';
+import MotivatedBadge from './MotivatedBadge';
 import { getMarketDeal } from '../utils/marketDeal';
 import { useCompare } from '../hooks/useCompare';
 import { getWhatsAppPhone, buildWhatsAppLink } from '../utils/phone';
@@ -50,7 +51,7 @@ const FuelPumpIcon = () => (
 );
 
 // onOpenDetails (optional): let the parent own the details modal (e.g. to keep ?car= in the URL).
-const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage, onOpenDetails }) => {
+const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage, onOpenDetails, onNegotiateWithCopilot }) => {
   const { t, language } = useLanguage();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const openDetails = () => (onOpenDetails ? onOpenDetails(car) : setIsModalOpen(true));
@@ -207,6 +208,7 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage, onOpenD
           <div className="car-badges-row">
             <MarketBadge car={car} />
             <PriceDropBadge car={car} />
+            <MotivatedBadge car={car} />
           </div>
 
           <div className="car-secondary-specs">
@@ -284,6 +286,7 @@ const CarCard = ({ car, isNew, isFav, onToggleFav, maxPrice, maxMileage, onOpenD
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
         car={car} 
+        onNegotiateWithCopilot={onNegotiateWithCopilot}
       />
     </div>
   );

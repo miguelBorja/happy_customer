@@ -17,6 +17,7 @@ import {
 } from '../utils/priceHistory';
 import { parsePlateInfo, formatYesNo, isTaxesUnpaid, cleanSpecText } from '../utils/crVehicleInfo';
 import CostEstimatorCard from './CostEstimatorCard';
+import MotivatedBadge from './MotivatedBadge';
 import { WhatsAppIcon } from './icons/AppIcons';
 
 // Data Categorization Utility
@@ -101,7 +102,7 @@ const WA_INTENTS = [
   { id: 'tradeIn', labelKey: 'waIntentTradeIn' },
 ];
 
-const CarDetailsModal = ({ isOpen, onClose, car, onFilterBySeller }) => {
+const CarDetailsModal = ({ isOpen, onClose, car, onFilterBySeller, onNegotiateWithCopilot }) => {
   const { t, language } = useLanguage();
   const { isComparing, toggleCompare } = useCompare();
   const [historyState, setHistoryState] = useState({ url: null, points: [] });
@@ -268,7 +269,8 @@ const CarDetailsModal = ({ isOpen, onClose, car, onFilterBySeller }) => {
 
           {formattedPrice && (
             <div className="details-modal-price">
-              {formattedPrice}
+              <span>{formattedPrice}</span>
+              <MotivatedBadge car={car} />
             </div>
           )}
 
@@ -543,6 +545,20 @@ const CarDetailsModal = ({ isOpen, onClose, car, onFilterBySeller }) => {
               {inCompare ? t('inComparator') : t('compareAction')}
             </span>
           </button>
+
+          {onNegotiateWithCopilot && (
+            <button
+              type="button"
+              className="btn-modal-negotiate"
+              onClick={() => {
+                onNegotiateWithCopilot(car);
+                onClose();
+              }}
+            >
+              <span>✨</span>
+              <span>{t('negotiateWithCopilot')}</span>
+            </button>
+          )}
 
           {otherPhones.length > 0 && (
             <div className="details-phones-row">

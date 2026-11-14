@@ -1997,3 +1997,110 @@
 [data-theme="light"] .valuate-error-box {
   color: #991b1b;
 }
+
+/* --- Stats Depreciation Sub-Tab Controls --- */
+.stats-depreciation-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.stats-depreciation-intro {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+}
+
+.stats-depreciation-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+}
+
+.stats-depreciation-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 190px;
+}
+
+.stats-depreciation-field label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.stats-depreciation-field select {
+  padding: 0.52rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: var(--bg-secondary, #0f172a);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+[data-theme="light"] .stats-depreciation-field select {
+  background: #ffffff;
+  border-color: #cbd5e1;
+}
+
+/* Upgrade mode context banner in CarsPage */
+.upgrade-mode-banner {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.9rem;
+  padding: 0.72rem 0.95rem;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.16), rgba(37, 99, 235, 0.14));
+  border: 1px solid rgba(56, 189, 248, 0.38);
+}
+
+.upgrade-mode-banner-content {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: var(--text-primary);
+}
+
+.upgrade-mode-banner-content > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+}
+
+.upgrade-mode-banner-content strong {
+  font-size: 0.9rem;
+}
+
+.upgrade-mode-banner-content span {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.upgrade-mode-banner-dismiss {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.36rem 0.68rem;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  background: rgba(15, 23, 42, 0.6);
+  color: var(--text-primary);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+[data-theme="light"] .upgrade-mode-banner {
+  background: linear-gradient(135deg, #e0f2fe, #eff6ff);
+  border-color: #7dd3fc;
+}
+
+[data-theme="light"] .upgrade-mode-banner-dismiss {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}

@@ -1,16 +1,24 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
   DEFAULT_FX_RATE,
+  DEFAULT_MONTHLY_KM,
+  CR_FUEL_TARIFF_CRC,
   getStoredFxRate,
   setStoredFxRate,
+  getStoredMonthlyKm,
+  setStoredMonthlyKm,
   formatCRC,
   estimateTransferCostUSD,
   estimateMarchamoUSD,
   calculateMonthlyLoan,
   estimateCrCosts,
+  classifyPowertrain,
+  estimateConsumptionPer100Km,
+  estimateCrTco3Yr,
 } from './crCostEstimator';
 
 const FX_RATE_KEY = 'crautosdb_fx_rate';
+const MONTHLY_KM_KEY = 'crautosdb_monthly_km';
 
 const stubStorage = (initial = {}) => {
   const store = new Map(Object.entries(initial));
@@ -244,5 +252,104 @@ describe('estimateCrCosts', () => {
     expect(costs.unpaidTaxes).toBe(true);
     const paid = estimateCrCosts({ Price: 20000, PagoImpuestos: 'SI' }, { fxRate: 510 });
     expect(paid.unpaidTaxes).toBe(false);
+  });
+});
+
+describe('monthly km storage', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('defaults to DEFAULT_MONTHLY_KM when storage is empty or invalid', () => {
+    stubStorage();
+    expect(getStoredMonthlyKm()).toBe(DEFAULT_MONTHLY_KM);
+    stubStorage({ [MONTHLY_KM_KEY]: '50' });
+    expect(getStoredMonthlyKm()).toBe(DEFAULT_MONTHLY_KM);
+  });
+
+  it('clamps and persists monthly km to localStorage', () => {
+    const { store } = stubStorage();
+    expect(setStoredMonthlyKm(1800)).toBe(1800);
+    expect(store.get(MONTHLY_KM_KEY)).toBe('1800');
+    expect(getStoredMonthlyKm()).toBe(1800);
+    expect(setStoredMonthlyKm(9000)).toBe(5000);
+  });
+});
+
+describe('classifyPowertrain & estimateConsumptionPer100Km', () => {
+  it('classifies EV, hybrid, diesel, and gasoline', () => {
+    expect(classifyPowertrain({ Combustible: 'Eléctrico' })).toBe('ev');
+    expect(classifyPowertrain({ FuelType: 'Híbrido enchufable' })).toBe('hybrid');
+    expect(classifyPowertrain({ Combustible: 'Diésel' })).toBe('diesel');
+    expect(classifyPowertrain({ Combustible: 'Gasolina' })).toBe('gasoline');
+  });
+
+  it('scales gasoline consumption with displacement and body type', () => {
+    expect(estimateConsumptionPer100Km({ Combustible: 'Gasolina', Cilindrada: '1200 cc' })).toEqual({
+      unit: 'L/100km',
+      value: 7.0,
+    });
+    expect(estimateConsumptionPer100Km({ Combustible: 'Gasolina', Cilindrada: '2000 cc' })).toEqual({
+      unit: 'L/100km',
+      value: 9.8,
+    });
+    expect(estimateConsumptionPer100Km({ Combustible: 'Eléctrico', Estilo: 'SUV' })).toEqual({
+      unit: 'kWh/100km',
+      value: 19,
+    });
+  });
+});
+
+describe('estimateCrTco3Yr', () => {
+  it('returns zeros when car price is missing', () => {
+    const tco = estimateCrTco3Yr({ Price: 0 }, { fxRate: 510, monthlyKm: 1200 });
+    expect(tco.netTco3YrUSD).toBe(0);
+    expect(tco.energy3YrUSD).toBe(0);
+    expect(tco.depreciationUSD).toBe(0);
+  });
+
+  it('compares gasoline vs hybrid vs electric energy and marchamo savings cleanly', () => {
+    const gas = estimateCrTco3Yr(
+      { Brand: 'Hyundai', Year: 2021, Price: 25000, Combustible: 'Gasolina', Cilindrada: '2000 cc' },
+      { fxRate: 510, monthlyKm: 1500 },
+    );
+    const hybrid = estimateCrTco3Yr(
+      { Brand: 'Toyota', Year: 2021, Price: 25000, Combustible: 'Híbrido', Cilindrada: '1800 cc' },
+      { fxRate: 510, monthlyKm: 1500 },
+    );
+    const ev = estimateCrTco3Yr(
+      { Brand: 'BYD', Year: 2021, Price: 25000, Combustible: 'Eléctrico', Estilo: 'SUV' },
+      { fxRate: 510, monthlyKm: 1500 },
+    );
+
+    expect(gas.tariffCRC).toBe(CR_FUEL_TARIFF_CRC.gasoline);
+    expect(ev.tariffCRC).toBe(CR_FUEL_TARIFF_CRC.evKwh);
+    expect(ev.energy3YrUSD).toBeLessThan(hybrid.energy3YrUSD);
+    expect(hybrid.energy3YrUSD).toBeLessThan(gas.energy3YrUSD);
+    expect(ev.marchamo3YrUSD).toBeLessThan(gas.marchamo3YrUSD);
+    expect(ev.netTco3YrUSD).toBe(
+      ev.transferUSD + ev.marchamo3YrUSD + ev.energy3YrUSD + ev.depreciationUSD,
+    );
+    expect(ev.estimatedResaleUSD).toBe(25000 - ev.depreciationUSD);
+  });
+
+  it('uses market depreciation curve points when provided', () => {
+    const curve = {
+      brand: 'Toyota',
+      model: 'RAV4',
+      points: [
+        { year: 2019, median: 18000, count: 6, lowSample: false },
+        { year: 2020, median: 20000, count: 6, lowSample: false },
+        { year: 2021, median: 22500, count: 6, lowSample: false },
+        { year: 2022, median: 25000, count: 6, lowSample: false },
+      ],
+    };
+    const tco = estimateCrTco3Yr(
+      { Brand: 'Toyota', Model: 'RAV4', Year: 2022, Price: 25000, Combustible: 'Gasolina' },
+      { fxRate: 510, monthlyKm: 1200, depCurve: curve },
+    );
+    expect(tco.depreciationSource).toBe('curve');
+    expect(tco.depreciationUSD).toBe(7000);
+    expect(tco.depreciationPct).toBeCloseTo(28.0, 1);
   });
 });

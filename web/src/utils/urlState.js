@@ -22,6 +22,7 @@ export const DEFAULT_FILTERS = Object.freeze({
   sellerMode: '',
   isSold: 'false',
   priceDrop: '',
+  motivated: '',
   seRecibe: '',
   negociable: '',
   equipments: [],
@@ -64,6 +65,7 @@ export const parseUrlState = (search) => {
       ? raw.split(',').map(s => s.trim()).filter(Boolean)
       : raw;
   }
+  filters.motivated = filters.motivated === 'true' ? 'true' : '';
   const tab = TABS.includes(params.get('tab')) ? params.get('tab') : 'browse';
   const clientSort = CLIENT_SORTS.includes(params.get('sort')) ? params.get('sort') : null;
   const carUrl = tab === 'browse' ? (params.get('car') || null) : null;
@@ -97,6 +99,8 @@ export const buildUrlSearch = ({ tab, filters, clientSort, carUrl, valuateParams
       const def = DEFAULT_FILTERS[key];
       if (Array.isArray(def)) {
         if (Array.isArray(value) && value.length > 0) params.set(key, value.join(','));
+      } else if (key === 'motivated') {
+        if (value === 'true') params.set('motivated', 'true');
       } else if (value !== undefined && value !== null && String(value) !== def) {
         params.set(key, String(value));
       }

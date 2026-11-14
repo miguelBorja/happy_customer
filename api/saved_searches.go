@@ -79,8 +79,9 @@ func (s *Server) HandleSearchesDigest(w http.ResponseWriter, r *http.Request) {
 
 		onlyGood := q.Get("deal") == "good"
 		onlyDrops := q.Get("priceDrop") == "true"
-		if onlyGood || onlyDrops {
-			allowedURLs := rankDealAndDropURLs(keys, stats, onlyGood, onlyDrops, false, f)
+		onlyMotivated := q.Get("motivated") == "true"
+		if onlyGood || onlyDrops || onlyMotivated {
+			allowedURLs := rankCatalogURLs(keys, stats, onlyGood, onlyDrops, onlyMotivated, false, f, time.Now())
 			allowedSet := make(map[string]struct{}, len(allowedURLs))
 			for _, u := range allowedURLs {
 				allowedSet[u] = struct{}{}

@@ -9,7 +9,9 @@ import MileageBar from '../components/MileageBar';
 import PriceBar from '../components/PriceBar';
 import MarketBadge from '../components/MarketBadge';
 import PriceDropBadge from '../components/PriceDropBadge';
-import { getMarketDeal } from '../utils/marketDeal';
+import MotivatedBadge from '../components/MotivatedBadge';
+import SellerReputationCard from '../components/SellerReputationCard';
+import { getMarketDeal, formatUSD } from '../utils/marketDeal';
 import { useSeenCars } from '../hooks/useSeenCars';
 import { useFavorites } from '../hooks/useFavorites';
 import { useSavedSearches } from '../hooks/useSavedSearches';
@@ -22,7 +24,9 @@ import {
   TableListIcon,
   NewBadgeIcon,
   BellIcon,
-  CalculatorIcon
+  CalculatorIcon,
+  CloseIcon,
+  SparkleIcon
 } from '../components/icons/AppIcons';
 import { CarThumb } from '../components/CarPhoto';
 import CarDetailsModal from '../components/CarDetailsModal';
@@ -48,7 +52,10 @@ const CarsPage = ({
   viewMode,
   setViewMode,
   onOpenValuate,
-  onFilterBySeller
+  onFilterBySeller,
+  onNegotiateWithCopilot,
+  upgradeContext,
+  onExitUpgradeMode
 }) => {
   const [cars, setCars] = useState([]);
   const [visibleCount, setVisibleCount] = useState(RENDER_STEP);
@@ -532,13 +539,14 @@ const CarsPage = ({
     }
     if (filters.priceMin || filters.priceMax) {
       const minVal = Number(filters.priceMin) || 0;
-      const maxVal = Number(filters.priceMax) || 100000;
+      const hasMax = Boolean(filters.priceMax);
+      const maxVal = Number(filters.priceMax) || 0;
       let label = '';
-      if (minVal > 0 && maxVal === 100000) {
+      if (minVal > 0 && !hasMax) {
         label = `≥ $${minVal.toLocaleString()}`;
-      } else if (minVal === 0 && maxVal < 100000) {
+      } else if (minVal === 0 && hasMax && maxVal > 0) {
         label = `≤ $${maxVal.toLocaleString()}`;
-      } else if (minVal > 0 && maxVal < 100000) {
+      } else if (minVal > 0 && hasMax && maxVal > 0) {
         label = `$${minVal.toLocaleString()} - $${maxVal.toLocaleString()}`;
       }
       
@@ -591,6 +599,7 @@ const CarsPage = ({
     if (filters.isSold !== 'false') tags.push({ id: 'isSold', label: t('showSold'), clear: () => setFilters(f => ({ ...f, isSold: 'false' })) });
     if (filters.deal === 'good') tags.push({ id: 'deal', label: t('goodPricesOnly'), clear: () => setFilters(f => ({ ...f, deal: '' })) });
     if (filters.priceDrop === 'true') tags.push({ id: 'priceDrop', label: t('priceDropsOnly'), clear: () => setFilters(f => ({ ...f, priceDrop: '' })) });
+    if (filters.motivated === 'true') tags.push({ id: 'motivated', label: t('motivatedTag'), clear: () => setFilters(f => ({ ...f, motivated: '' })) });
     if (filters.seRecibe === 'true') tags.push({ id: 'seRecibe', label: t('tradeInOnly'), clear: () => setFilters(f => ({ ...f, seRecibe: '' })) });
     if (filters.negociable === 'true') tags.push({ id: 'negociable', label: t('negotiableOnly'), clear: () => setFilters(f => ({ ...f, negociable: '' })) });
     if (showFavsOnly) tags.push({ id: 'showFavsOnly', label: t('showFavsOnly'), clear: () => setShowFavsOnly(false) });
@@ -657,6 +666,13 @@ const CarsPage = ({
       isActive: filters.priceDrop === 'true',
       apply: () => setFilters(f => ({ ...f, priceDrop: 'true' })),
       remove: () => setFilters(f => ({ ...f, priceDrop: '' })),
+    },
+    {
+      id: 'motivated',
+      label: `📅 ${t('motivatedChip')}`,
+      isActive: filters.motivated === 'true',
+      apply: () => setFilters(f => ({ ...f, motivated: 'true' })),
+      remove: () => setFilters(f => ({ ...f, motivated: '' })),
     },
     {
       id: 'under15k',
@@ -877,6 +893,50 @@ const CarsPage = ({
 
       {/* Results Container */}
       <div className="results-container">
+        {upgradeContext && (filters.priceMax || filters.priceMin) && (
+          <div className="upgrade-mode-banner">
+            <div className="upgrade-mode-banner-content">
+              <SparkleIcon size={16} />
+              <div>
+                <strong>{t('upgradeBannerTitle', { car: upgradeContext.currentCarLabel })}</strong>
+                <span>
+                  {t('upgradeBannerDetail', {
+                    max: formatUSD(upgradeContext.maxPriceUSD),
+                    min: formatUSD(upgradeContext.minPriceUSD || 0),
+                    mode:
+                      upgradeContext.saleMode === 'tradein'
+                        ? t('upgradeModeTradeIn')
+                        : t('upgradeModeDirect'),
+                  })}
+                </span>
+              </div>
+            </div>
+            {onExitUpgradeMode && (
+              <button
+                type="button"
+                className="upgrade-mode-banner-dismiss"
+                onClick={onExitUpgradeMode}
+              >
+                <CloseIcon size={12} />
+                <span>{t('upgradeBannerDismiss')}</span>
+              </button>
+            )}
+          </div>
+        )}
+
+        {filters.sellerName && (
+          <SellerReputationCard
+            sellerName={filters.sellerName}
+            includeSold={filters.isSold !== 'false'}
+            onToggleIncludeSold={(next) =>
+              setFilters((f) => ({ ...f, isSold: next ? '' : 'false' }))
+            }
+            onClearSeller={() =>
+              setFilters((f) => ({ ...f, sellerName: '', sellerMode: '', isSold: 'false' }))
+            }
+          />
+        )}
+
         <div className="results-header">
           <h2>
             {loading && cars.length === 0
@@ -955,7 +1015,7 @@ const CarsPage = ({
               clear: () => { setLocalTitle(''); setFilters(f => ({ ...f, title: '' })); }
             };
           } else {
-            const priorityOrder = ['sellerName', 'eq-', 'deal', 'priceDrop', 'seRecibe', 'negociable', 'scrapedPeriod', 'scrapedDate', 'price', 'kmMax', 'year', 'combustible', 'estilo', 'transmision', 'provincia', 'brand-', 'model-', 'isSold'];
+            const priorityOrder = ['sellerName', 'eq-', 'deal', 'priceDrop', 'motivated', 'seRecibe', 'negociable', 'scrapedPeriod', 'scrapedDate', 'price', 'kmMax', 'year', 'combustible', 'estilo', 'transmision', 'provincia', 'brand-', 'model-', 'isSold'];
             for (const prefix of priorityOrder) {
               const tag = activeTags.find(tg => tg.id === prefix || tg.id.startsWith(prefix));
               if (tag) { suggestion = { label: tag.label, clear: tag.clear }; break; }
@@ -999,6 +1059,7 @@ const CarsPage = ({
                   maxPrice={filters.priceMax ? Number(filters.priceMax) : 0}
                   maxMileage={filters.kmMax ? Number(filters.kmMax) : 0}
                   onOpenDetails={handleOpenCar}
+                  onNegotiateWithCopilot={onNegotiateWithCopilot}
                 />
               ))}
             </div>
@@ -1085,6 +1146,7 @@ const CarsPage = ({
                             <PriceBar price={car.Price} maxPrice={filters.priceMax ? Number(filters.priceMax) : 0} priceText={car.PriceText} deal={getMarketDeal(car)} />
                             <MarketBadge car={car} variant="compact" />
                             <PriceDropBadge car={car} variant="compact" />
+                            <MotivatedBadge car={car} variant="compact" />
                           </div>
                         </td>
                         <td className="col-km">
@@ -1192,6 +1254,7 @@ const CarsPage = ({
                           <span>{car.Price > 0 ? `$${car.Price.toLocaleString()}` : car.PriceText}</span>
                           <MarketBadge car={car} variant="compact" />
                           <PriceDropBadge car={car} variant="compact" />
+                          <MotivatedBadge car={car} variant="compact" />
                         </div>
 
                         <div className="top-car-mobile-details">
@@ -1248,6 +1311,7 @@ const CarsPage = ({
           onClose={onCloseCar}
           car={openCar}
           onFilterBySeller={onFilterBySeller}
+          onNegotiateWithCopilot={onNegotiateWithCopilot}
         />
       )}
     </div>

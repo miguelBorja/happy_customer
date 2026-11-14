@@ -8,8 +8,17 @@ import PriceDropBadge from './PriceDropBadge';
 import { getMarketDeal, formatUSD } from '../utils/marketDeal';
 import { sortEquipments, FEATURED_EQUIPMENTS } from '../utils/equipmentPriority';
 import { getWhatsAppPhone, buildWhatsAppLink, buildComparisonWhatsAppLink } from '../utils/phone';
-import { estimateCrCosts, formatCRC } from '../utils/crCostEstimator';
+import {
+  estimateCrCosts,
+  estimateCrTco3Yr,
+  formatCRC,
+  getStoredMonthlyKm,
+  setStoredMonthlyKm,
+} from '../utils/crCostEstimator';
+import { fetchDepreciation } from '../api/client';
 import { WhatsAppIcon } from './icons/AppIcons';
+
+const COMPARE_KM_PRESETS = [600, 1200, 2000];
 
 const shortTitle = (title = '') => (title.length > 30 ? `${title.slice(0, 29)}…` : title);
 
@@ -54,6 +63,67 @@ const CompareWidget = ({ onAnalyzeWithCopilot }) => {
   const costsByUrl = useMemo(() => (
     new Map(compareCars.map((car) => [car.URL, estimateCrCosts(car)]))
   ), [compareCars]);
+
+  const [monthlyKm, setMonthlyKm] = useState(getStoredMonthlyKm);
+  const [depMap, setDepMap] = useState({});
+  const fetchedDepKeysRef = useRef(new Set());
+
+  useEffect(() => {
+    if (!isCompareOpen || compareCars.length === 0) return undefined;
+
+    const missing = [];
+    const seen = new Set();
+    compareCars.forEach((car) => {
+      if (!car?.Brand || !car?.Model) return;
+      const key = `${car.Brand}|${car.Model}`;
+      if (seen.has(key) || fetchedDepKeysRef.current.has(key)) return;
+      seen.add(key);
+      missing.push({ key, brand: car.Brand, model: car.Model });
+    });
+
+    if (missing.length === 0) return undefined;
+
+    const controller = new AbortController();
+    missing.forEach((m) => fetchedDepKeysRef.current.add(m.key));
+
+    Promise.allSettled(
+      missing.map((m) =>
+        fetchDepreciation({ brand: m.brand, model: m.model }, controller.signal).then((data) => ({
+          key: m.key,
+          data,
+        })),
+      ),
+    ).then((results) => {
+      if (controller.signal.aborted) return;
+      const updates = {};
+      let hasUpdates = false;
+      results.forEach((res) => {
+        if (res.status === 'fulfilled' && res.value?.data) {
+          updates[res.value.key] = res.value.data;
+          hasUpdates = true;
+        }
+      });
+      if (hasUpdates) {
+        setDepMap((prev) => ({ ...prev, ...updates }));
+      }
+    });
+
+    return () => controller.abort();
+  }, [isCompareOpen, compareCars]);
+
+  const tcoByUrl = useMemo(() => (
+    new Map(
+      compareCars.map((car) => {
+        const key = car?.Brand && car?.Model ? `${car.Brand}|${car.Model}` : '';
+        return [car.URL, estimateCrTco3Yr(car, { monthlyKm, depCurve: depMap[key] || null })];
+      }),
+    )
+  ), [compareCars, monthlyKm, depMap]);
+
+  const handleSelectMonthlyKm = (val) => {
+    const saved = setStoredMonthlyKm(val);
+    setMonthlyKm(saved);
+  };
 
   const shareCompareUrl = useMemo(() => {
     if (compareCars.length < 2 || typeof window === 'undefined') return '';
@@ -132,14 +202,32 @@ const CompareWidget = ({ onAnalyzeWithCopilot }) => {
       });
     }
 
+    let minTco = null;
+    let minTcoCar = null;
+    compareCars.forEach((car) => {
+      const tco = tcoByUrl.get(car.URL);
+      if (tco && tco.netTco3YrUSD > 0 && (minTco === null || tco.netTco3YrUSD < minTco)) {
+        minTco = tco.netTco3YrUSD;
+        minTcoCar = car;
+      }
+    });
+    if (minTcoCar && minTco !== null) {
+      items.push({
+        key: 'lowest-tco',
+        text: `${t('compareLowestTco')}: ${shortTitle(minTcoCar.Title)} · ${formatUSD(minTco)}`,
+      });
+    }
+
     return items;
-  }, [compareCars, costsByUrl, t]);
+  }, [compareCars, costsByUrl, tcoByUrl, t]);
 
   // Build the spec rows for the comparison table.
   const rows = useMemo(() => {
     const priceValues = compareCars.map((car) => Number(car.Price) || 0);
     const turnkeyValues = compareCars.map((car) => costsByUrl.get(car.URL)?.turnkeyUSD || 0);
     const marchamoValues = compareCars.map((car) => costsByUrl.get(car.URL)?.marchamoCRC || 0);
+    const energyValues = compareCars.map((car) => tcoByUrl.get(car.URL)?.energy3YrUSD || 0);
+    const tcoValues = compareCars.map((car) => tcoByUrl.get(car.URL)?.netTco3YrUSD || 0);
     const yearValues = compareCars.map((car) => Number(car.Year) || 0);
     const kmValues = compareCars.map((car) => Number(car.Kilometraje) || 0);
     const deals = compareCars.map((car) => getMarketDeal(car));
@@ -155,6 +243,10 @@ const CompareWidget = ({ onAnalyzeWithCopilot }) => {
     const turnkeyDiff = new Set(turnkeyValues).size > 1;
     const marchamoMin = lowestPositive(marchamoValues);
     const marchamoDiff = new Set(marchamoValues).size > 1;
+    const energyMin = lowestPositive(energyValues);
+    const energyDiff = new Set(energyValues).size > 1;
+    const tcoMin = lowestPositive(tcoValues);
+    const tcoDiff = new Set(tcoValues).size > 1;
     const yearMax = yearValues.length ? Math.max(...yearValues) : null;
     const yearDiff = new Set(yearValues).size > 1;
     const kmMin = lowestPositive(kmValues);
@@ -238,6 +330,41 @@ const CompareWidget = ({ onAnalyzeWithCopilot }) => {
       },
     });
 
+    out.push({
+      key: 'energy-3yr',
+      label: t('compareRowEnergy3Yr', { km: monthlyKm }),
+      diff: energyDiff,
+      render: (car) => {
+        const e = tcoByUrl.get(car.URL);
+        if (!e || e.energy3YrUSD <= 0) return <span>—</span>;
+        const best = energyDiff && e.energy3YrUSD === energyMin;
+        return (
+          <span className="compare-cost-cell">
+            <span className={best ? 'compare-cell-best' : undefined}>~{formatUSD(e.energy3YrUSD)}</span>
+            <span className="compare-cost-sub">{e.consumption.value} {e.consumption.unit}</span>
+          </span>
+        );
+      },
+    });
+
+    out.push({
+      key: 'tco-3yr',
+      label: t('compareRowTco3Yr'),
+      always: true,
+      diff: tcoDiff,
+      render: (car) => {
+        const e = tcoByUrl.get(car.URL);
+        if (!e || e.netTco3YrUSD <= 0) return <span>—</span>;
+        const best = tcoDiff && e.netTco3YrUSD === tcoMin;
+        return (
+          <span className="compare-cost-cell">
+            <span className={best ? 'compare-cell-best' : undefined}>~{formatUSD(e.netTco3YrUSD)}</span>
+            <span className="compare-cost-sub">{t('tcoPerMonth', { usd: formatUSD(e.netMonthlyTcoUSD) })}</span>
+          </span>
+        );
+      },
+    });
+
     // 3. Year
     out.push({
       key: 'year',
@@ -315,7 +442,7 @@ const CompareWidget = ({ onAnalyzeWithCopilot }) => {
     });
 
     return out;
-  }, [compareCars, equipmentKeys, costsByUrl, t]);
+  }, [compareCars, equipmentKeys, costsByUrl, tcoByUrl, monthlyKm, t]);
 
   const handleCopyShareLink = () => {
     if (!shareCompareUrl) return;
@@ -413,6 +540,20 @@ const CompareWidget = ({ onAnalyzeWithCopilot }) => {
                 {t('compareModalTitle')}
               </h3>
               <div className="compare-header-actions">
+                <div className="compare-usage-switcher" role="group" aria-label={t('compareUsageLabel')}>
+                  <span className="compare-usage-label">{t('compareUsageLabel')}:</span>
+                  {COMPARE_KM_PRESETS.map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      className={`compare-usage-btn ${monthlyKm === preset ? 'active' : ''}`.trim()}
+                      aria-pressed={monthlyKm === preset}
+                      onClick={() => handleSelectMonthlyKm(preset)}
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
                 <button
                   className={`compare-diff-toggle ${onlyDiffs ? 'active' : ''}`.trim()}
                   type="button"

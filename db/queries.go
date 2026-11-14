@@ -692,20 +692,22 @@ func buildCarFilters(f FilterParams) (string, []interface{}) {
 
 // CarPriceKey is the minimum data needed to compare a listing against the market median.
 type CarPriceKey struct {
-	URL       string
-	Brand     string
-	Model     string
-	Year      int
-	Price     int
-	Km        int // kilometraje, for the mileage-adjusted market price
-	ScrapedAt time.Time
+	URL          string
+	Brand        string
+	Model        string
+	Year         int
+	Price        int
+	Km           int // kilometraje, for the mileage-adjusted market price
+	ScrapedAt    time.Time
+	FechaIngreso string
+	IsSold       bool
 }
 
 // GetCarPriceKeys returns every car matching the filters (no sort/limit), most recent first.
 // Used for server-side "best deal" ordering and the "good prices only" filter.
 func (d *DB) GetCarPriceKeys(f FilterParams) ([]CarPriceKey, error) {
 	where, args := buildCarFilters(f)
-	q := "SELECT url, COALESCE(brand, ''), COALESCE(model, ''), COALESCE(year, 0), COALESCE(price, 0), COALESCE(kilometraje, 0), scraped_at FROM cars WHERE 1=1" +
+	q := "SELECT url, COALESCE(brand, ''), COALESCE(model, ''), COALESCE(year, 0), COALESCE(price, 0), COALESCE(kilometraje, 0), scraped_at, COALESCE(fecha_ingreso, ''), COALESCE(is_sold, 0) FROM cars WHERE 1=1" +
 		where + " ORDER BY scraped_at DESC"
 	rows, err := d.Query(d.queryFormat(q), args...)
 	if err != nil {
@@ -716,10 +718,12 @@ func (d *DB) GetCarPriceKeys(f FilterParams) ([]CarPriceKey, error) {
 	for rows.Next() {
 		var k CarPriceKey
 		var scrapedAtStr sql.NullString
-		if err := rows.Scan(&k.URL, &k.Brand, &k.Model, &k.Year, &k.Price, &k.Km, &scrapedAtStr); err != nil {
+		var isSoldInt int
+		if err := rows.Scan(&k.URL, &k.Brand, &k.Model, &k.Year, &k.Price, &k.Km, &scrapedAtStr, &k.FechaIngreso, &isSoldInt); err != nil {
 			return nil, err
 		}
 		k.ScrapedAt = parseTimeHelper(scrapedAtStr)
+		k.IsSold = isSoldInt != 0
 		keys = append(keys, k)
 	}
 	return keys, rows.Err()

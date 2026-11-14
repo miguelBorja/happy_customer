@@ -65,3 +65,11 @@ export const buildComparisonWhatsAppLink = (cars, shareUrl, language = 'es') => 
 };
 
 export const buildTelLink = (phone) => (phone ? `tel:+${CR_COUNTRY_CODE}${phone.digits}` : null);
+
+/** wa.me link with an arbitrary custom draft message (e.g., drafted by Copilot Negotiator). */
+export const buildCustomWhatsAppLink = (phone, message) => {
+  if (!phone?.digits) return null;
+  const text = String(message || '').trim();
+  if (!text) return null;
+  return `https://wa.me/${CR_COUNTRY_CODE}${phone.digits}?text=${encodeURIComponent(text)}`;
+};

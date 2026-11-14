@@ -75,6 +75,7 @@ function App() {
   const [clientSort, setClientSort] = useState(initialUrlState.clientSort);
   const [carUrl, setCarUrl] = useState(initialUrlState.carUrl);
   const [valuateParams, setValuateParams] = useState(initialUrlState.valuateParams);
+  const [upgradeContext, setUpgradeContext] = useState(null);
   // True while the current history entry was pushed by opening a car, so closing it can go "Back".
   const carPushedRef = useRef(false);
   const prevUrlStateRef = useRef(null);
@@ -183,6 +184,7 @@ function App() {
     setCarUrl(null);
     setShowFavsOnly(false);
     setLocalTitle('');
+    setUpgradeContext(null);
     setFilters({ ...createDefaultFilters(), deal: 'good' });
     setClientSort('bestDeal');
   }, []);
@@ -193,6 +195,7 @@ function App() {
     setCarUrl(null);
     setShowFavsOnly(false);
     setLocalTitle(saved.filters?.title || '');
+    setUpgradeContext(null);
     setFilters({ ...createDefaultFilters(), ...(saved.filters || {}) });
     setClientSort(saved.clientSort || null);
   }, []);
@@ -204,6 +207,7 @@ function App() {
     setShowFavsOnly(false);
     setLocalTitle('');
     setClientSort(null);
+    setUpgradeContext(null);
     setFilters({ ...createDefaultFilters(), sellerName });
   }, []);
 
@@ -213,6 +217,7 @@ function App() {
     setShowFavsOnly(false);
     setLocalTitle('');
     setClientSort(null);
+    setUpgradeContext(null);
     setFilters({
       ...createDefaultFilters(),
       brands: brand ? [brand] : [],
@@ -220,10 +225,53 @@ function App() {
     });
   }, []);
 
+  const handleBrowseUpgrade = useCallback(({ priceMin, priceMax, seRecibe, context }) => {
+    setActiveTab('browse');
+    setCarUrl(null);
+    setShowFavsOnly(false);
+    setLocalTitle('');
+    setClientSort('bestDeal');
+    setUpgradeContext(context || null);
+    setFilters({
+      ...createDefaultFilters(),
+      priceMin: priceMin || '',
+      priceMax: priceMax || '',
+      ...(seRecibe ? { seRecibe } : {}),
+    });
+  }, []);
+
+  const handleExitUpgradeMode = useCallback(() => {
+    setUpgradeContext(null);
+    setFilters((f) => ({ ...f, priceMin: '', priceMax: '', priceMode: '', seRecibe: '' }));
+  }, []);
+
   const handleAnalyzeWithCopilot = useCallback((carsToAnalyze) => {
     setAttachedCars(carsToAnalyze.slice(0, MAX_COPILOT_CARS));
     setIsCopilotOpen(true);
     setIsCopilotMinimized(false);
+  }, []);
+
+  const handleNegotiateWithCopilot = useCallback((car) => {
+    if (!car) return;
+    setAttachedCars((prev) => {
+      const rest = prev.filter((c) => c.URL !== car.URL);
+      return [car, ...rest].slice(0, MAX_COPILOT_CARS);
+    });
+    setIsCopilotOpen(true);
+    setIsCopilotMinimized(false);
+  }, []);
+
+  const handleOpenValuate = useCallback((preset) => {
+    if (preset && typeof preset === 'object' && !preset.nativeEvent && (preset.brand || preset.model || preset.year)) {
+      setValuateParams((prev) => ({
+        ...prev,
+        brand: preset.brand || prev?.brand || '',
+        model: preset.model || '',
+        year: preset.year ? String(preset.year) : (prev?.year || '2020'),
+        km: preset.km != null ? String(preset.km) : '',
+      }));
+    }
+    goToTab('valuate');
   }, []);
 
   useEffect(() => {
@@ -251,6 +299,7 @@ function App() {
             setViewMode={handleSetFavsViewMode} 
             onApplySavedSearch={handleApplySavedSearch}
             onFilterBySeller={handleFilterBySeller}
+            onNegotiateWithCopilot={handleNegotiateWithCopilot}
           />
         );
       case 'valuate':
@@ -259,16 +308,19 @@ function App() {
             valuateParams={valuateParams}
             onUpdateParams={setValuateParams}
             onBrowseSimilar={handleBrowseFromValuate}
+            onBrowseUpgrade={handleBrowseUpgrade}
             onFilterBySeller={handleFilterBySeller}
+            onNegotiateWithCopilot={handleNegotiateWithCopilot}
           />
         );
-      case 'stats': return <StatsPage onOpenValuate={() => goToTab('valuate')} />;
+      case 'stats': return <StatsPage onOpenValuate={handleOpenValuate} />;
       case 'about': return <AboutPage stats={stats} />;
       case 'bargains': 
         return (
           <BargainsPage 
             viewMode={bargainsViewMode} 
             setViewMode={handleSetBargainsViewMode} 
+            onNegotiateWithCopilot={handleNegotiateWithCopilot}
           />
         );
       default: 
@@ -287,8 +339,11 @@ function App() {
             carUrl={carUrl}
             onOpenCar={handleOpenCar}
             onCloseCar={handleCloseCar}
-            onOpenValuate={() => goToTab('valuate')}
+            onOpenValuate={handleOpenValuate}
             onFilterBySeller={handleFilterBySeller}
+            onNegotiateWithCopilot={handleNegotiateWithCopilot}
+            upgradeContext={upgradeContext}
+            onExitUpgradeMode={handleExitUpgradeMode}
           />
         );
     }
@@ -399,7 +454,7 @@ function App() {
             stats={stats}
             onExploreGoodDeals={handleExploreGoodDeals}
             onOpenBargains={() => goToTab('bargains')}
-            onOpenValuate={() => goToTab('valuate')}
+            onOpenValuate={() => handleOpenValuate()}
           />
         )}
         {renderPage()}

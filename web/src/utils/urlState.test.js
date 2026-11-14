@@ -178,6 +178,7 @@ describe('round trip buildUrlSearch -> parseUrlState', () => {
     filters.models = ['Corolla'];
     filters.equipments = ['AC', 'Sound'];
     filters.yearMin = '2010';
+    filters.motivated = 'true';
 
     const qs = buildUrlSearch({
       tab: 'browse',
@@ -190,6 +191,13 @@ describe('round trip buildUrlSearch -> parseUrlState', () => {
     expect(sameFilters(parsed.filters, filters)).toBe(true);
     expect(parsed.clientSort).toBe('bestDeal');
     expect(parsed.carUrl).toBe('http://a.com');
+  });
+
+  it('normalizes motivated filter query params and omits falsey values', () => {
+    expect(parseUrlState('?motivated=true').filters.motivated).toBe('true');
+    expect(parseUrlState('?motivated=false').filters.motivated).toBe('');
+    expect(buildUrlSearch({ tab: 'browse', filters: { ...createDefaultFilters(), motivated: 'true' } })).toBe('?motivated=true');
+    expect(buildUrlSearch({ tab: 'browse', filters: { ...createDefaultFilters(), motivated: 'false' } })).toBe('');
   });
 
   it('preserves the valuate tab parameters', () => {

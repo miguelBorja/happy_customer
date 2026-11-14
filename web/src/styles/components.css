@@ -1356,3 +1356,1236 @@
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+
+/* --- Fase 1: Motivated Seller Badge --- */
+.motivated-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.25;
+  padding: 0.16rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.14);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.34);
+  white-space: nowrap;
+}
+
+.motivated-badge--compact {
+  font-size: 0.68rem;
+  padding: 0.12rem 0.42rem;
+}
+
+.details-modal-price {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+/* --- Fase 1: CarDetailsModal Copilot Negotiate Button --- */
+.btn-modal-negotiate {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.62rem 1rem;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.18), rgba(59, 130, 246, 0.2));
+  color: #6ee7b7;
+  border: 1px solid rgba(52, 211, 153, 0.4);
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.btn-modal-negotiate:hover {
+  transform: translateY(-1px);
+  border-color: rgba(110, 231, 183, 0.68);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.28), rgba(59, 130, 246, 0.28));
+}
+
+/* --- Fase 1: Depreciation Curve Card (#1) --- */
+.depreciation-curve-card {
+  margin-top: 1.25rem;
+  padding: 1.15rem 1.25rem;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.depreciation-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+}
+
+.depreciation-header h3 {
+  margin: 0;
+  font-size: 1.02rem;
+  color: var(--text-primary);
+}
+
+.depreciation-header p {
+  margin: 0.25rem 0 0;
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+}
+
+.depreciation-kpis {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.depreciation-kpi {
+  display: flex;
+  flex-direction: column;
+  padding: 0.35rem 0.7rem;
+  border-radius: 10px;
+  background: rgba(30, 41, 59, 0.65);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.depreciation-kpi-label {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+}
+
+.depreciation-kpi-value {
+  font-size: 0.96rem;
+  color: #60a5fa;
+}
+
+.depreciation-sweetspot-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.75rem 0.95rem;
+  border-radius: 10px;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(52, 211, 153, 0.35);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.depreciation-sweetspot-banner:hover {
+  background: rgba(16, 185, 129, 0.18);
+}
+
+.depreciation-sweetspot-icon {
+  font-size: 1.15rem;
+  line-height: 1.2;
+}
+
+.depreciation-sweetspot-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+}
+
+.depreciation-sweetspot-copy strong {
+  color: #6ee7b7;
+  font-size: 0.9rem;
+}
+
+.depreciation-svg-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.depreciation-svg {
+  width: 100%;
+  height: auto;
+  min-width: 340px;
+  display: block;
+}
+
+.depreciation-grid-line {
+  stroke: rgba(148, 163, 184, 0.16);
+  stroke-dasharray: 3 3;
+}
+
+.depreciation-axis-label,
+.depreciation-year-label {
+  font-size: 11px;
+  fill: var(--text-secondary);
+}
+
+.depreciation-year-label.is-selected {
+  fill: #60a5fa;
+  font-weight: 700;
+}
+
+.depreciation-year-label.is-sweet-spot {
+  fill: #34d399;
+  font-weight: 700;
+}
+
+.depreciation-band {
+  fill: rgba(59, 130, 246, 0.16);
+  stroke: none;
+}
+
+.depreciation-median-line {
+  fill: none;
+  stroke: #60a5fa;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.depreciation-node {
+  fill: #60a5fa;
+  stroke: #0f172a;
+  stroke-width: 2;
+  transition: r 0.12s ease;
+}
+
+.depreciation-node.is-low-sample {
+  fill: #1e293b;
+  stroke: #60a5fa;
+  stroke-dasharray: 2 2;
+}
+
+.depreciation-node.is-sweet-spot {
+  fill: #34d399;
+  stroke: #064e3b;
+}
+
+.depreciation-node.is-selected {
+  fill: #fbbf24;
+  stroke: #78350f;
+}
+
+.depreciation-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.depreciation-legend {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.9rem;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.depreciation-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.depreciation-swatch {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+}
+
+.depreciation-swatch.is-median {
+  background: #60a5fa;
+}
+
+.depreciation-swatch.is-band {
+  background: rgba(59, 130, 246, 0.35);
+  border: 1px solid rgba(96, 165, 250, 0.5);
+}
+
+.depreciation-swatch.is-sweet {
+  background: #34d399;
+  border-radius: 999px;
+}
+
+.depreciation-footer-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.depreciation-hint {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.depreciation-empty-msg {
+  margin: 0.25rem 0 0;
+  font-size: 0.86rem;
+  color: var(--text-secondary);
+}
+
+.btn-depreciation-valuate {
+  padding: 0.42rem 0.8rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: rgba(59, 130, 246, 0.16);
+  color: #93c5fd;
+  border: 1px solid rgba(96, 165, 250, 0.38);
+}
+
+.btn-depreciation-valuate:hover {
+  background: rgba(59, 130, 246, 0.26);
+}
+
+/* --- Fase 1: Copilot Negotiator Bar & WhatsApp Draft Card (#2) --- */
+.ai-negotiator-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0.45rem 0.85rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.ai-negotiator-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6ee7b7;
+  margin-right: 0.15rem;
+}
+
+.ai-negotiator-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.38rem;
+}
+
+.ai-negotiator-chip {
+  font-size: 0.76rem;
+  font-weight: 600;
+  padding: 0.28rem 0.62rem;
+  border-radius: 999px;
+  cursor: pointer;
+  background: rgba(30, 41, 59, 0.85);
+  color: var(--text-primary);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.ai-negotiator-chip:hover {
+  border-color: rgba(96, 165, 250, 0.55);
+  background: rgba(51, 65, 85, 0.9);
+}
+
+.ai-negotiator-chip.is-whatsapp {
+  background: rgba(16, 185, 129, 0.15);
+  color: #6ee7b7;
+  border-color: rgba(52, 211, 153, 0.35);
+}
+
+.ai-negotiator-chip.is-whatsapp:hover {
+  background: rgba(16, 185, 129, 0.24);
+}
+
+.ai-whatsapp-draft-card {
+  margin: 0.65rem 0;
+  padding: 0.75rem 0.85rem;
+  border-radius: 12px;
+  background: rgba(6, 78, 59, 0.24);
+  border: 1px solid rgba(52, 211, 153, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.ai-whatsapp-draft-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ai-whatsapp-draft-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #6ee7b7;
+}
+
+.ai-whatsapp-draft-body {
+  margin: 0;
+  padding: 0.55rem 0.7rem;
+  border-left: 3px solid #34d399;
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.55);
+  color: var(--text-primary);
+  font-size: 0.88rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.ai-whatsapp-draft-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.ai-whatsapp-send-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
+  padding: 0.42rem 0.8rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: none;
+  background: #16a34a;
+  color: #ffffff;
+}
+
+.ai-whatsapp-send-btn:hover {
+  background: #15803d;
+}
+
+.ai-whatsapp-copy-btn {
+  padding: 0.42rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: rgba(30, 41, 59, 0.8);
+  color: var(--text-primary);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.ai-whatsapp-copy-btn.is-copied {
+  background: rgba(16, 185, 129, 0.2);
+  color: #6ee7b7;
+  border-color: rgba(52, 211, 153, 0.45);
+}
+
+/* --- Light theme overrides for Fase 1 components --- */
+[data-theme="light"] .motivated-badge {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: rgba(180, 83, 9, 0.35);
+}
+
+[data-theme="light"] .btn-modal-negotiate {
+  background: #ecfdf5;
+  color: #065f46;
+  border-color: rgba(5, 150, 105, 0.38);
+}
+
+[data-theme="light"] .depreciation-curve-card {
+  background: #ffffff;
+  border-color: #e2e8f0;
+}
+
+[data-theme="light"] .depreciation-kpi {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+[data-theme="light"] .depreciation-kpi-value {
+  color: #1d4ed8;
+}
+
+[data-theme="light"] .depreciation-sweetspot-banner {
+  background: #ecfdf5;
+  border-color: rgba(5, 150, 105, 0.35);
+}
+
+[data-theme="light"] .depreciation-sweetspot-copy strong {
+  color: #047857;
+}
+
+[data-theme="light"] .depreciation-node {
+  stroke: #ffffff;
+}
+
+[data-theme="light"] .btn-depreciation-valuate {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: rgba(37, 99, 235, 0.38);
+}
+
+[data-theme="light"] .ai-negotiator-bar {
+  background: #f8fafc;
+  border-top-color: #e2e8f0;
+}
+
+[data-theme="light"] .ai-negotiator-label {
+  color: #047857;
+}
+
+[data-theme="light"] .ai-negotiator-chip {
+  background: #ffffff;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+
+[data-theme="light"] .ai-negotiator-chip.is-whatsapp {
+  background: #ecfdf5;
+  color: #065f46;
+  border-color: rgba(5, 150, 105, 0.35);
+}
+
+[data-theme="light"] .ai-whatsapp-draft-card {
+  background: #f0fdf4;
+  border-color: rgba(22, 163, 74, 0.35);
+}
+
+[data-theme="light"] .ai-whatsapp-draft-title {
+  color: #166534;
+}
+
+[data-theme="light"] .ai-whatsapp-draft-body {
+  background: #ffffff;
+  color: #0f172a;
+}
+
+[data-theme="light"] .ai-whatsapp-copy-btn {
+  background: #ffffff;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+
+[data-theme="light"] .ai-whatsapp-copy-btn.is-copied {
+  background: #dcfce7;
+  color: #166534;
+  border-color: rgba(22, 101, 52, 0.38);
+}
+
+/* ============================
+   3-Year CR TCO Simulator
+   ============================ */
+.cost-est-tco-section {
+  margin-top: 0.75rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.16);
+  padding-top: 0.65rem;
+}
+
+.cost-est-tco-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  background: rgba(56, 189, 248, 0.08);
+  border: 1px solid rgba(56, 189, 248, 0.24);
+  border-radius: 10px;
+  padding: 0.5rem 0.75rem;
+  color: var(--text-primary);
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.cost-est-tco-toggle:hover {
+  background: rgba(56, 189, 248, 0.14);
+  border-color: rgba(56, 189, 248, 0.42);
+}
+
+.cost-est-tco-toggle-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: #38bdf8;
+}
+
+.cost-est-tco-body {
+  margin-top: 0.65rem;
+  background: rgba(15, 23, 42, 0.48);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 12px;
+  padding: 0.75rem 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.cost-est-tco-headline {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.cost-est-tco-kicker {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.cost-est-tco-total {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.45rem;
+}
+
+.cost-est-tco-total strong {
+  font-size: 1.05rem;
+  color: var(--text-primary);
+}
+
+.cost-est-tco-sub {
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+}
+
+.cost-est-tco-pill {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.22rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: rgba(148, 163, 184, 0.12);
+  color: var(--text-secondary);
+}
+
+.cost-est-tco-pill.powertrain-ev {
+  background: rgba(6, 182, 212, 0.14);
+  border-color: rgba(6, 182, 212, 0.36);
+  color: #67e8f9;
+}
+
+.cost-est-tco-pill.powertrain-hybrid {
+  background: rgba(16, 185, 129, 0.14);
+  border-color: rgba(16, 185, 129, 0.36);
+  color: #6ee7b7;
+}
+
+.cost-est-tco-pill.powertrain-diesel {
+  background: rgba(245, 158, 11, 0.14);
+  border-color: rgba(245, 158, 11, 0.36);
+  color: #fcd34d;
+}
+
+.cost-est-tco-usage {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.cost-est-tco-usage-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.cost-est-tco-usage-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.cost-est-tco-usage-controls input[type="range"] {
+  flex: 1;
+  min-width: 140px;
+  accent-color: #38bdf8;
+}
+
+.cost-est-tco-presets {
+  display: inline-flex;
+  gap: 0.28rem;
+}
+
+.cost-est-tco-preset {
+  padding: 0.2rem 0.45rem;
+  font-size: 0.74rem;
+  border-radius: 6px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.cost-est-tco-preset.active {
+  background: rgba(56, 189, 248, 0.18);
+  border-color: rgba(56, 189, 248, 0.5);
+  color: #38bdf8;
+  font-weight: 600;
+}
+
+.cost-est-tco-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+  border-top: 1px dashed rgba(148, 163, 184, 0.18);
+  padding-top: 0.5rem;
+}
+
+.cost-est-tco-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.cost-est-tco-row strong {
+  color: var(--text-primary);
+}
+
+.cost-est-tco-source {
+  font-style: normal;
+  font-size: 0.73rem;
+  color: var(--text-muted);
+}
+
+.cost-est-tco-note {
+  margin: 0;
+  font-size: 0.73rem;
+  color: var(--text-muted);
+  line-height: 1.38;
+}
+
+/* Compare Widget usage switcher */
+.compare-usage-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.18rem 0.4rem;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.compare-usage-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-right: 0.15rem;
+}
+
+.compare-usage-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  padding: 0.16rem 0.4rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.compare-usage-btn.active {
+  background: rgba(56, 189, 248, 0.2);
+  color: #38bdf8;
+  font-weight: 700;
+}
+
+/* ============================
+   Seller Reputation Card (#8)
+   ============================ */
+.seller-rep-card {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.86), rgba(15, 23, 42, 0.92));
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 14px;
+  padding: 0.95rem 1.1rem;
+  margin-bottom: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.seller-rep-loading {
+  min-height: 78px;
+  justify-content: center;
+}
+
+.seller-rep-skeleton-bar {
+  height: 18px;
+  width: 48%;
+  border-radius: 6px;
+  background: rgba(148, 163, 184, 0.16);
+}
+
+.seller-rep-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.seller-rep-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.seller-rep-name {
+  margin: 0;
+  font-size: 1.05rem;
+  color: var(--text-primary);
+}
+
+.seller-rep-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.18rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+}
+
+.seller-badge-dealer {
+  background: rgba(59, 130, 246, 0.16);
+  border-color: rgba(59, 130, 246, 0.4);
+  color: #93c5fd;
+}
+
+.seller-badge-multi {
+  background: rgba(245, 158, 11, 0.16);
+  border-color: rgba(245, 158, 11, 0.4);
+  color: #fcd34d;
+}
+
+.seller-badge-private {
+  background: rgba(148, 163, 184, 0.14);
+  border-color: rgba(148, 163, 184, 0.3);
+  color: var(--text-secondary);
+}
+
+.seller-rep-province {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22rem;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.seller-rep-phones {
+  margin-top: 0.22rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.seller-rep-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.seller-rep-btn,
+.seller-rep-clear-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.36rem 0.68rem;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: rgba(15, 23, 42, 0.6);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.seller-rep-btn.active {
+  background: rgba(56, 189, 248, 0.18);
+  border-color: rgba(56, 189, 248, 0.5);
+  color: #38bdf8;
+}
+
+.seller-rep-clear-btn:hover,
+.seller-rep-btn:hover {
+  border-color: rgba(148, 163, 184, 0.5);
+}
+
+.seller-rep-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.seller-rep-stat {
+  background: rgba(15, 23, 42, 0.48);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 10px;
+  padding: 0.55rem 0.7rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.16rem;
+}
+
+.seller-rep-stat-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.seller-rep-stat-value {
+  font-size: 0.98rem;
+  color: var(--text-primary);
+}
+
+.seller-rep-stat-value.seller-delta-good {
+  color: #34d399;
+}
+
+.seller-rep-stat-value.seller-delta-high {
+  color: #f87171;
+}
+
+.seller-rep-stat-sub {
+  font-size: 0.71rem;
+  color: var(--text-secondary);
+}
+
+.seller-rep-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.seller-rep-tags,
+.seller-rep-brands {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.seller-rep-tag,
+.seller-rep-brand-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.74rem;
+  padding: 0.18rem 0.52rem;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.12);
+  color: var(--text-secondary);
+}
+
+.seller-rep-brands-label {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+/* ============================
+   Upgrade Calculator Card (#6)
+   ============================ */
+.upgrade-calc-card {
+  margin-top: 1.1rem;
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.88), rgba(15, 23, 42, 0.94));
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  border-radius: 16px;
+  padding: 1.1rem 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.upgrade-calc-title {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 1.05rem;
+  color: var(--text-primary);
+}
+
+.upgrade-calc-subtitle {
+  margin: 0.3rem 0 0;
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.upgrade-calc-grid {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 1rem;
+}
+
+.upgrade-calc-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.upgrade-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.upgrade-label {
+  font-size: 0.77rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.upgrade-segmented {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.upgrade-seg-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.12rem;
+  padding: 0.48rem 0.65rem;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.26);
+  background: rgba(15, 23, 42, 0.55);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  cursor: pointer;
+  text-align: left;
+}
+
+.upgrade-segmented.compact .upgrade-seg-btn {
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 0.55rem;
+}
+
+.upgrade-seg-btn strong {
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+
+.upgrade-seg-btn.active {
+  background: rgba(56, 189, 248, 0.16);
+  border-color: rgba(56, 189, 248, 0.52);
+  color: var(--text-primary);
+}
+
+.upgrade-inputs-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.upgrade-inputs-row.three-col {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.upgrade-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.48rem 0.65rem;
+  border-radius: 9px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: rgba(15, 23, 42, 0.65);
+  color: var(--text-primary);
+  font-size: 0.88rem;
+}
+
+.upgrade-checkbox-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.81rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.upgrade-result-panel {
+  background: rgba(15, 23, 42, 0.62);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 12px;
+  padding: 0.85rem 0.95rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.7rem;
+}
+
+.upgrade-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.upgrade-breakdown-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.81rem;
+  color: var(--text-secondary);
+}
+
+.upgrade-breakdown-row strong {
+  color: var(--text-primary);
+}
+
+.upgrade-underwater-warn {
+  font-size: 0.76rem;
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.14);
+  border: 1px solid rgba(239, 68, 68, 0.34);
+  border-radius: 8px;
+  padding: 0.4rem 0.55rem;
+}
+
+.upgrade-target-box {
+  border-top: 1px dashed rgba(148, 163, 184, 0.22);
+  padding-top: 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+}
+
+.upgrade-target-label {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+
+.upgrade-target-price {
+  font-size: 1.38rem;
+  color: #38bdf8;
+}
+
+.upgrade-target-hint {
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+}
+
+.upgrade-browse-btn {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.62rem 0.85rem;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(135deg, #0284c7, #2563eb);
+  color: #ffffff;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.upgrade-browse-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+@media (max-width: 780px) {
+  .seller-rep-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .upgrade-calc-grid,
+  .upgrade-inputs-row,
+  .upgrade-inputs-row.three-col {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Light theme overrides for TCO, Seller Card, Upgrade Card */
+[data-theme="light"] .cost-est-tco-toggle {
+  background: #f0f9ff;
+  border-color: #bae6fd;
+  color: #0f172a;
+}
+
+[data-theme="light"] .cost-est-tco-toggle-meta,
+[data-theme="light"] .cost-est-tco-preset.active,
+[data-theme="light"] .compare-usage-btn.active {
+  color: #0284c7;
+}
+
+[data-theme="light"] .cost-est-tco-body,
+[data-theme="light"] .compare-usage-switcher,
+[data-theme="light"] .seller-rep-stat,
+[data-theme="light"] .upgrade-result-panel,
+[data-theme="light"] .upgrade-seg-btn,
+[data-theme="light"] .upgrade-input {
+  background: #ffffff;
+  border-color: #cbd5e1;
+}
+
+[data-theme="light"] .cost-est-tco-pill.powertrain-ev {
+  background: #ecfeff;
+  color: #0e7490;
+}
+
+[data-theme="light"] .cost-est-tco-pill.powertrain-hybrid {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+[data-theme="light"] .cost-est-tco-pill.powertrain-diesel {
+  background: #fffbeb;
+  color: #b45309;
+}
+
+[data-theme="light"] .seller-rep-card {
+  background: linear-gradient(135deg, #ffffff, #f8fafc);
+  border-color: #cbd5e1;
+}
+
+[data-theme="light"] .seller-badge-dealer {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+[data-theme="light"] .seller-badge-multi {
+  background: #fffbeb;
+  color: #b45309;
+}
+
+[data-theme="light"] .seller-rep-btn,
+[data-theme="light"] .seller-rep-clear-btn {
+  background: #ffffff;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+
+[data-theme="light"] .seller-rep-btn.active {
+  background: #e0f2fe;
+  border-color: #38bdf8;
+  color: #0369a1;
+}
+
+[data-theme="light"] .seller-rep-stat-value.seller-delta-good {
+  color: #059669;
+}
+
+[data-theme="light"] .seller-rep-stat-value.seller-delta-high {
+  color: #dc2626;
+}
+
+[data-theme="light"] .upgrade-calc-card {
+  background: linear-gradient(135deg, #f8fafc, #eff6ff);
+  border-color: #93c5fd;
+}
+
+[data-theme="light"] .upgrade-seg-btn.active {
+  background: #e0f2fe;
+  border-color: #38bdf8;
+}
+
+[data-theme="light"] .upgrade-target-price {
+  color: #0369a1;
+}
+
+[data-theme="light"] .upgrade-underwater-warn {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #b91c1c;
+}

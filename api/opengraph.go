@@ -302,7 +302,7 @@ func hasFilterParam(q url.Values) bool {
 	for _, p := range []string{
 		"brands", "brand", "models", "estilo", "provincia",
 		"yearMin", "yearMax", "priceMin", "priceMax", "kmMax",
-		"combustible", "transmision", "deal", "priceDrop",
+		"combustible", "transmision", "deal", "priceDrop", "motivated",
 		"seRecibe", "negociable", "title",
 	} {
 		if strings.TrimSpace(q.Get(p)) != "" {
@@ -368,6 +368,9 @@ func buildFilterSummary(q url.Values) string {
 	}
 	if q.Get("priceDrop") == "true" {
 		parts = append(parts, "bajaron de precio")
+	}
+	if q.Get("motivated") == "true" {
+		parts = append(parts, "vendedores motivados")
 	}
 	if q.Get("seRecibe") == "true" {
 		parts = append(parts, "se recibe")

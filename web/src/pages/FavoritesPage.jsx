@@ -11,6 +11,7 @@ import MileageBar from '../components/MileageBar';
 import PriceBar from '../components/PriceBar';
 import MarketBadge from '../components/MarketBadge';
 import PriceDropBadge from '../components/PriceDropBadge';
+import MotivatedBadge from '../components/MotivatedBadge';
 import { getMarketDeal, formatUSD } from '../utils/marketDeal';
 import { useLanguage } from '../context/LanguageContext';
 import { useTableDensity } from '../hooks/useTableDensity';
@@ -26,7 +27,7 @@ import {
 } from '../components/icons/AppIcons';
 import { ResultsSkeleton } from '../components/LoadingSkeletons';
 
-const FavoritesPage = ({ viewMode, setViewMode, onApplySavedSearch, onFilterBySeller }) => {
+const FavoritesPage = ({ viewMode, setViewMode, onApplySavedSearch, onFilterBySeller, onNegotiateWithCopilot }) => {
   const [cars, setCars] = useState([]);
   const { isFavorite, toggleFavorite, favCount, getAllUrls, getFavoriteMeta, syncFavoritePrices } = useFavorites();
   const { savedSearches, digests, removeSearch, markSearchChecked } = useSavedSearches();
@@ -264,6 +265,7 @@ const FavoritesPage = ({ viewMode, setViewMode, onApplySavedSearch, onFilterBySe
                     isFav={true}
                     onToggleFav={toggleFavorite}
                     onOpenDetails={setSelectedCar}
+                    onNegotiateWithCopilot={onNegotiateWithCopilot}
                   />
                 </div>
               );
@@ -336,6 +338,7 @@ const FavoritesPage = ({ viewMode, setViewMode, onApplySavedSearch, onFilterBySe
                         <PriceBar price={car.Price} priceText={car.PriceText} deal={getMarketDeal(car)} />
                         <MarketBadge car={car} variant="compact" />
                         <PriceDropBadge car={car} variant="compact" />
+                        <MotivatedBadge car={car} variant="compact" />
                         {dropInfo && (
                           <span className="fav-saved-drop-table-badge" title={t('favSavedAt', { price: formatUSD(dropInfo.savedPrice) })}>
                             ↓ {formatUSD(dropInfo.diffUSD)}
@@ -403,6 +406,7 @@ const FavoritesPage = ({ viewMode, setViewMode, onApplySavedSearch, onFilterBySe
           onClose={() => setSelectedCar(null)}
           car={selectedCar}
           onFilterBySeller={onFilterBySeller}
+          onNegotiateWithCopilot={onNegotiateWithCopilot}
         />
       )}
     </div>

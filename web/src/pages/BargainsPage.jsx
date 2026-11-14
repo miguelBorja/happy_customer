@@ -4,6 +4,7 @@ import CarCard from '../components/CarCard';
 import MileageBar from '../components/MileageBar';
 import PriceBar from '../components/PriceBar';
 import PriceDropBadge from '../components/PriceDropBadge';
+import MotivatedBadge from '../components/MotivatedBadge';
 import { CarThumb } from '../components/CarPhoto';
 import CarDetailsModal from '../components/CarDetailsModal';
 import { useTableDensity } from '../hooks/useTableDensity';
@@ -30,7 +31,7 @@ const toBargainView = (b) => {
 
 const GREAT_DISCOUNT = Math.abs(DEAL_GREAT_MAX_PCT);
 
-const BargainsPage = ({ viewMode, setViewMode }) => {
+const BargainsPage = ({ viewMode, setViewMode, onNegotiateWithCopilot }) => {
   const [bargains, setBargains] = useState([]);
   const [sortBy, setSortBy] = useState('discount');
   const [loading, setLoading] = useState(true);
@@ -166,6 +167,7 @@ const BargainsPage = ({ viewMode, setViewMode }) => {
                   isFav={isFavorite(b.car.URL)}
                   onToggleFav={toggleFavorite}
                   onOpenDetails={setSelectedCar}
+                  onNegotiateWithCopilot={onNegotiateWithCopilot}
                 />
               </div>
               
@@ -247,6 +249,7 @@ const BargainsPage = ({ viewMode, setViewMode }) => {
                       <div className="col-price-badges">
                         <PriceBar price={car.Price} maxPrice={0} priceText={car.PriceText} deal={b.deal} />
                         <PriceDropBadge car={car} variant="compact" />
+                        <MotivatedBadge car={car} variant="compact" />
                       </div>
                     </td>
                     <td className="col-market-price" title={b.deal ? dealTooltip(car, b.deal, language) : undefined}>
@@ -292,6 +295,7 @@ const BargainsPage = ({ viewMode, setViewMode }) => {
           isOpen
           onClose={() => setSelectedCar(null)}
           car={selectedCar}
+          onNegotiateWithCopilot={onNegotiateWithCopilot}
         />
       )}
     </div>

@@ -21,6 +21,8 @@ type CarWithMarket struct {
 	MarketMedian      int `json:"MarketMedian,omitempty"`
 	MarketCount       int `json:"MarketCount,omitempty"`
 	MarketExpected    int `json:"MarketExpected,omitempty"`
+	MarketP25         int `json:"MarketP25,omitempty"`
+	MarketP75         int `json:"MarketP75,omitempty"`
 	MarketMedianKm    int `json:"MarketMedianKm,omitempty"`
 	SellerActiveCount int `json:"SellerActiveCount,omitempty"`
 	// MarketFlag ("typo", "outlier", "condition", "debt") means "check the price": the badge
@@ -30,6 +32,7 @@ type CarWithMarket struct {
 	PriceInitial   int        `json:"PriceInitial,omitempty"`
 	PriceChangedAt *time.Time `json:"PriceChangedAt,omitempty"`
 	PriceChanges   int        `json:"PriceChanges,omitempty"`
+	PriceDrops     int        `json:"PriceDrops,omitempty"`
 }
 
 func (s *Server) getMarketStats() *db.MarketIndex {
@@ -67,18 +70,28 @@ func (s *Server) withMarket(cars []db.Car) []CarWithMarket {
 			cwm.MarketMedian = ref.Median
 			cwm.MarketCount = ref.Count
 			cwm.MarketExpected = ref.Expected
+			cwm.MarketP25 = ref.ExpectedP25
+			cwm.MarketP75 = ref.ExpectedP75
 			cwm.MarketMedianKm = ref.MedianKm
 			// Same key and rules as sortDeal / deal=good / Gangas.
 			_, cwm.MarketFlag, _ = marketDealPct(stats, db.CarPriceKey{
 				URL: car.URL, Brand: car.Brand, Model: car.Model, Year: car.Year, Price: car.Price, Km: car.Kilometraje,
 			})
 		}
-		if pc, ok := stats.PriceChangeOf(car.URL); ok && pc.CurrentPrice == car.Price && pc.PreviousPrice > 0 && pc.PreviousPrice != car.Price && cwm.MarketFlag != flagTypo {
-			changedAt := pc.ChangedAt
-			cwm.PricePrevious = pc.PreviousPrice
-			cwm.PriceInitial = pc.InitialPrice
-			cwm.PriceChangedAt = &changedAt
-			cwm.PriceChanges = pc.Changes
+		if pc, ok := stats.PriceChangeOf(car.URL); ok && pc.CurrentPrice == car.Price && cwm.MarketFlag != flagTypo {
+			if pc.PreviousPrice > 0 && pc.PreviousPrice != car.Price {
+				changedAt := pc.ChangedAt
+				cwm.PricePrevious = pc.PreviousPrice
+				cwm.PriceInitial = pc.InitialPrice
+				cwm.PriceChangedAt = &changedAt
+				cwm.PriceChanges = pc.Changes
+			}
+			if pc.Drops > 0 && pc.InitialPrice > car.Price && !db.IsTypoPrice(car.Price, pc.InitialPrice) {
+				cwm.PriceDrops = pc.Drops
+				if cwm.PriceInitial == 0 {
+					cwm.PriceInitial = pc.InitialPrice
+				}
+			}
 		}
 		result = append(result, cwm)
 	}

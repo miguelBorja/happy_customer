@@ -1,3 +1,6 @@
+import { getListingAgeDays } from '../utils/listingDate';
+import { estimateCrCosts } from '../utils/crCostEstimator';
+
 const BASE_URL = '/api';
 
 export const fetchCars = async (filters) => {
@@ -151,13 +154,23 @@ export const compareWithAI = async (carsOrCar1, car2OrLang, langOrMessages, mess
     }
   }
 
+  const enrichedCars = cars.map((car) => (
+    car
+      ? {
+          ...car,
+          daysListed: getListingAgeDays(car),
+          crCosts: estimateCrCosts(car),
+        }
+      : car
+  ));
+
   const res = await fetch(`${BASE_URL}/ai/compare`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      cars,
-      car1: cars[0] || null,
-      car2: cars[1] || null,
+      cars: enrichedCars,
+      car1: enrichedCars[0] || null,
+      car2: enrichedCars[1] || null,
       language,
       messages,
     }),
@@ -239,5 +252,22 @@ export const fetchValuation = async ({ brand, model, year, km }, signal) => {
   }
   const res = await fetch(`${BASE_URL}/valuate?${params.toString()}`, { signal });
   if (!res.ok) throw new Error('Failed to fetch valuation');
+  return res.json();
+};
+
+export const fetchDepreciation = async ({ brand, model }, signal) => {
+  const params = new URLSearchParams();
+  if (brand) params.set('brand', brand);
+  if (model) params.set('model', model);
+  const res = await fetch(`${BASE_URL}/depreciation?${params.toString()}`, { signal });
+  if (!res.ok) throw new Error('Failed to fetch depreciation curve');
+  return res.json();
+};
+
+export const fetchSellerSummary = async (name, signal) => {
+  const params = new URLSearchParams();
+  if (name) params.set('name', name);
+  const res = await fetch(`${BASE_URL}/sellers/summary?${params.toString()}`, { signal });
+  if (!res.ok) throw new Error('Failed to fetch seller summary');
   return res.json();
 };

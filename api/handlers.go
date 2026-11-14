@@ -117,14 +117,14 @@ func (s *Server) HandleCars(w http.ResponseWriter, r *http.Request) {
 		f.ExcludeURLs = stats.ActiveDuplicateURLs()
 	}
 
-	// Market-deal mode: ordering by deal, the "good prices only" filter, and/or the
-	// "price drops" filter need the market median of every matching car, so they are
-	// resolved here over the whole catalog.
+	// Market-deal mode: ordering by deal, the "good prices only" filter, the "price drops"
+	// filter, and/or "motivated sellers" need market/history evaluation over matching keys.
 	onlyGood := q.Get("deal") == "good"
 	onlyDrops := q.Get("priceDrop") == "true"
+	onlyMotivated := q.Get("motivated") == "true"
 	bestFirst := q.Get("sortDeal") == "best"
-	if onlyGood || onlyDrops || bestFirst {
-		s.serveDealCars(w, f, onlyGood, onlyDrops, bestFirst)
+	if onlyGood || onlyDrops || onlyMotivated || bestFirst {
+		s.serveDealCars(w, f, onlyGood, onlyDrops, onlyMotivated, bestFirst)
 		return
 	}
 
@@ -507,6 +507,11 @@ func (s *Server) HandleAICompare(w http.ResponseWriter, r *http.Request) {
 
 	var systemPrompt string
 	var initialPrompt string
+	var negotiationStats *db.MarketIndex
+	if len(cars) > 0 {
+		negotiationStats = s.getMarketStats()
+	}
+	now := time.Now()
 
 	if len(cars) >= 3 {
 		hResumenTabla := "Tabla Comparativa"
@@ -537,7 +542,8 @@ func (s *Server) HandleAICompare(w http.ResponseWriter, r *http.Request) {
 			yearVal, _ := car["Year"].(float64)
 			year := int(yearVal)
 			carJSON, _ := json.MarshalIndent(car, "", "  ")
-			_, _ = fmt.Fprintf(&vehiclesText, "- %s (%s %d):\n%s\n\n", label, title, year, string(carJSON))
+			brief := buildNegotiationBrief(negotiationStats, car, label, now)
+			_, _ = fmt.Fprintf(&vehiclesText, "- %s (%s %d):\n%s\n%s\n\n", label, title, year, string(carJSON), brief)
 		}
 
 		systemPrompt = fmt.Sprintf(`You are an expert automotive advisor specializing in the Costa Rican used car market and an assistant for the "Happy Customer" car platform.
@@ -635,7 +641,9 @@ COSTA RICAN AUTOMOTIVE MARKET CONTEXT & GUIDELINES:
    2. **⚙️ %[11]s**: 3-4 bullet points on trade-offs (price vs year/km, maintenance, parts availability in Costa Rica).
    3. **✅ %[12]s**: 2 key pros / 1 con for each car.
    4. **🏆 %[13]s**: Declare the winner ("Winner: %[8]s" or "Winner: %[9]s" / "Ganador: %[8]s" or "Ganador: %[9]s").`,
-			lang, car1Name, car1Year, car2Name, car2Year, string(car1JSON), string(car2JSON),
+			lang, car1Name, car1Year, car2Name, car2Year,
+			string(car1JSON)+"\n"+buildNegotiationBrief(negotiationStats, car1, labelCar1, now),
+			string(car2JSON)+"\n"+buildNegotiationBrief(negotiationStats, car2, labelCar2, now),
 			labelCar1, labelCar2, hResumen, hDiferencias, hProsContras, hGanador)
 
 		initialPrompt = fmt.Sprintf(`Please provide a comprehensive head-to-head comparison of %s and %s following the required format.`, labelCar1, labelCar2)
@@ -645,6 +653,10 @@ COSTA RICAN AUTOMOTIVE MARKET CONTEXT & GUIDELINES:
 		car1YearVal, _ := car1["Year"].(float64)
 		car1Year := int(car1YearVal)
 		car1JSON, _ := json.MarshalIndent(car1, "", "  ")
+		car1Label := "Carro 1"
+		if body.Language == "en" {
+			car1Label = "Car 1"
+		}
 
 		systemPrompt = fmt.Sprintf(`You are an expert automotive advisor specializing in the Costa Rican used car market and an assistant for the "Happy Customer" car platform.
 You have direct access to database tools ("query_car_market_stats", "query_cars_db") and live internet search ("search_web").
@@ -660,7 +672,7 @@ COSTA RICAN AUTOMOTIVE MARKET CONTEXT & GUIDELINES:
 2. Evaluate price vs mileage/year fairness against the Costa Rican market using database query tools if needed.
 3. Highlight pros, potential maintenance considerations, and spare parts availability in Costa Rica.
 4. Keep answers concise, factual, structured, and easy to read with markdown.`,
-			lang, car1Name, car1Year, string(car1JSON))
+			lang, car1Name, car1Year, string(car1JSON)+"\n"+buildNegotiationBrief(negotiationStats, car1, car1Label, now))
 
 		initialPrompt = fmt.Sprintf(`Please provide a detailed valuation and analysis of %s (%d) for the Costa Rican market.`, car1Name, car1Year)
 	} else {
@@ -676,6 +688,10 @@ GUIDELINES:
 			lang)
 
 		initialPrompt = "Hello! How can I assist you with your car search or questions about the Costa Rican automotive market today?"
+	}
+
+	if len(cars) > 0 {
+		systemPrompt += negotiationSystemGuidelines(body.Language)
 	}
 
 	var promptMessages []OpenRouterMessage

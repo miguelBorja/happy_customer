@@ -7,7 +7,7 @@ Complementa [improvements.md](./improvements.md), que cubre arquitectura y rendi
 
 Esfuerzo: 🟢 bajo (≤ ½ día) · 🟡 medio (1–2 días) · 🔴 alto (3+ días o infraestructura nueva)
 
-Última actualización: 2026-11-13
+Última actualización: 2026-11-14
 
 Leyenda: `[x]` hecho · `[~]` parcial · `[ ]` pendiente
 
@@ -16,15 +16,15 @@ Leyenda: `[x]` hecho · `[~]` parcial · `[ ]` pendiente
 ## 📍 Estado actual y qué sigue
 
 - **Avance general:** **23 de 23** mejoras del backlog UX/producto completadas en su alcance local (**Prioridad 1, Prioridad 2 Etapa 1, Prioridad 3, Prioridad 4 y Calidad de datos**).
-- **Qué sigue:** la evolución del producto (Etapa 2 con alertas externas por Telegram/Email, curva de depreciación, Copilot negociador, calculadora de cambio de carro, PWA, TCO CR, SEO y Fotos Fase 2) vive ahora en [proximas-mejoras.md](./proximas-mejoras.md).
+- **Qué sigue:** la evolución del producto vive en [proximas-mejoras.md](./proximas-mejoras.md) (**Fase 1 #1–#4 y Fase 2 #6–#8 completadas el 2026-11-14**: curva de depreciación + año dulce, Copilot Negociador CR + WhatsApp, filtro de vendedores motivados, PWA instalable, calculadora Cambiar mi carro, TCO CR a 3 años y ficha de reputación por vendedor; pendientes #5 alertas Telegram/Email y Fase 3 con #9 SEO y #10 Fotos Fase 2).
 - **Estado de las rutas previas:**
   1. **Opción A — ✅ Completada (2026-11-12): Cierre técnico en CI y scraper** ([improvements.md](./improvements.md) §2):
      - `CGO_ENABLED=0 go vet` y `go test -count=1` agregados en `Dockerfile` junto con `.dockerignore`.
      - Fixtures HTML offline en `scraper/testdata/` + tests de extremo a extremo y backfill (`scraper/scraper_test.go`).
      - Propagación de `context.Context` a `scraper.Run(ctx)`, `ProcessBrand` y `Backfill*` con protección de `MarkSold` ante cancelación.
-  2. **Opción B — Búsquedas guardadas / Alertas en dos etapas** (Prioridad 2, único `[ ]` de este documento):
-     - **Etapa 1 sin infraestructura (🟢–🟡, solo `localStorage` + API actual):** "Búsquedas guardadas" con contador de autos nuevos o rebajados desde la última visita (cero cuentas ni correo, valor inmediato de retención).
-     - **Etapa 2 con notificaciones (🔴):** alertas por Telegram o email (link mágico sin contraseña + baja en 1 clic) ejecutadas al final del job diario `crautosdb-scrape-daily` cuando entran anuncios nuevos o bajan de precio.
+  2. **Opción B — Búsquedas guardadas / Alertas en dos etapas** (Prioridad 2):
+     - **Etapa 1 — ✅ Completada (2026-11-13):** "Búsquedas guardadas" en `localStorage` + `POST /api/searches/digest` con contador de autos nuevos o rebajados desde la última visita y seguimiento en Favoritos.
+     - **Etapa 2 — Pendiente (🔴, [proximas-mejoras.md](./proximas-mejoras.md) #5):** notificaciones por Telegram o email (link mágico sin contraseña + baja en 1 clic) ejecutadas al final del job diario `crautosdb-scrape-daily` cuando entran anuncios nuevos o bajan de precio.
   3. **Opción C — Fotos Fase 2 en Cloud Storage** ([fotos-miniaturas-cloud-storage.md](./fotos-miniaturas-cloud-storage.md), esfuerzo 🟡):
      - Plan técnico ya listo; **bloqueado hasta resolver el Paso 0** (revisar términos/permiso de Crautos para almacenar miniaturas `-t.jpg`).
 

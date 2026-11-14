@@ -8,6 +8,8 @@ import { formatCRC, getStoredFxRate } from '../utils/crCostEstimator';
 import { trackEvent } from '../utils/analytics';
 import CarCard from '../components/CarCard';
 import CarDetailsModal from '../components/CarDetailsModal';
+import DepreciationCurveCard from '../components/DepreciationCurveCard';
+import UpgradeCalculatorCard from '../components/UpgradeCalculatorCard';
 import { CalculatorIcon } from '../components/icons/AppIcons';
 
 const YEARS = Array.from({ length: 38 }, (_, i) => 2027 - i);
@@ -19,7 +21,14 @@ const CONFIDENCE_KEY_MAP = {
   none: 'valuateConfidenceNone',
 };
 
-const ValuatePage = ({ valuateParams, onUpdateParams, onBrowseSimilar, onFilterBySeller }) => {
+const ValuatePage = ({
+  valuateParams,
+  onUpdateParams,
+  onBrowseSimilar,
+  onBrowseUpgrade,
+  onFilterBySeller,
+  onNegotiateWithCopilot,
+}) => {
   const { t } = useLanguage();
   const { isFavorite, toggleFavorite } = useFavorites();
   const { isNew } = useSeenCars();
@@ -375,6 +384,14 @@ const ValuatePage = ({ valuateParams, onUpdateParams, onBrowseSimilar, onFilterB
                 </div>
               </div>
 
+              <UpgradeCalculatorCard
+                brand={result.brand || valuateParams?.brand || ''}
+                model={result.model || valuateParams?.model || ''}
+                year={result.year || valuateParams?.year || ''}
+                valuationResult={result}
+                onBrowseUpgrade={onBrowseUpgrade}
+              />
+
               {Array.isArray(result.comparables) && result.comparables.length > 0 && (
                 <div className="valuate-comparables-section">
                   <h3>{t('valuateComparablesTitle')}</h3>
@@ -387,6 +404,7 @@ const ValuatePage = ({ valuateParams, onUpdateParams, onBrowseSimilar, onFilterB
                         isFav={isFavorite(car.URL)}
                         onToggleFav={toggleFavorite}
                         onOpenDetails={setSelectedCar}
+                        onNegotiateWithCopilot={onNegotiateWithCopilot}
                       />
                     ))}
                   </div>
@@ -394,6 +412,20 @@ const ValuatePage = ({ valuateParams, onUpdateParams, onBrowseSimilar, onFilterB
               )}
             </>
           )}
+
+          <DepreciationCurveCard
+            brand={result.brand || valuateParams.brand}
+            model={result.model || valuateParams.model}
+            selectedYear={result.year || valuateParams.year}
+            onSelectYear={(yr) =>
+              onUpdateParams({
+                ...valuateParams,
+                brand: result.brand || valuateParams.brand,
+                model: result.model || valuateParams.model,
+                year: String(yr),
+              })
+            }
+          />
         </div>
       )}
 
@@ -403,6 +435,7 @@ const ValuatePage = ({ valuateParams, onUpdateParams, onBrowseSimilar, onFilterB
           onClose={() => setSelectedCar(null)}
           car={selectedCar}
           onFilterBySeller={onFilterBySeller}
+          onNegotiateWithCopilot={onNegotiateWithCopilot}
         />
       )}
     </div>

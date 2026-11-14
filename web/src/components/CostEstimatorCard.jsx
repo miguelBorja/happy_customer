@@ -1,15 +1,170 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useLanguage } from '../context/LanguageContext';
 import { formatUSD } from '../utils/marketDeal';
 import {
   DEFAULT_FX_RATE,
   estimateCrCosts,
+  estimateCrTco3Yr,
   formatCRC,
   getStoredFxRate,
+  getStoredMonthlyKm,
   setStoredFxRate,
+  setStoredMonthlyKm,
 } from '../utils/crCostEstimator';
+import { fetchDepreciation } from '../api/client';
+import { ChevronDownIcon, ChevronUpIcon } from './icons/AppIcons';
 
 const TERM_OPTIONS = [36, 48, 60, 72, 84];
+const KM_PRESETS = [600, 1200, 2000];
+
+const powertrainLabelKey = {
+  gasoline: 'tcoPowertrainGas',
+  diesel: 'tcoPowertrainDiesel',
+  hybrid: 'tcoPowertrainHybrid',
+  ev: 'tcoPowertrainEv',
+};
+
+const CostEstTcoSection = ({ car, fxRate }) => {
+  const { t } = useLanguage();
+  const [tcoOpen, setTcoOpen] = useState(false);
+  const [monthlyKm, setMonthlyKm] = useState(getStoredMonthlyKm);
+  const [depState, setDepState] = useState({ key: '', data: null });
+
+  const depKey = tcoOpen && car?.Brand && car?.Model ? `${car.Brand}|${car.Model}` : '';
+
+  useEffect(() => {
+    if (!depKey) return undefined;
+
+    const controller = new AbortController();
+    fetchDepreciation({ brand: car.Brand, model: car.Model }, controller.signal)
+      .then((data) => {
+        if (!controller.signal.aborted) {
+          setDepState({ key: depKey, data });
+        }
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setDepState({ key: depKey, data: null });
+        }
+      });
+
+    return () => controller.abort();
+  }, [depKey, car?.Brand, car?.Model]);
+
+  const depCurve = depState.key === depKey ? depState.data : null;
+
+  const tco = useMemo(
+    () => estimateCrTco3Yr(car, { fxRate, monthlyKm, depCurve }),
+    [car, fxRate, monthlyKm, depCurve],
+  );
+
+  if (tco.netTco3YrUSD <= 0) return null;
+
+  const handleKmChange = (val) => {
+    const saved = setStoredMonthlyKm(val);
+    setMonthlyKm(saved);
+  };
+
+  return (
+    <div className="cost-est-tco-section">
+      <button
+        type="button"
+        className="cost-est-tco-toggle"
+        onClick={() => setTcoOpen((prev) => !prev)}
+        aria-expanded={tcoOpen}
+      >
+        <span className="cost-est-tco-toggle-label">
+          {tcoOpen ? t('tcoHideBtn') : t('tcoShowBtn')}
+        </span>
+        <span className="cost-est-tco-toggle-meta">
+          <strong>~{formatUSD(tco.netTco3YrUSD)}</strong>
+          {tcoOpen ? <ChevronUpIcon size={13} /> : <ChevronDownIcon size={13} />}
+        </span>
+      </button>
+
+      {tcoOpen && (
+        <div className="cost-est-tco-body">
+          <div className="cost-est-tco-headline">
+            <div>
+              <div className="cost-est-tco-kicker">{t('tcoHeadlineLabel')}</div>
+              <div className="cost-est-tco-total">
+                <strong>~{formatUSD(tco.netTco3YrUSD)}</strong>
+                <span className="cost-est-tco-sub">
+                  ~{formatCRC(tco.netTco3YrCRC)} · {t('tcoPerMonth', { usd: formatUSD(tco.netMonthlyTcoUSD) })}
+                </span>
+              </div>
+            </div>
+            <span className={`cost-est-tco-pill powertrain-${tco.powertrain}`}>
+              {t(powertrainLabelKey[tco.powertrain] || 'tcoPowertrainGas')} · {tco.consumption.value} {tco.consumption.unit}
+            </span>
+          </div>
+
+          <div className="cost-est-tco-usage">
+            <div className="cost-est-tco-usage-head">
+              <span>{t('tcoUsageLabel')}</span>
+              <strong>{monthlyKm.toLocaleString()} {t('tcoKmUnit')}</strong>
+            </div>
+            <div className="cost-est-tco-usage-controls">
+              <input
+                type="range"
+                min="300"
+                max="3500"
+                step="100"
+                value={monthlyKm}
+                onChange={(e) => handleKmChange(e.target.value)}
+                aria-label={t('tcoUsageLabel')}
+              />
+              <div className="cost-est-tco-presets">
+                {KM_PRESETS.map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    className={`cost-est-tco-preset ${monthlyKm === preset ? 'active' : ''}`.trim()}
+                    onClick={() => handleKmChange(preset)}
+                  >
+                    {preset}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="cost-est-tco-rows">
+            <div className="cost-est-tco-row">
+              <span>{t('tcoRowTransfer')}</span>
+              <strong>~{formatUSD(tco.transferUSD)}</strong>
+            </div>
+            <div className="cost-est-tco-row">
+              <span>{t('tcoRowMarchamo')}</span>
+              <strong>~{formatUSD(tco.marchamo3YrUSD)}</strong>
+            </div>
+            <div className="cost-est-tco-row">
+              <span>{t('tcoRowEnergy')}</span>
+              <strong>~{formatUSD(tco.energy3YrUSD)}</strong>
+            </div>
+            <div className="cost-est-tco-row">
+              <span>
+                {t('tcoRowDepreciation')}{' '}
+                <em className="cost-est-tco-source">
+                  ({tco.depreciationSource === 'curve' ? t('tcoSourceCurve') : t('tcoSourceBenchmark')})
+                </em>
+              </span>
+              <strong>~{formatUSD(tco.depreciationUSD)}</strong>
+            </div>
+          </div>
+
+          <p className="cost-est-tco-note">
+            {t('tcoResaleHint', {
+              resale: formatUSD(tco.estimatedResaleUSD),
+              pct: tco.depreciationPct,
+            })}{' '}
+            {t('tcoFormulaNote')}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const CostEstimatorCard = ({ car }) => {
   const { t } = useLanguage();
@@ -87,6 +242,8 @@ const CostEstimatorCard = ({ car }) => {
       {est.unpaidTaxes && (
         <div className="cost-est-tax-note">{t('costEstTaxesUnpaidExtra')}</div>
       )}
+
+      <CostEstTcoSection car={car} fxRate={fxRate} />
 
       {expanded && (
         <div className="cost-estimator-controls">

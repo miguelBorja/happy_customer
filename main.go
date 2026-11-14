@@ -208,6 +208,7 @@ func main() {
 		mux.HandleFunc("/api/cars/price-history", server.HandlePriceHistory)
 		mux.HandleFunc("/api/searches/digest", server.HandleSearchesDigest)
 		mux.HandleFunc("/api/valuate", server.HandleValuate)
+		mux.HandleFunc("/api/depreciation", server.HandleDepreciation)
 		mux.HandleFunc("/api/bargains", server.HandleBargains)
 		mux.HandleFunc("/api/brands", server.HandleBrands)
 		mux.HandleFunc("/api/brands/filtered", server.HandleFilteredBrands)
@@ -219,6 +220,7 @@ func main() {
 		mux.HandleFunc("/api/visit", server.HandleRecordVisit)
 		mux.HandleFunc("/api/ai/compare", server.HandleAICompare)
 		mux.HandleFunc("/api/sellers/top", server.HandleTopSellers)
+		mux.HandleFunc("/api/sellers/summary", server.HandleSellerSummary)
 
 		// Serve static frontend files if they exist
 		if _, err := os.Stat("web/dist"); err == nil {
@@ -227,6 +229,13 @@ func main() {
 				if r.URL.Path == "/" || r.URL.Path == "/index.html" {
 					server.ServeIndexHTML(w, r, "web/dist/index.html")
 					return
+				}
+				switch r.URL.Path {
+				case "/sw.js":
+					w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+				case "/manifest.webmanifest":
+					w.Header().Set("Content-Type", "application/manifest+json; charset=utf-8")
+					w.Header().Set("Cache-Control", "public, max-age=3600")
 				}
 				fs.ServeHTTP(w, r)
 			})

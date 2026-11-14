@@ -29,6 +29,13 @@ const (
 	minBadgeDropPct = 1.0
 )
 
+// Motivated-seller filter thresholds. Must match web/src/utils/motivatedSeller.js;
+// TestDealThresholdsMatchFrontend enforces it.
+const (
+	minMotivatedDays  = 45
+	minMotivatedDrops = 2
+)
+
 // "Check the price" flags (MarketFlag in the API). A flagged car gets a warning badge instead of
 // a deal level, is excluded from deal=good and Gangas, and goes last in sortDeal=best.
 const (
@@ -94,6 +101,33 @@ func qualifyingPriceDrop(stats *db.MarketIndex, k db.CarPriceKey) (dropUSD int, 
 	return drop, pct, pc.ChangedAt, true
 }
 
+// qualifyingMotivated reports whether an active, unflagged listing has strong negotiation
+// leverage: listed >= minMotivatedDays days and/or >= minMotivatedDrops clean price drops.
+func qualifyingMotivated(stats *db.MarketIndex, k db.CarPriceKey, now time.Time) (days int, drops int, score int, ok bool) {
+	if k.IsSold || k.Price <= 0 {
+		return 0, 0, 0, false
+	}
+	_, flag, _ := marketDealPct(stats, k)
+	if flag != "" {
+		return 0, 0, 0, false
+	}
+	if ageDays, hasAge := db.ListingAgeDays(k.FechaIngreso, k.ScrapedAt, now); hasAge {
+		days = ageDays
+	}
+	if pc, has := stats.PriceChangeOf(k.URL); has && pc.CurrentPrice == k.Price && pc.InitialPrice > k.Price && !db.IsTypoPrice(k.Price, pc.InitialPrice) {
+		drops = pc.Drops
+	}
+	if days < minMotivatedDays && drops < minMotivatedDrops {
+		return 0, 0, 0, false
+	}
+	cappedDays := days
+	if cappedDays > 180 {
+		cappedDays = 180
+	}
+	score = drops*30 + cappedDays
+	return days, drops, score, true
+}
+
 // rankDealURLs filters and/or orders the candidate keys (already most-recent-first) by market deal.
 // onlyGood keeps cars at least goodDealMaxPct below market; bestFirst orders by deviation ascending,
 // with flagged cars and cars lacking market data last. Ties keep the incoming (recency) order.
@@ -146,10 +180,79 @@ type rankedDrop struct {
 	changedAt time.Time
 }
 
-// rankDealAndDropURLs resolves the market-deal and price-drop ranking modes. priceDrop=true
-// filters the catalog to listings with a qualifying price drop; when no deal ordering is also
-// requested, it sorts by the requested column (or by drop recency/depth by default).
-func rankDealAndDropURLs(keys []db.CarPriceKey, stats *db.MarketIndex, onlyGood, onlyDrops, bestFirst bool, f db.FilterParams) []string {
+type rankedMotivated struct {
+	key   db.CarPriceKey
+	days  int
+	drops int
+	score int
+}
+
+func hasColumnSort(f db.FilterParams) bool {
+	return f.SortPrice != "" || f.SortYear != "" || f.SortKm != "" || f.SortTitle != ""
+}
+
+func compareKeysByColumns(a, b db.CarPriceKey, f db.FilterParams) bool {
+	if f.SortYear != "" && a.Year != b.Year {
+		if f.SortYear == "asc" {
+			return a.Year < b.Year
+		}
+		return a.Year > b.Year
+	}
+	if f.SortPrice != "" && a.Price != b.Price {
+		if f.SortPrice == "asc" {
+			return a.Price < b.Price
+		}
+		return a.Price > b.Price
+	}
+	if f.SortKm != "" && a.Km != b.Km {
+		if f.SortKm == "asc" {
+			return a.Km < b.Km
+		}
+		return a.Km > b.Km
+	}
+	return false
+}
+
+// rankCatalogURLs resolves deal, price-drop, and motivated-seller catalog filters/sorts.
+func rankCatalogURLs(keys []db.CarPriceKey, stats *db.MarketIndex, onlyGood, onlyDrops, onlyMotivated, bestFirst bool, f db.FilterParams, now time.Time) []string {
+	if onlyMotivated {
+		motivated := make([]rankedMotivated, 0, len(keys))
+		for _, k := range keys {
+			days, drops, score, ok := qualifyingMotivated(stats, k, now)
+			if !ok {
+				continue
+			}
+			motivated = append(motivated, rankedMotivated{key: k, days: days, drops: drops, score: score})
+		}
+		if onlyDrops || onlyGood || bestFirst {
+			filtered := make([]db.CarPriceKey, len(motivated))
+			for i, m := range motivated {
+				filtered[i] = m.key
+			}
+			return rankCatalogURLs(filtered, stats, onlyGood, onlyDrops, false, bestFirst, f, now)
+		}
+		if hasColumnSort(f) {
+			sort.SliceStable(motivated, func(i, j int) bool {
+				return compareKeysByColumns(motivated[i].key, motivated[j].key, f)
+			})
+		} else {
+			sort.SliceStable(motivated, func(i, j int) bool {
+				if motivated[i].score != motivated[j].score {
+					return motivated[i].score > motivated[j].score
+				}
+				if motivated[i].drops != motivated[j].drops {
+					return motivated[i].drops > motivated[j].drops
+				}
+				return motivated[i].days > motivated[j].days
+			})
+		}
+		urls := make([]string, len(motivated))
+		for i, m := range motivated {
+			urls[i] = m.key.URL
+		}
+		return urls
+	}
+
 	if !onlyDrops {
 		return rankDealURLs(keys, stats, onlyGood, bestFirst)
 	}
@@ -171,33 +274,9 @@ func rankDealAndDropURLs(keys []db.CarPriceKey, stats *db.MarketIndex, onlyGood,
 		return rankDealURLs(filtered, stats, onlyGood, bestFirst)
 	}
 
-	if f.SortPrice != "" || f.SortYear != "" || f.SortKm != "" || f.SortTitle != "" {
+	if hasColumnSort(f) {
 		sort.SliceStable(drops, func(i, j int) bool {
-			if f.SortYear != "" {
-				if drops[i].key.Year != drops[j].key.Year {
-					if f.SortYear == "asc" {
-						return drops[i].key.Year < drops[j].key.Year
-					}
-					return drops[i].key.Year > drops[j].key.Year
-				}
-			}
-			if f.SortPrice != "" {
-				if drops[i].key.Price != drops[j].key.Price {
-					if f.SortPrice == "asc" {
-						return drops[i].key.Price < drops[j].key.Price
-					}
-					return drops[i].key.Price > drops[j].key.Price
-				}
-			}
-			if f.SortKm != "" {
-				if drops[i].key.Km != drops[j].key.Km {
-					if f.SortKm == "asc" {
-						return drops[i].key.Km < drops[j].key.Km
-					}
-					return drops[i].key.Km > drops[j].key.Km
-				}
-			}
-			return false
+			return compareKeysByColumns(drops[i].key, drops[j].key, f)
 		})
 	} else {
 		sort.SliceStable(drops, func(i, j int) bool {
@@ -298,16 +377,16 @@ func orderCarsByURLs(cars []db.Car, urls []string) []db.Car {
 	return out
 }
 
-// serveDealCars answers /api/cars when deal=good and/or sortDeal=best: it ranks every matching
-// car against the mileage-adjusted market median, then loads only the requested page. X-Total-Count is always set.
-func (s *Server) serveDealCars(w http.ResponseWriter, f db.FilterParams, onlyGood, onlyDrops, bestFirst bool) {
+// serveDealCars answers /api/cars when deal=good, priceDrop=true, motivated=true, and/or sortDeal=best:
+// it evaluates matching cars against market/history signals, then loads only the requested page.
+func (s *Server) serveDealCars(w http.ResponseWriter, f db.FilterParams, onlyGood, onlyDrops, onlyMotivated, bestFirst bool) {
 	keys, err := s.DB.GetCarPriceKeys(f)
 	if err != nil {
 		log.Printf("[API ERROR] GetCarPriceKeys failed: %v", err)
 		respondError(w, http.StatusInternalServerError, "Failed to fetch cars")
 		return
 	}
-	urls := rankDealAndDropURLs(keys, s.getMarketStats(), onlyGood, onlyDrops, bestFirst, f)
+	urls := rankCatalogURLs(keys, s.getMarketStats(), onlyGood, onlyDrops, onlyMotivated, bestFirst, f, time.Now())
 	page := pageOfURLs(urls, f.Offset, f.Limit)
 
 	cars := []db.Car{}

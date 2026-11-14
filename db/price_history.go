@@ -12,6 +12,7 @@ type PriceChange struct {
 	CurrentPrice  int       // latest clean recorded price
 	ChangedAt     time.Time // when CurrentPrice was first observed
 	Changes       int       // number of clean transitions (len(clean) - 1)
+	Drops         int       // number of clean downward steps >= $100 and >= 1%
 }
 
 // CleanPriceHistory filters invalid/typo prices and collapses consecutive identical prices,
@@ -72,12 +73,25 @@ func SummarizePriceHistory(points []PricePoint, expected int) (PriceChange, bool
 	if len(clean) < 2 {
 		return PriceChange{}, false
 	}
+	drops := 0
+	for i := 1; i < len(clean); i++ {
+		prevPrice := clean[i-1].Price
+		currPrice := clean[i].Price
+		if currPrice < prevPrice {
+			drop := prevPrice - currPrice
+			pct := float64(drop) / float64(prevPrice) * 100
+			if drop >= 100 && pct >= 1.0 && !IsTypoPrice(currPrice, prevPrice) {
+				drops++
+			}
+		}
+	}
 	return PriceChange{
 		InitialPrice:  clean[0].Price,
 		PreviousPrice: clean[len(clean)-2].Price,
 		CurrentPrice:  clean[len(clean)-1].Price,
 		ChangedAt:     clean[len(clean)-1].SeenAt,
 		Changes:       len(clean) - 1,
+		Drops:         drops,
 	}, true
 }
 

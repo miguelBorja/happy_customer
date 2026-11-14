@@ -112,6 +112,26 @@ func TestDealThresholdsMatchFrontend(t *testing.T) {
 			t.Errorf("%s: priceHistory.js = %s, Go = %v", name, m[1], goVal)
 		}
 	}
+
+	msSrc, err := os.ReadFile("../web/src/utils/motivatedSeller.js")
+	if err != nil {
+		t.Skipf("motivatedSeller.js not available: %v", err)
+	}
+	motWant := map[string]float64{
+		"MIN_MOTIVATED_DAYS":  minMotivatedDays,
+		"MIN_MOTIVATED_DROPS": minMotivatedDrops,
+	}
+	for name, goVal := range motWant {
+		m := regexp.MustCompile(`export const ` + name + `\s*=\s*(-?[0-9.]+)`).FindSubmatch(msSrc)
+		if m == nil {
+			t.Errorf("%s not found in motivatedSeller.js", name)
+			continue
+		}
+		jsVal, err := strconv.ParseFloat(string(m[1]), 64)
+		if err != nil || jsVal != goVal {
+			t.Errorf("%s: motivatedSeller.js = %s, Go = %v", name, m[1], goVal)
+		}
+	}
 }
 
 // Gangas uses the "Gran precio" threshold over the same reference as the badges.
@@ -403,4 +423,97 @@ func TestHandleCarsNewFiltersStylesAndModels(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("HandleFilteredModels status = %d, want 200", rec.Code)
 	}
+}
+
+func TestMotivatedFilterAndOrder(t *testing.T) {
+	database, err := db.Init(filepath.Join(t.TempDir(), "test.db"))
+	if err != nil {
+		t.Fatalf("db.Init: %v", err)
+	}
+	defer database.Close()
+
+	resetMarketCache := func() {
+		marketCache.Lock()
+		marketCache.stats = nil
+		marketCache.loadedAt = time.Time{}
+		marketCache.Unlock()
+	}
+	resetMarketCache()
+	t.Cleanup(resetMarketCache)
+
+	now := time.Now().UTC()
+	staleScraped := now.AddDate(0, 0, -65)
+	recentScraped := now.AddDate(0, 0, -5)
+	p1 := now.Add(-72 * time.Hour)
+	p2 := now.Add(-48 * time.Hour)
+	p3 := now.Add(-24 * time.Hour)
+
+	cars := []db.Car{
+		{URL: "https://crautos.com/mot-both", Brand: "Toyota", Model: "Corolla", Year: 2019, Price: 17000, Kilometraje: 60000, Placa: "Termina en 1", ColorExterior: "BLANCO", SellerPhone: "8888-5001", Title: "Toyota Corolla Both", ScrapedAt: staleScraped, LastSeenAt: now},
+		{URL: "https://crautos.com/mot-drops", Brand: "Toyota", Model: "Corolla", Year: 2019, Price: 17500, Kilometraje: 62000, Placa: "Termina en 2", ColorExterior: "GRIS", SellerPhone: "8888-5002", Title: "Toyota Corolla Drops", ScrapedAt: recentScraped, LastSeenAt: now},
+		{URL: "https://crautos.com/mot-age", Brand: "Toyota", Model: "Corolla", Year: 2019, Price: 18500, Kilometraje: 64000, Placa: "Termina en 3", ColorExterior: "NEGRO", SellerPhone: "8888-5003", Title: "Toyota Corolla Age", FechaIngreso: now.AddDate(0, 0, -60).Format("02 de ") + spanishMonthName(now.AddDate(0, 0, -60).Month()) + now.AddDate(0, 0, -60).Format(" del 2006"), ScrapedAt: recentScraped, LastSeenAt: now},
+		{URL: "https://crautos.com/mot-fresh", Brand: "Toyota", Model: "Corolla", Year: 2019, Price: 18800, Kilometraje: 65000, Placa: "Termina en 4", ColorExterior: "AZUL", SellerPhone: "8888-5004", Title: "Toyota Corolla Fresh", ScrapedAt: recentScraped, LastSeenAt: now},
+		{URL: "https://crautos.com/mot-sold", Brand: "Toyota", Model: "Corolla", Year: 2019, Price: 18000, Kilometraje: 66000, Placa: "Termina en 5", ColorExterior: "ROJO", SellerPhone: "8888-5005", Title: "Toyota Corolla Sold", IsSold: true, ScrapedAt: staleScraped, LastSeenAt: now},
+		{URL: "https://crautos.com/mot-cond", Brand: "Toyota", Model: "Corolla", Year: 2019, Price: 12000, Kilometraje: 80000, Placa: "Termina en 6", ColorExterior: "PLATA", SellerPhone: "8888-5006", Title: "Toyota Corolla Cond", Comment: "Chocado, hay que reparar la caja", ScrapedAt: staleScraped, LastSeenAt: now},
+	}
+	if err := database.UpsertCarBatch(cars); err != nil {
+		t.Fatalf("UpsertCarBatch: %v", err)
+	}
+	if _, err := database.Exec("UPDATE cars SET is_sold = 1 WHERE url = ?", "https://crautos.com/mot-sold"); err != nil {
+		t.Fatalf("mark sold: %v", err)
+	}
+
+	insertPrice := func(url string, price int, seen time.Time) {
+		if _, err := database.Exec("INSERT INTO price_history (url, price, seen_at) VALUES (?, ?, ?)", url, price, seen); err != nil {
+			t.Fatalf("insert price_history %s: %v", url, err)
+		}
+	}
+	insertPrice("https://crautos.com/mot-both", 19000, p1)
+	insertPrice("https://crautos.com/mot-both", 18000, p2)
+	insertPrice("https://crautos.com/mot-both", 17000, p3)
+	insertPrice("https://crautos.com/mot-drops", 19200, p1)
+	insertPrice("https://crautos.com/mot-drops", 18400, p2)
+	insertPrice("https://crautos.com/mot-drops", 17500, p3)
+	// Single drop on fresh listing must not qualify.
+	insertPrice("https://crautos.com/mot-fresh", 19500, p1)
+	insertPrice("https://crautos.com/mot-fresh", 18800, p2)
+
+	srv := &Server{DB: database}
+	req := httptest.NewRequest(http.MethodGet, "/api/cars?motivated=true&isSold=false&limit=20", nil)
+	rec := httptest.NewRecorder()
+	srv.HandleCars(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("HandleCars(motivated) status = %d, want 200", rec.Code)
+	}
+	var got []CarWithMarket
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("unmarshal motivated: %v", err)
+	}
+	wantURLs := []string{
+		"https://crautos.com/mot-both",
+		"https://crautos.com/mot-drops",
+		"https://crautos.com/mot-age",
+	}
+	if len(got) != len(wantURLs) {
+		t.Fatalf("len(motivated) = %d, want %d: %+v", len(got), len(wantURLs), got)
+	}
+	for i, u := range wantURLs {
+		if got[i].URL != u {
+			t.Errorf("motivated[%d] = %q, want %q", i, got[i].URL, u)
+		}
+	}
+	if got[0].PriceDrops != 2 || got[0].MarketP25 <= 0 || got[0].MarketP75 <= 0 {
+		t.Errorf("expected PriceDrops=2 and MarketP25/P75 populated on mot-both, got %+v", got[0])
+	}
+	if h := rec.Header().Get("X-Total-Count"); h != "3" {
+		t.Errorf("X-Total-Count = %q, want 3", h)
+	}
+}
+
+func spanishMonthName(m time.Month) string {
+	names := [...]string{
+		"", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+		"Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+	}
+	return names[m]
 }

@@ -5,6 +5,8 @@ import { compareWithAI } from '../api/client';
 import { useFavorites } from '../hooks/useFavorites';
 import { useChatHistory } from '../hooks/useChatHistory';
 import { getDynamicSuggestions } from '../utils/aiSuggestions';
+import { getWhatsAppPhone, buildCustomWhatsAppLink } from '../utils/phone';
+import { trackEvent } from '../utils/analytics';
 import {
   SparkleClusterIcon,
   SparkleIcon,
@@ -16,8 +18,87 @@ import {
   CloseIcon,
   ChevronUpIcon,
   ChevronDownIcon,
-  ShuffleIcon
+  ShuffleIcon,
+  WhatsAppIcon
 } from './icons/AppIcons';
+
+function splitWhatsAppDrafts(content) {
+  if (!content) return [];
+  const regex = /```whatsapp\s*\r?\n([\s\S]*?)```/gi;
+  const parts = [];
+  let lastIndex = 0;
+  let match;
+  while ((match = regex.exec(content)) !== null) {
+    if (match.index > lastIndex) {
+      const md = content.slice(lastIndex, match.index).trim();
+      if (md) parts.push({ type: 'markdown', content: md });
+    }
+    const draft = match[1].trim();
+    if (draft) parts.push({ type: 'whatsapp', content: draft });
+    lastIndex = regex.lastIndex;
+  }
+  if (lastIndex < content.length) {
+    const md = content.slice(lastIndex).trim();
+    if (md) parts.push({ type: 'markdown', content: md });
+  }
+  return parts;
+}
+
+function WhatsAppDraftCard({ draft, primaryCar, t }) {
+  const [copied, setCopied] = useState(false);
+  const waPhone = getWhatsAppPhone(primaryCar?.SellerPhone);
+  const waUrl = buildCustomWhatsAppLink(waPhone, draft);
+
+  const handleCopy = () => {
+    if (!navigator.clipboard?.writeText) return;
+    navigator.clipboard
+      .writeText(draft)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1800);
+      })
+      .catch(() => {});
+  };
+
+  return (
+    <div className="ai-whatsapp-draft-card">
+      <div className="ai-whatsapp-draft-header">
+        <span className="ai-whatsapp-draft-title">
+          <WhatsAppIcon size={14} color="currentColor" />
+          <span>{t('aiWhatsAppDraftTitle')}</span>
+        </span>
+      </div>
+      <blockquote className="ai-whatsapp-draft-body">{draft}</blockquote>
+      <div className="ai-whatsapp-draft-actions">
+        {waUrl && (
+          <a
+            href={waUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="ai-whatsapp-send-btn"
+            onClick={() =>
+              trackEvent(
+                'copilot_whatsapp_draft',
+                'outbound',
+                primaryCar?.Title || primaryCar?.URL || 'copilot'
+              )
+            }
+          >
+            <WhatsAppIcon size={14} color="currentColor" />
+            <span>{t('aiSendWhatsApp')}</span>
+          </a>
+        )}
+        <button
+          type="button"
+          className={`ai-whatsapp-copy-btn${copied ? ' is-copied' : ''}`}
+          onClick={handleCopy}
+        >
+          {copied ? `✓ ${t('aiCopiedDraft')}` : t('aiCopyDraft')}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function renderMarkdown(text) {
   if (!text) return '';
@@ -86,7 +167,35 @@ function renderMarkdown(text) {
   return html;
 }
 
-const formatPrice = (price, text) => {
+function AssistantMessageContent({ content, primaryCar, t }) {
+  const segments = splitWhatsAppDrafts(content);
+  if (segments.length === 0) {
+    return (
+      <div
+        className="ai-card-content"
+        dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
+      />
+    );
+  }
+  return segments.map((seg, sIdx) => (
+    seg.type === 'whatsapp' ? (
+      <WhatsAppDraftCard
+        key={`wa-${sIdx}`}
+        draft={seg.content}
+        primaryCar={primaryCar}
+        t={t}
+      />
+    ) : (
+      <div
+        key={`md-${sIdx}`}
+        className="ai-card-content"
+        dangerouslySetInnerHTML={{ __html: renderMarkdown(seg.content) }}
+      />
+    )
+  ));
+}
+
+function formatPrice(price, text) {
   if (price > 0) return `$${price.toLocaleString()}`;
   return text || 'N/A';
 };
@@ -219,6 +328,10 @@ const AICopilotWindow = ({
 
   const car1 = attachedCars[0] || null;
   const car2 = attachedCars[1] || null;
+  const primaryCarLabel =
+    [car1?.Title || [car1?.Brand, car1?.Model].filter(Boolean).join(' '), car1?.Year]
+      .filter(Boolean)
+      .join(' ') || (language === 'en' ? 'this car' : 'este carro');
 
   const initialComparison = chatMessages.find(m => m.role === 'assistant')?.content || '';
   const winner = detectWinner(initialComparison);
@@ -688,9 +801,10 @@ const AICopilotWindow = ({
                   </div>
                 ) : (
                   <div className="ai-assistant-body">
-                    <div
-                      className="ai-card-content"
-                      dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }}
+                    <AssistantMessageContent
+                      content={msg.content}
+                      primaryCar={car1}
+                      t={t}
                     />
                     {isGenerating && index === chatMessages.length - 1 && (
                       <span className="ai-typewriter-cursor">▊</span>
@@ -700,6 +814,42 @@ const AICopilotWindow = ({
               </div>
             ))}
           </div>
+
+          {/* CR Negotiator 1-click chips when at least 1 vehicle is attached */}
+          {attachedCars.length >= 1 && !isGenerating && (
+            <div className="ai-negotiator-bar">
+              <span className="ai-negotiator-label">{t('aiNegotiatorLabel')}</span>
+              <div className="ai-negotiator-chips">
+                <button
+                  type="button"
+                  className="ai-negotiator-chip"
+                  onClick={() =>
+                    handleSendQuestion(t('aiNegCashOfferPrompt', { car: primaryCarLabel }))
+                  }
+                >
+                  💰 {t('aiNegCashOfferChip')}
+                </button>
+                <button
+                  type="button"
+                  className="ai-negotiator-chip"
+                  onClick={() =>
+                    handleSendQuestion(t('aiNegChecklistPrompt', { car: primaryCarLabel }))
+                  }
+                >
+                  🔧 {t('aiNegChecklistChip')}
+                </button>
+                <button
+                  type="button"
+                  className="ai-negotiator-chip is-whatsapp"
+                  onClick={() =>
+                    handleSendQuestion(t('aiNegWhatsAppPrompt', { car: primaryCarLabel }))
+                  }
+                >
+                  💬 {t('aiNegWhatsAppChip')}
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Dynamic Suggestion Pills Section with Shuffle & Collapse/Expand */}
           {currentSuggestions.length > 0 && !isGenerating && (

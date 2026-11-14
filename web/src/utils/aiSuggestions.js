@@ -4,6 +4,9 @@
  * Tailored specifically for the Costa Rican automotive market.
  */
 
+import { getListingAgeDays } from './listingDate';
+import { MIN_MOTIVATED_DAYS, MIN_MOTIVATED_DROPS } from './motivatedSeller';
+
 const CHINESE_BRANDS = [
   'byd', 'geely', 'chery', 'haval', 'changan', 'great wall', 'jac', 'mg',
   'omoda', 'jetour', 'baic', 'dongfeng', 'forthing', 'kaiyi', 'maxus',
@@ -547,6 +550,26 @@ export function getDynamicSuggestions({
         ? `What specific red flags should I listen and look for during a test drive?`
         : `¿Qué ruidos o señales de alerta debo vigilar durante la prueba de manejo?`
     });
+  }
+
+  // High-signal CR negotiation suggestions when attached cars have leverage
+  if (cars.length > 0) {
+    const leveraged = cars.find((c) => {
+      const days = getListingAgeDays(c);
+      return (days !== null && days >= MIN_MOTIVATED_DAYS) ||
+        (Number(c?.PriceDrops) || 0) >= MIN_MOTIVATED_DROPS ||
+        Boolean(c?.PrecioNegociable);
+    });
+    if (leveraged) {
+      const targetName = leveraged.Title || `${leveraged.Brand || ''} ${leveraged.Model || ''}`.trim() || (isEn ? 'this car' : 'este carro');
+      pool.unshift({
+        id: 'neg-leverage-cash',
+        icon: '🤝',
+        text: isEn
+          ? `Build a cash counteroffer for ${targetName} using its days listed, price drops, and CR turnkey costs`
+          : `Arma una contraoferta de contado para ${targetName} usando sus días publicado, rebajas y costo llave en mano`,
+      });
+    }
   }
 
   // Ensure unique by text
