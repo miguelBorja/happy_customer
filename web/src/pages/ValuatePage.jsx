@@ -162,6 +162,10 @@ const ValuatePage = ({
     });
   };
 
+  const seoSubject = valuateParams?.brand && valuateParams?.model
+    ? `${valuateParams.brand} ${valuateParams.model}${valuateParams.year ? ` ${valuateParams.year}` : ''}`
+    : '';
+
   return (
     <div className="valuate-page">
       <section className="valuate-hero">
@@ -170,7 +174,9 @@ const ValuatePage = ({
             <CalculatorIcon size={15} color="currentColor" />
             <span>{t('navValuate')}</span>
           </span>
-          <h1 className="valuate-title">{t('valuateTitle')}</h1>
+          <h1 className="valuate-title">
+            {seoSubject ? t('valuateSeoHeading', { subject: seoSubject }) : t('valuateTitle')}
+          </h1>
           <p className="valuate-subtitle">{t('valuateSubtitle')}</p>
         </div>
 
@@ -244,7 +250,41 @@ const ValuatePage = ({
         </form>
       </section>
 
-      {!activeQueryKey && !loading && (
+      {!activeQueryKey && !loading && valuateParams?.brand && valuateParams?.model && (
+        <div className="valuate-results">
+          <div className="valuate-results-topbar">
+            <div className="valuate-results-heading">
+              <h2>{valuateParams.brand} {valuateParams.model}</h2>
+            </div>
+            <div className="valuate-results-actions">
+              {onBrowseSimilar && (
+                <button
+                  type="button"
+                  className="btn-valuate-browse"
+                  onClick={() => onBrowseSimilar({ brand: valuateParams.brand, model: valuateParams.model })}
+                >
+                  {t('valuateBrowseSimilar')} →
+                </button>
+              )}
+            </div>
+          </div>
+          <DepreciationCurveCard
+            brand={valuateParams.brand}
+            model={valuateParams.model}
+            selectedYear=""
+            onSelectYear={(yr) =>
+              onUpdateParams({
+                ...valuateParams,
+                brand: valuateParams.brand,
+                model: valuateParams.model,
+                year: String(yr),
+              })
+            }
+          />
+        </div>
+      )}
+
+      {!activeQueryKey && !loading && !(valuateParams?.brand && valuateParams?.model) && (
         <div className="valuate-empty-hint">
           <CalculatorIcon size={28} color="var(--accent)" />
           <p>{t('valuateEmptyHint')}</p>

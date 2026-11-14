@@ -678,6 +678,16 @@ export const translations = {
     sellerRepIncludeSold: "Ver vendidos del vendedor ({n})",
     sellerRepActiveOnlyBtn: "Ver solo activos ({n})",
     sellerRepClearFilter: "Quitar vendedor",
+    valuateSeoHeading: "¿Cuánto vale un {subject} en Costa Rica?",
+    modelSeoComparables: "{count} comparables en mercado CR",
+    modelSeoRange: "Medianas por año: {min} – {max}",
+    modelSeoAnnualDrop: "Depreciación promedio: -{pct}%/año",
+    modelSeoSweetSpotBtn: "Año dulce {year}",
+    modelSeoValuateBtn: "Ver curva y tasador",
+    docTitleBargains: "Gangas del mercado | Happy Customer",
+    docTitleValuate: "¿A cuánto vender mi carro en Costa Rica? | Happy Customer",
+    docTitleModelBrowse: "{brand} {model} usados en Costa Rica: precios y ofertas | Happy Customer",
+    docTitleBrandBrowse: "Autos {brand} usados en Costa Rica: precios y catálogo | Happy Customer",
   },
   en: {
     // Navbar
@@ -1397,6 +1407,16 @@ export const translations = {
     sellerRepIncludeSold: "View seller's sold cars ({n})",
     sellerRepActiveOnlyBtn: "Active listings only ({n})",
     sellerRepClearFilter: "Clear seller",
+    valuateSeoHeading: "How much is a {subject} worth in Costa Rica?",
+    modelSeoComparables: "{count} CR market comparables",
+    modelSeoRange: "Median range by year: {min} – {max}",
+    modelSeoAnnualDrop: "Avg annual depreciation: -{pct}%/yr",
+    modelSeoSweetSpotBtn: "Sweet spot {year}",
+    modelSeoValuateBtn: "Depreciation & valuation",
+    docTitleBargains: "Market Bargains | Happy Customer",
+    docTitleValuate: "How much is my car worth in Costa Rica? | Happy Customer",
+    docTitleModelBrowse: "Used {brand} {model} in Costa Rica: prices & deals | Happy Customer",
+    docTitleBrandBrowse: "Used {brand} cars in Costa Rica: prices & catalog | Happy Customer",
   }
 };
 

@@ -16,7 +16,7 @@ Leyenda: `[x]` hecho · `[~]` parcial · `[ ]` pendiente
 ## 📍 Estado actual y qué sigue
 
 - **Avance general:** **23 de 23** mejoras del backlog UX/producto completadas en su alcance local (**Prioridad 1, Prioridad 2 Etapa 1, Prioridad 3, Prioridad 4 y Calidad de datos**).
-- **Qué sigue:** la evolución del producto vive en [proximas-mejoras.md](./proximas-mejoras.md) (**Fase 1 #1–#4 y Fase 2 #6–#8 completadas el 2026-11-14**: curva de depreciación + año dulce, Copilot Negociador CR + WhatsApp, filtro de vendedores motivados, PWA instalable, calculadora Cambiar mi carro, TCO CR a 3 años y ficha de reputación por vendedor; pendientes #5 alertas Telegram/Email y Fase 3 con #9 SEO y #10 Fotos Fase 2).
+- **Qué sigue:** la evolución del producto vive en [proximas-mejoras.md](./proximas-mejoras.md) (**9 de 11 completadas al 2026-11-14**: curva de depreciación + año dulce, Copilot Negociador CR + WhatsApp, filtro de vendedores motivados, PWA instalable, calculadora Cambiar mi carro, TCO CR a 3 años, ficha de reputación por vendedor, **#9 Landing dinámica SEO + `sitemap.xml` + `JSON-LD`** y **#11 Vitest + `golangci-lint` en CI**; pendientes únicamente `#5` alertas Telegram/Email y `#10` Fotos Fase 2).
 - **Estado de las rutas previas:**
   1. **Opción A — ✅ Completada (2026-11-12): Cierre técnico en CI y scraper** ([improvements.md](./improvements.md) §2):
      - `CGO_ENABLED=0 go vet` y `go test -count=1` agregados en `Dockerfile` junto con `.dockerignore`.

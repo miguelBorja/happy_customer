@@ -14,9 +14,9 @@ Leyenda: `[ ]` pendiente · `[~]` parcial · `[x]` hecho
 
 ## 📌 Orden sugerido de ejecución
 
-1. **~~Fase 1 (#1–#4) y Fase 2 local (#6–#8) completadas (2026-11-14)~~:** curva de depreciación, Copilot Negociador CR, vendedores motivados, PWA instalable, calculadora "Cambiar mi carro", TCO 3 años y ficha de reputación por vendedor ya están implementados y verificados localmente.
-2. **Tráfico orgánico inmediato:** **#9 Landing dinámica SEO + `sitemap.xml` + `JSON-LD`**.
-3. **Retención recurrente e infraestructura:** **#5 Alertas guardadas — Etapa 2 (Telegram / Email)** y **#10 Fotos Fase 2 en Cloud Storage** (sujeto al Paso 0).
+1. **~~Fase 1 (#1–#4), Fase 2 local (#6–#8) y SEO (#9) completadas (2026-11-14)~~:** 9 de 11 mejoras del roadmap listas y verificadas localmente (solo quedan pendientes `#5` y `#10`).
+2. **Retención recurrente e infraestructura:** **#5 Alertas guardadas — Etapa 2 (Telegram / Email)** (requiere credenciales externas).
+3. **Almacenamiento de miniaturas:** **#10 Fotos Fase 2 en Cloud Storage** (bloqueado hasta resolver el Paso 0 de derechos/términos de Crautos).
 
 ---
 
@@ -46,7 +46,7 @@ Leyenda: `[ ]` pendiente · `[~]` parcial · `[x]` hecho
 
 | ✓ | Mejora | Qué ganamos y cómo implementarla | Esfuerzo |
 |---|---|---|---|
-| [ ] | **9. Landing dinámica SEO + `sitemap.xml` y datos estructurados (`JSON-LD`)** | Capturar búsquedas orgánicas de Google (*"precio Toyota RAV4 usado Costa Rica"*, *"cuánto vale un Suzuki Jimny 2022"*). Servir `sitemap.xml` dinámico por marca/modelo desde Go y enriquecer `api/opengraph.go` (`RenderIndexHTML`) cuando llegan parámetros `?tab=valuate&brand=...&model=...` o filtros por marca/modelo con meta descripciones con rangos reales y bloques `application/ld+json` (`AggregateOffer`). | 🟡 |
+| [x] | **9. Landing dinámica SEO + `sitemap.xml` y datos estructurados (`JSON-LD`)** | Capturar búsquedas orgánicas de Google (*"precio Toyota RAV4 usado Costa Rica"*, *"cuánto vale un Suzuki Jimny 2022"*). Servir `sitemap.xml` dinámico por marca/modelo desde Go y enriquecer `api/opengraph.go` (`RenderIndexHTML`) cuando llegan parámetros `?tab=valuate&brand=...&model=...` o filtros por marca/modelo con meta descripciones con rangos reales y bloques `application/ld+json` (`AggregateOffer`). Ver Hecho (2026-11-14). | 🟡 |
 | [ ] | **10. Fotos — Fase 2: Miniaturas persistentes en Cloud Storage** | Preservar miniaturas (`-t.jpg`) en GCS para vendidos, historial y favoritos antiguos y acelerar la carga repetida. **Plan técnico completo:** [fotos-miniaturas-cloud-storage.md](./fotos-miniaturas-cloud-storage.md) (**requiere completar primero el Paso 0** de términos de uso y permiso). | 🟡 |
 | [x] | **11. Tests unitarios de frontend (`Vitest`) + `golangci-lint` en CI** | Agregar suite `Vitest` para cubrir `crCostEstimator.js`, `marketDeal.js`, `priceHistory.js` y `urlState.js` dentro de la etapa de build del `Dockerfile`, y evaluar sumar `golangci-lint` junto a `gofmt`, `go vet` y `go test -count=1` (ver [improvements.md](./improvements.md#L103-L106)). Ver Hecho (2026-11-13). | 🟢 |
 
@@ -56,6 +56,7 @@ Leyenda: `[ ]` pendiente · `[~]` parcial · `[x]` hecho
 
 | Fecha | Mejora | Notas |
 |---|---|---|
+| 2026-11-14 | **9. Landing dinámica SEO + `sitemap.xml` y `JSON-LD`** | Resúmenes por marca/modelo en `db/market.go` (`BrandMarketSummary`, `ModelMarketSummary`, `LookupBrand`, `LookupModel`, `SortedBrands`, `SortedModels`), `GET /sitemap.xml` y `GET /robots.txt` en `api/seo.go` + `main.go`, `RenderIndexHTML` en `api/opengraph.go` con `<link rel="canonical">`, `og:url`, meta descripciones con rangos reales y `<script type="application/ld+json">` (`Product` + `AggregateOffer` y `Car` + `Offer`), `ModelMarketBanner.jsx` en `CarsPage.jsx`, curva/H1 SEO en `ValuatePage.jsx` y `document.title` dinámico en `App.jsx`. Tests en `db/market_test.go` y `api/seo_test.go`. |
 | 2026-11-14 | **8. Ficha de reputación e inventario por vendedor** | `db/seller_summary.go` (`GetSellerListings`), `GET /api/sellers/summary` en `api/sellers.go` + `api/sellers_test.go` (clasificación agencia/recurrente/particular, inventario activo/vendido, rotación %, diferencia promedio vs mercado excluyendo flags, días medianos y top marcas) y `SellerReputationCard.jsx` integrado en `CarsPage.jsx` con toggle para ver vendidos. |
 | 2026-11-14 | **7. Costo Total de Propiedad a 3 años (TCO CR)** | `estimateCrTco3Yr`, `classifyPowertrain` y `estimateConsumptionPer100Km` en `crCostEstimator.js` (tarifas RECOPE/CNFL, 3 períodos de marchamo, traspaso y depreciación por `/api/depreciation` o segmento), simulador desplegable en `CostEstimatorCard.jsx` y comparativa + selector km/mes en `CompareWidget.jsx`. |
 | 2026-11-14 | **6. Calculadora "Cambiar mi carro"** | `upgradeCalculator.js` (patrimonio P25 agencia vs mediana venta directa, resta deuda pendiente, efectivo extra o principal inverso de cuota mensual menos traspaso CR), `UpgradeCalculatorCard.jsx` en `ValuatePage.jsx` y banner contextual `.upgrade-mode-banner` en `CarsPage.jsx`. |

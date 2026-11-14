@@ -208,3 +208,108 @@ func TestMarketPercentilesAndSellerActiveCount(t *testing.T) {
 		t.Errorf("ComparableURLs len = %d, want 3", len(summary.ComparableURLs))
 	}
 }
+
+func TestMarketIndexBrandAndModelSummaries(t *testing.T) {
+	database, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	t1 := time.Date(2026, 11, 10, 8, 0, 0, 0, time.UTC)
+	t2 := time.Date(2026, 11, 12, 14, 0, 0, 0, time.UTC)
+	t3 := time.Date(2026, 11, 14, 9, 30, 0, 0, time.UTC)
+
+	cars := []Car{
+		// Toyota RAV4 2022: 2 active + 1 duplicate active + 1 typo active + 1 sold.
+		{URL: "https://crautos.com/s=1", Brand: "Toyota", Model: "RAV4", Year: 2022, Price: 28000, Kilometraje: 45000, Placa: "Termina en 1", ColorExterior: "BLANCO", SellerPhone: "8888-1001", ScrapedAt: t2, LastSeenAt: t2},
+		{URL: "https://crautos.com/s=1dup", Brand: "toyota", Model: "rav4", Year: 2022, Price: 28000, Kilometraje: 45000, Placa: "Termina en 1", ColorExterior: "BLANCO", SellerPhone: "8888-1001", ScrapedAt: t1, LastSeenAt: t1},
+		{URL: "https://crautos.com/s=2", Brand: "Toyota", Model: "RAV4", Year: 2022, Price: 32000, Kilometraje: 30000, Placa: "Termina en 2", ColorExterior: "GRIS", SellerPhone: "8888-1002", ScrapedAt: t3, LastSeenAt: t3},
+		{URL: "https://crautos.com/s=3", Brand: "Toyota", Model: "RAV4", Year: 2022, Price: 3000, Kilometraje: 40000, Placa: "Termina en 3", ColorExterior: "NEGRO", SellerPhone: "8888-1003", ScrapedAt: t2, LastSeenAt: t2}, // typo
+		{URL: "https://crautos.com/s=4", Brand: "Toyota", Model: "RAV4", Year: 2022, Price: 27000, Kilometraje: 50000, Placa: "Termina en 4", ColorExterior: "ROJO", SellerPhone: "8888-1004", ScrapedAt: t1, LastSeenAt: t1},
+		{URL: "https://crautos.com/s=5", Brand: "Toyota", Model: "RAV4", Year: 2020, Price: 24000, Kilometraje: 70000, Placa: "Termina en 5", ColorExterior: "AZUL", SellerPhone: "8888-1005", ScrapedAt: t1, LastSeenAt: t1},
+		// Toyota Yaris 2019: sold only (tests fallback to all clean prices when ActiveCount == 0).
+		{URL: "https://crautos.com/s=6", Brand: "Toyota", Model: "Yaris", Year: 2019, Price: 13000, Kilometraje: 65000, Placa: "Termina en 6", ColorExterior: "PLATA", SellerPhone: "8888-1006", ScrapedAt: t1, LastSeenAt: t1},
+		// Honda Civic 2021: 1 active.
+		{URL: "https://crautos.com/s=7", Brand: "Honda", Model: "Civic", Year: 2021, Price: 21000, Kilometraje: 40000, Placa: "Termina en 7", ColorExterior: "NEGRO", SellerPhone: "8888-2001", ScrapedAt: t2, LastSeenAt: t2},
+	}
+	if err := database.UpsertCarBatch(cars); err != nil {
+		t.Fatalf("UpsertCarBatch: %v", err)
+	}
+	if err := database.MarkSold([]string{"https://crautos.com/s=4", "https://crautos.com/s=5", "https://crautos.com/s=6"}); err != nil {
+		t.Fatalf("MarkSold: %v", err)
+	}
+
+	idx, err := database.GetAllMarketStats()
+	if err != nil {
+		t.Fatalf("GetAllMarketStats: %v", err)
+	}
+
+	// Nil safety
+	var nilIdx *MarketIndex
+	if _, ok := nilIdx.LookupBrand("Toyota"); ok {
+		t.Error("nil MarketIndex LookupBrand should return false")
+	}
+	if _, ok := nilIdx.LookupModel("Toyota", "RAV4"); ok {
+		t.Error("nil MarketIndex LookupModel should return false")
+	}
+	if got := nilIdx.SortedBrands(); got != nil {
+		t.Errorf("nil SortedBrands = %v, want nil", got)
+	}
+	if got := nilIdx.SortedModels(); got != nil {
+		t.Errorf("nil SortedModels = %v, want nil", got)
+	}
+
+	// RAV4 summary: 2 clean active (28000, 32000), 2 clean sold (24000, 27000).
+	// Active bounds must be 28000..32000, median 30000 (typo 3000 and sold cars excluded from active bounds).
+	rav4, ok := idx.LookupModel("toyota ", " rav4")
+	if !ok {
+		t.Fatalf("LookupModel(Toyota, RAV4) not found")
+	}
+	if rav4.Brand != "Toyota" || rav4.Model != "RAV4" {
+		t.Errorf("RAV4 display casing = (%q, %q), want (Toyota, RAV4)", rav4.Brand, rav4.Model)
+	}
+	if rav4.ActiveCount != 2 || rav4.TotalCount != 4 {
+		t.Errorf("RAV4 counts = (active=%d, total=%d), want (2, 4)", rav4.ActiveCount, rav4.TotalCount)
+	}
+	if rav4.MinPrice != 28000 || rav4.MaxPrice != 32000 || rav4.MedianPrice != 30000 {
+		t.Errorf("RAV4 prices = (min=%d, max=%d, med=%d), want (28000, 32000, 30000)", rav4.MinPrice, rav4.MaxPrice, rav4.MedianPrice)
+	}
+	if rav4.YearMin != 2020 || rav4.YearMax != 2022 {
+		t.Errorf("RAV4 years = (%d..%d), want (2020..2022)", rav4.YearMin, rav4.YearMax)
+	}
+	if !rav4.LastUpdated.Equal(t3) {
+		t.Errorf("RAV4 LastUpdated = %v, want %v", rav4.LastUpdated, t3)
+	}
+
+	// Yaris summary (sold only): ActiveCount=0, TotalCount=1, falls back to clean price 13000.
+	yaris, ok := idx.LookupModel("Toyota", "Yaris")
+	if !ok {
+		t.Fatalf("LookupModel(Toyota, Yaris) not found")
+	}
+	if yaris.ActiveCount != 0 || yaris.TotalCount != 1 || yaris.MinPrice != 13000 || yaris.MaxPrice != 13000 || yaris.MedianPrice != 13000 {
+		t.Errorf("Yaris summary unexpected: %+v", yaris)
+	}
+
+	// Toyota brand summary: active prices 28000, 32000 across 2 models (RAV4, Yaris).
+	toyota, ok := idx.LookupBrand("TOYOTA")
+	if !ok {
+		t.Fatalf("LookupBrand(TOYOTA) not found")
+	}
+	if toyota.Brand != "Toyota" || toyota.ModelCount != 2 || toyota.ActiveCount != 2 || toyota.TotalCount != 5 {
+		t.Errorf("Toyota brand summary unexpected: %+v", toyota)
+	}
+	if toyota.MinPrice != 28000 || toyota.MaxPrice != 32000 || toyota.MedianPrice != 30000 {
+		t.Errorf("Toyota prices = (min=%d, max=%d, med=%d), want (28000, 32000, 30000)", toyota.MinPrice, toyota.MaxPrice, toyota.MedianPrice)
+	}
+	if toyota.YearMin != 2019 || toyota.YearMax != 2022 {
+		t.Errorf("Toyota years = (%d..%d), want (2019..2022)", toyota.YearMin, toyota.YearMax)
+	}
+
+	// SortedBrands and SortedModels order: Honda before Toyota; Honda Civic, Toyota RAV4, Toyota Yaris.
+	brands := idx.SortedBrands()
+	if len(brands) != 2 || brands[0].Brand != "Honda" || brands[1].Brand != "Toyota" {
+		t.Errorf("SortedBrands = %+v", brands)
+	}
+	models := idx.SortedModels()
+	if len(models) != 3 || models[0].Model != "Civic" || models[1].Model != "RAV4" || models[2].Model != "Yaris" {
+		t.Errorf("SortedModels = %+v", models)
+	}
+}

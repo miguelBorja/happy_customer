@@ -11,6 +11,7 @@ import MarketBadge from '../components/MarketBadge';
 import PriceDropBadge from '../components/PriceDropBadge';
 import MotivatedBadge from '../components/MotivatedBadge';
 import SellerReputationCard from '../components/SellerReputationCard';
+import ModelMarketBanner from '../components/ModelMarketBanner';
 import { getMarketDeal, formatUSD } from '../utils/marketDeal';
 import { useSeenCars } from '../hooks/useSeenCars';
 import { useFavorites } from '../hooks/useFavorites';
@@ -934,6 +935,15 @@ const CarsPage = ({
             onClearSeller={() =>
               setFilters((f) => ({ ...f, sellerName: '', sellerMode: '', isSold: 'false' }))
             }
+          />
+        )}
+
+        {selectedBrands.length === 1 && Array.isArray(filters.models) && filters.models.length === 1 && !filters.sellerName && !upgradeContext && (
+          <ModelMarketBanner
+            brand={selectedBrands[0]}
+            model={filters.models[0]}
+            onSelectYear={(yr) => setFilters((f) => ({ ...f, yearMin: String(yr), yearMax: String(yr) }))}
+            onOpenValuate={onOpenValuate}
           />
         )}
 

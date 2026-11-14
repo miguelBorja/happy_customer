@@ -2589,3 +2589,102 @@
   border-color: #fecaca;
   color: #b91c1c;
 }
+
+/* ============================
+   Model SEO Market Banner (#9)
+   ============================ */
+.model-seo-banner {
+  margin-bottom: 1rem;
+  padding: 0.9rem 1.1rem;
+  border-radius: 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1.25rem;
+}
+
+.model-seo-banner-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.model-seo-banner-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.45rem 0.75rem;
+}
+
+.model-seo-banner-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.model-seo-banner-meta {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.model-seo-banner-stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 1rem;
+  font-size: 0.86rem;
+  color: var(--text-main);
+}
+
+.model-seo-banner-drop {
+  color: var(--text-muted);
+}
+
+.model-seo-banner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.model-seo-sweetspot-btn,
+.model-seo-valuate-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.8rem;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.model-seo-sweetspot-btn {
+  background: var(--deal-great-bg);
+  color: var(--deal-great-text);
+  border: 1px solid var(--deal-great-border);
+}
+
+.model-seo-sweetspot-btn:hover,
+.model-seo-sweetspot-btn:focus-visible {
+  filter: brightness(1.08);
+  outline: none;
+}
+
+.model-seo-valuate-btn {
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid var(--border);
+}
+
+.model-seo-valuate-btn:hover,
+.model-seo-valuate-btn:focus-visible {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+  outline: none;
+}

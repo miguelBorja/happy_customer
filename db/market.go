@@ -12,17 +12,61 @@ import (
 
 // MarketStat summarizes the comparable listings (active + sold) of one brand/model/year.
 type MarketStat struct {
-	Median   int
-	P25      int
-	P75      int
-	Count    int
-	MedianKm int // median mileage of the comparables with a known mileage (0 = unknown)
-	KmCount  int // comparables with a known mileage
+	Median      int
+	P25         int
+	P75         int
+	MinPrice    int
+	MaxPrice    int
+	Count       int
+	ActiveCount int
+	MedianKm    int // median mileage of the comparables with a known mileage (0 = unknown)
+	KmCount     int // comparables with a known mileage
+}
+
+// BrandMarketSummary aggregates clean catalog pricing and inventory across all years and models of a brand.
+type BrandMarketSummary struct {
+	Brand       string
+	ActiveCount int
+	TotalCount  int
+	ModelCount  int
+	MinPrice    int
+	MaxPrice    int
+	MedianPrice int
+	P25         int
+	P75         int
+	YearMin     int
+	YearMax     int
+	LastUpdated time.Time
+}
+
+// ModelMarketSummary aggregates clean catalog pricing and inventory across all years of a brand/model.
+type ModelMarketSummary struct {
+	Brand       string
+	Model       string
+	ActiveCount int
+	TotalCount  int
+	MinPrice    int
+	MaxPrice    int
+	MedianPrice int
+	P25         int
+	P75         int
+	YearMin     int
+	YearMax     int
+	LastUpdated time.Time
+}
+
+// ModelKey builds the canonical lowercase lookup key for a brand and model.
+func ModelKey(brand, model string) string {
+	return strings.ToLower(strings.TrimSpace(brand)) + "|" + strings.ToLower(strings.TrimSpace(model))
 }
 
 // MarketIndex holds the per-group stats plus the mileage adjustment learned from the whole catalog.
 type MarketIndex struct {
 	Groups map[string]MarketStat
+	// Brands maps lowercased brand name to clean catalog pricing and inventory summary.
+	Brands map[string]BrandMarketSummary
+	// Models maps ModelKey(brand, model) to clean catalog pricing and inventory summary.
+	Models map[string]ModelMarketSummary
 	// KmSlope is the change in log(price) per 10,000 km above the group's median mileage
 	// (always ≤ 0). Example: -0.02 ≈ -2% of value for every extra 10k km.
 	KmSlope float64
@@ -72,6 +116,69 @@ func (m *MarketIndex) SellerActiveCount(url string) int {
 		return 0
 	}
 	return m.SellerCounts[url]
+}
+
+// LookupBrand returns the clean catalog pricing and inventory summary for a brand.
+func (m *MarketIndex) LookupBrand(brand string) (BrandMarketSummary, bool) {
+	if m == nil || m.Brands == nil {
+		return BrandMarketSummary{}, false
+	}
+	s, ok := m.Brands[strings.ToLower(strings.TrimSpace(brand))]
+	return s, ok
+}
+
+// LookupModel returns the clean catalog pricing and inventory summary for a brand and model.
+func (m *MarketIndex) LookupModel(brand, model string) (ModelMarketSummary, bool) {
+	if m == nil || m.Models == nil {
+		return ModelMarketSummary{}, false
+	}
+	s, ok := m.Models[ModelKey(brand, model)]
+	return s, ok
+}
+
+// SortedBrands returns all brand summaries sorted case-insensitively by brand name.
+func (m *MarketIndex) SortedBrands() []BrandMarketSummary {
+	if m == nil || len(m.Brands) == 0 {
+		return nil
+	}
+	out := make([]BrandMarketSummary, 0, len(m.Brands))
+	for _, b := range m.Brands {
+		out = append(out, b)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		li, lj := strings.ToLower(out[i].Brand), strings.ToLower(out[j].Brand)
+		if li != lj {
+			return li < lj
+		}
+		return out[i].Brand < out[j].Brand
+	})
+	return out
+}
+
+// SortedModels returns all model summaries sorted case-insensitively by brand then model.
+func (m *MarketIndex) SortedModels() []ModelMarketSummary {
+	if m == nil || len(m.Models) == 0 {
+		return nil
+	}
+	out := make([]ModelMarketSummary, 0, len(m.Models))
+	for _, mdl := range m.Models {
+		out = append(out, mdl)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		bi, bj := strings.ToLower(out[i].Brand), strings.ToLower(out[j].Brand)
+		if bi != bj {
+			return bi < bj
+		}
+		if out[i].Brand != out[j].Brand {
+			return out[i].Brand < out[j].Brand
+		}
+		mi, mj := strings.ToLower(out[i].Model), strings.ToLower(out[j].Model)
+		if mi != mj {
+			return mi < mj
+		}
+		return out[i].Model < out[j].Model
+	})
+	return out
 }
 
 // MarketRef is the market reference for one specific listing.
@@ -184,6 +291,56 @@ func kmAdjustFactor(slope float64, km, medianKm int) float64 {
 type marketSample struct {
 	price, km int
 	textFlag  string
+	active    bool
+	scrapedAt time.Time
+}
+
+type catalogAgg struct {
+	activePrices []int
+	allPrices    []int
+	activeCount  int
+	totalCount   int
+	yearMin      int
+	yearMax      int
+	lastUpdated  time.Time
+}
+
+func (a *catalogAgg) add(s marketSample, year int, validYear bool) {
+	a.totalCount++
+	if s.price > 0 {
+		a.allPrices = append(a.allPrices, s.price)
+		if s.active {
+			a.activePrices = append(a.activePrices, s.price)
+		}
+	}
+	if s.active {
+		a.activeCount++
+	}
+	if validYear {
+		if a.yearMin == 0 || year < a.yearMin {
+			a.yearMin = year
+		}
+		if year > a.yearMax {
+			a.yearMax = year
+		}
+	}
+	if !s.scrapedAt.IsZero() && s.scrapedAt.After(a.lastUpdated) {
+		a.lastUpdated = s.scrapedAt
+	}
+}
+
+func (a *catalogAgg) summarize() (minP, maxP, medP, p25, p75 int) {
+	src := a.activePrices
+	if a.activeCount == 0 || len(src) == 0 {
+		src = a.allPrices
+	}
+	if len(src) == 0 {
+		return 0, 0, 0, 0, 0
+	}
+	sorted := make([]int, len(src))
+	copy(sorted, src)
+	sort.Ints(sorted)
+	return sorted[0], sorted[len(sorted)-1], medianInt(sorted), percentileInt(sorted, 0.25), percentileInt(sorted, 0.75)
 }
 
 // filterCleanSamples removes obvious price typos and text-flagged cars priced well below the
@@ -225,7 +382,12 @@ func filterCleanSamples(samples []marketSample) []marketSample {
 
 // buildMarketIndex groups the samples by key, computes medians and fits the mileage slope.
 func buildMarketIndex(groups map[string][]marketSample) *MarketIndex {
+	return buildMarketIndexWithNames(groups, nil, nil)
+}
+
+func buildMarketIndexWithNames(groups map[string][]marketSample, brandNames, modelNames map[string]string) *MarketIndex {
 	idx := &MarketIndex{Groups: make(map[string]MarketStat, len(groups))}
+	cleanGroups := make(map[string][]marketSample, len(groups))
 
 	// Pooled within-group regression of log(price/median) on (km - medianKm)/10k.
 	var sx, sy, sxx, sxy float64
@@ -233,23 +395,37 @@ func buildMarketIndex(groups map[string][]marketSample) *MarketIndex {
 
 	for k, samples := range groups {
 		clean := filterCleanSamples(samples)
+		cleanGroups[k] = clean
+
 		prices := make([]int, 0, len(clean))
 		kms := make([]int, 0, len(clean))
+		activeCount := 0
 		for _, s := range clean {
 			prices = append(prices, s.price)
+			if s.active {
+				activeCount++
+			}
 			if validKm(s.km) {
 				kms = append(kms, s.km)
 			}
 		}
 		sort.Ints(prices)
 		sort.Ints(kms)
+		minP, maxP := 0, 0
+		if len(prices) > 0 {
+			minP = prices[0]
+			maxP = prices[len(prices)-1]
+		}
 		stat := MarketStat{
-			Median:   medianInt(prices),
-			P25:      percentileInt(prices, 0.25),
-			P75:      percentileInt(prices, 0.75),
-			Count:    len(prices),
-			MedianKm: medianInt(kms),
-			KmCount:  len(kms),
+			Median:      medianInt(prices),
+			P25:         percentileInt(prices, 0.25),
+			P75:         percentileInt(prices, 0.75),
+			MinPrice:    minP,
+			MaxPrice:    maxP,
+			Count:       len(prices),
+			ActiveCount: activeCount,
+			MedianKm:    medianInt(kms),
+			KmCount:     len(kms),
 		}
 		idx.Groups[k] = stat
 
@@ -279,7 +455,98 @@ func buildMarketIndex(groups map[string][]marketSample) *MarketIndex {
 			idx.KmSamples = n
 		}
 	}
+
+	populateCatalogSummaries(idx, cleanGroups, brandNames, modelNames)
 	return idx
+}
+
+func populateCatalogSummaries(idx *MarketIndex, cleanGroups map[string][]marketSample, brandNames, modelNames map[string]string) {
+	maxYear := time.Now().Year() + 1
+	brandAggs := make(map[string]*catalogAgg)
+	modelAggs := make(map[string]*catalogAgg)
+	brandModels := make(map[string]map[string]struct{})
+
+	for k, clean := range cleanGroups {
+		parts := strings.Split(k, "|")
+		if len(parts) != 3 || parts[0] == "" || parts[1] == "" {
+			continue
+		}
+		brandKey := parts[0]
+		modelKey := parts[0] + "|" + parts[1]
+		year, err := strconv.Atoi(parts[2])
+		validYear := err == nil && year >= 1980 && year <= maxYear
+
+		ba := brandAggs[brandKey]
+		if ba == nil {
+			ba = &catalogAgg{}
+			brandAggs[brandKey] = ba
+		}
+		ma := modelAggs[modelKey]
+		if ma == nil {
+			ma = &catalogAgg{}
+			modelAggs[modelKey] = ma
+		}
+		if brandModels[brandKey] == nil {
+			brandModels[brandKey] = make(map[string]struct{})
+		}
+		brandModels[brandKey][modelKey] = struct{}{}
+
+		for _, s := range clean {
+			ba.add(s, year, validYear)
+			ma.add(s, year, validYear)
+		}
+	}
+
+	idx.Brands = make(map[string]BrandMarketSummary, len(brandAggs))
+	for bKey, agg := range brandAggs {
+		displayBrand := brandNames[bKey]
+		if displayBrand == "" {
+			displayBrand = bKey
+		}
+		minP, maxP, medP, p25, p75 := agg.summarize()
+		idx.Brands[bKey] = BrandMarketSummary{
+			Brand:       displayBrand,
+			ActiveCount: agg.activeCount,
+			TotalCount:  agg.totalCount,
+			ModelCount:  len(brandModels[bKey]),
+			MinPrice:    minP,
+			MaxPrice:    maxP,
+			MedianPrice: medP,
+			P25:         p25,
+			P75:         p75,
+			YearMin:     agg.yearMin,
+			YearMax:     agg.yearMax,
+			LastUpdated: agg.lastUpdated,
+		}
+	}
+
+	idx.Models = make(map[string]ModelMarketSummary, len(modelAggs))
+	for mKey, agg := range modelAggs {
+		parts := strings.SplitN(mKey, "|", 2)
+		displayBrand := brandNames[parts[0]]
+		if displayBrand == "" {
+			displayBrand = parts[0]
+		}
+		displayModel := modelNames[mKey]
+		if displayModel == "" {
+			displayModel = parts[1]
+		}
+		minP, maxP, medP, p25, p75 := agg.summarize()
+		idx.Models[mKey] = ModelMarketSummary{
+			Brand:       displayBrand,
+			Model:       displayModel,
+			ActiveCount: agg.activeCount,
+			TotalCount:  agg.totalCount,
+			MinPrice:    minP,
+			MaxPrice:    maxP,
+			MedianPrice: medP,
+			P25:         p25,
+			P75:         p75,
+			YearMin:     agg.yearMin,
+			YearMax:     agg.yearMax,
+			LastUpdated: agg.lastUpdated,
+		}
+	}
 }
 
 func normSellerName(name string) string {
@@ -296,7 +563,7 @@ func normSellerName(name string) string {
 func (d *DB) GetAllMarketStats() (*MarketIndex, error) {
 	q := `SELECT url, COALESCE(title, ''), brand, model, year, price, COALESCE(kilometraje, 0),
 		COALESCE(placa, ''), COALESCE(color_exterior, ''), COALESCE(seller_name, ''), COALESCE(seller_phone, ''),
-		COALESCE(comment, ''), COALESCE(is_sold, 0)
+		COALESCE(comment, ''), COALESCE(is_sold, 0), scraped_at
 	FROM cars
 	WHERE price > 0 AND brand != '' AND model != ''
 	ORDER BY is_sold ASC, scraped_at DESC, url DESC`
@@ -316,6 +583,8 @@ func (d *DB) GetAllMarketStats() (*MarketIndex, error) {
 	}
 
 	groups := make(map[string][]marketSample)
+	brandNames := make(map[string]string)
+	modelNames := make(map[string]string)
 	textFlags := make(map[string]string)
 	carKeys := make(map[string]carLookupKey)
 	seen := make(map[string][]dedupCandidate)
@@ -326,9 +595,11 @@ func (d *DB) GetAllMarketStats() (*MarketIndex, error) {
 	for rows.Next() {
 		var url, title, brand, model, placa, color, sellerName, sellerPhone, comment string
 		var year, price, km, isSold int
-		if err := rows.Scan(&url, &title, &brand, &model, &year, &price, &km, &placa, &color, &sellerName, &sellerPhone, &comment, &isSold); err != nil {
+		var scrapedAtStr sql.NullString
+		if err := rows.Scan(&url, &title, &brand, &model, &year, &price, &km, &placa, &color, &sellerName, &sellerPhone, &comment, &isSold, &scrapedAtStr); err != nil {
 			return nil, err
 		}
+		scrapedAt := parseTimeHelper(scrapedAtStr)
 		carKeys[url] = carLookupKey{brand: brand, model: model, year: year, km: km}
 		tf := DetectTextFlag(comment)
 		if tf != "" {
@@ -354,7 +625,25 @@ func (d *DB) GetAllMarketStats() (*MarketIndex, error) {
 			continue
 		}
 		seen[k] = append(seen[k], cand)
-		groups[k] = append(groups[k], marketSample{price: price, km: km, textFlag: tf})
+
+		trimmedBrand := strings.TrimSpace(brand)
+		trimmedModel := strings.TrimSpace(model)
+		bKey := strings.ToLower(trimmedBrand)
+		mKey := ModelKey(trimmedBrand, trimmedModel)
+		if _, exists := brandNames[bKey]; !exists && trimmedBrand != "" {
+			brandNames[bKey] = trimmedBrand
+		}
+		if _, exists := modelNames[mKey]; !exists && trimmedModel != "" {
+			modelNames[mKey] = trimmedModel
+		}
+
+		groups[k] = append(groups[k], marketSample{
+			price:     price,
+			km:        km,
+			textFlag:  tf,
+			active:    isSold == 0,
+			scrapedAt: scrapedAt,
+		})
 		if isSold == 0 {
 			for _, p := range cand.phones {
 				phoneActiveCount[p]++
@@ -369,7 +658,7 @@ func (d *DB) GetAllMarketStats() (*MarketIndex, error) {
 	}
 
 	sort.Strings(dupURLs)
-	idx := buildMarketIndex(groups)
+	idx := buildMarketIndexWithNames(groups, brandNames, modelNames)
 	idx.TextFlags = textFlags
 	idx.DuplicateURLs = dupURLs
 

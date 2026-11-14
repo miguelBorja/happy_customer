@@ -262,12 +262,12 @@ function App() {
   }, []);
 
   const handleOpenValuate = useCallback((preset) => {
-    if (preset && typeof preset === 'object' && !preset.nativeEvent && (preset.brand || preset.model || preset.year)) {
+    if (preset && typeof preset === 'object' && !preset.nativeEvent && (preset.brand || preset.model || preset.year !== undefined)) {
       setValuateParams((prev) => ({
         ...prev,
         brand: preset.brand || prev?.brand || '',
         model: preset.model || '',
-        year: preset.year ? String(preset.year) : (prev?.year || '2020'),
+        year: preset.year !== undefined ? String(preset.year) : (prev?.year || '2020'),
         km: preset.km != null ? String(preset.km) : '',
       }));
     }
@@ -289,6 +289,32 @@ function App() {
   useEffect(() => {
     trackPageView(`/${activeTab}`, activeTab);
   }, [activeTab]);
+
+  // Keep document.title aligned with client-side SEO routes and active filters.
+  useEffect(() => {
+    let nextTitle = t('logo');
+    if (activeTab === 'bargains') {
+      nextTitle = t('docTitleBargains');
+    } else if (activeTab === 'valuate') {
+      if (valuateParams?.brand && valuateParams?.model) {
+        const subject = `${valuateParams.brand} ${valuateParams.model}${valuateParams.year ? ` ${valuateParams.year}` : ''}`;
+        nextTitle = `${t('valuateSeoHeading', { subject })} | ${t('logo')}`;
+      } else {
+        nextTitle = t('docTitleValuate');
+      }
+    } else if (activeTab === 'browse') {
+      const selBrands = Array.isArray(filters.brands)
+        ? filters.brands
+        : (filters.brand ? filters.brand.split(',').map((s) => s.trim()).filter(Boolean) : []);
+      const selModels = Array.isArray(filters.models) ? filters.models : [];
+      if (selBrands.length === 1 && selModels.length === 1) {
+        nextTitle = t('docTitleModelBrowse', { brand: selBrands[0], model: selModels[0] });
+      } else if (selBrands.length === 1) {
+        nextTitle = t('docTitleBrandBrowse', { brand: selBrands[0] });
+      }
+    }
+    document.title = nextTitle;
+  }, [activeTab, filters, valuateParams, t]);
 
   const renderPage = () => {
     switch (activeTab) {
