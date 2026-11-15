@@ -101,7 +101,7 @@ func (d *DB) migrate() error {
 	if _, err := d.Exec(s); err != nil {
 		return err
 	}
-	// Add seller columns if they don't exist (for existing SQLite/libsql databases)
+	// Add seller and thumbnail columns if they don't exist (for existing SQLite/libsql/Postgres databases)
 	switch d.DriverName {
 	case "sqlite", "libsql":
 		for _, col := range []string{
@@ -109,14 +109,25 @@ func (d *DB) migrate() error {
 			"ALTER TABLE cars ADD COLUMN seller_phone TEXT DEFAULT ''",
 			"ALTER TABLE cars ADD COLUMN seller_address TEXT DEFAULT ''",
 			"ALTER TABLE cars ADD COLUMN comment TEXT DEFAULT ''",
+			"ALTER TABLE cars ADD COLUMN thumb_status INTEGER DEFAULT 0",
+			"ALTER TABLE cars ADD COLUMN thumb_checked_at DATETIME",
+			"ALTER TABLE cars ADD COLUMN thumb_attempts INTEGER DEFAULT 0",
 		} {
 			_, _ = d.Exec(col) // ignore errors (column already exists)
 		}
 	case "postgres":
 		_, _ = d.Exec("ALTER TABLE cars ADD COLUMN IF NOT EXISTS comment TEXT DEFAULT ''")
+		_, _ = d.Exec("ALTER TABLE cars ADD COLUMN IF NOT EXISTS thumb_status INTEGER DEFAULT 0")
+		_, _ = d.Exec("ALTER TABLE cars ADD COLUMN IF NOT EXISTS thumb_checked_at TIMESTAMP")
+		_, _ = d.Exec("ALTER TABLE cars ADD COLUMN IF NOT EXISTS thumb_attempts INTEGER DEFAULT 0")
 		_, _ = d.Exec("ALTER TABLE cars ENABLE ROW LEVEL SECURITY")
 		_, _ = d.Exec("ALTER TABLE page_views ENABLE ROW LEVEL SECURITY")
 		_, _ = d.Exec("ALTER TABLE price_history ENABLE ROW LEVEL SECURITY")
+	}
+	_, _ = d.Exec("UPDATE cars SET thumb_status = 0 WHERE thumb_status IS NULL")
+	_, _ = d.Exec("UPDATE cars SET thumb_attempts = 0 WHERE thumb_attempts IS NULL")
+	if _, err := d.Exec("CREATE INDEX IF NOT EXISTS idx_cars_thumb ON cars(thumb_status, is_sold)"); err != nil {
+		return err
 	}
 	if _, err := d.Exec(seedPriceHistory); err != nil {
 		log.Printf("Warning: price_history seed failed: %v", err)
@@ -195,7 +206,10 @@ CREATE TABLE IF NOT EXISTS cars (
     is_sold                      INTEGER DEFAULT 0,
     scraped_at                   DATETIME,
     last_seen_at                 DATETIME,
-    sold_at                      DATETIME
+    sold_at                      DATETIME,
+    thumb_status                 INTEGER DEFAULT 0,
+    thumb_checked_at             DATETIME,
+    thumb_attempts               INTEGER DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_cars_brand        ON cars(brand);
 CREATE INDEX IF NOT EXISTS idx_cars_year         ON cars(year);

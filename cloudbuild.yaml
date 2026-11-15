@@ -1,11 +1,15 @@
-# Cloud Build configuration for continuous deployment to Cloud Run
+# Cloud Build configuration for continuous deployment to Cloud Run (web service + scraper jobs)
 # Triggered automatically on push to main branch
 
 substitutions:
   _REGION: us-central1
   _SERVICE: crautosdb-web
+  _JOB_DAILY: crautosdb-scrape-daily
+  _JOB_WEEKLY: crautosdb-scrape-weekly
   _REPO: crautosdb-repo
   _VITE_GA_MEASUREMENT_ID: '' # Set your GA4 tag (e.g. G-DTWKTLNF9L) in GCP Console Cloud Build trigger settings to keep it private
+  _THUMBS_BUCKET: 'happy-customer-cars-thumbs'
+  _THUMBS_PUBLIC_BASE: 'https://storage.googleapis.com/happy-customer-cars-thumbs/thumbs'
 
 steps:
   # Step 1: Build the Docker image
@@ -53,8 +57,70 @@ steps:
       - '3'
       - '--remove-env-vars'
       - 'DATABASE_URL,OPENROUTER_API_KEY'
+      - '--update-env-vars'
+      - 'THUMBS_PUBLIC_BASE=${_THUMBS_PUBLIC_BASE}'
       - '--set-secrets'
       - 'DATABASE_URL=crautosdb-database-url:latest,OPENROUTER_API_KEY=crautosdb-openrouter-api-key:latest'
+
+  # Step 4: Deploy daily Cloud Run scraper job
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'jobs'
+      - 'deploy'
+      - '${_JOB_DAILY}'
+      - '--image'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$COMMIT_SHA'
+      - '--region'
+      - '${_REGION}'
+      - '--memory'
+      - '512Mi'
+      - '--cpu'
+      - '1'
+      - '--max-retries'
+      - '1'
+      - '--task-timeout'
+      - '1800s'
+      - '--remove-env-vars'
+      - 'DATABASE_URL,OPENROUTER_API_KEY'
+      - '--update-env-vars'
+      - 'THUMBS_BUCKET=${_THUMBS_BUCKET}'
+      - '--set-secrets'
+      - 'DATABASE_URL=crautosdb-database-url:latest,OPENROUTER_API_KEY=crautosdb-openrouter-api-key:latest'
+      - '--command'
+      - './main'
+      - '--args=-serve=false,-scrape=true,-force-scrape=false'
+
+  # Step 5: Deploy weekly Cloud Run deep-scrape job
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'jobs'
+      - 'deploy'
+      - '${_JOB_WEEKLY}'
+      - '--image'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$COMMIT_SHA'
+      - '--region'
+      - '${_REGION}'
+      - '--memory'
+      - '512Mi'
+      - '--cpu'
+      - '1'
+      - '--max-retries'
+      - '1'
+      - '--task-timeout'
+      - '3600s'
+      - '--remove-env-vars'
+      - 'DATABASE_URL,OPENROUTER_API_KEY'
+      - '--update-env-vars'
+      - 'THUMBS_BUCKET=${_THUMBS_BUCKET}'
+      - '--set-secrets'
+      - 'DATABASE_URL=crautosdb-database-url:latest,OPENROUTER_API_KEY=crautosdb-openrouter-api-key:latest'
+      - '--command'
+      - './main'
+      - '--args=-serve=false,-scrape=true,-force-scrape=true,-skip-refreshed-hours=24'
 
 images:
   - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$COMMIT_SHA'

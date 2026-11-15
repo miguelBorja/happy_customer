@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useLanguage } from '../context/LanguageContext';
-import { getThumbUrl, getPhotoUrl, getBodyType, MAX_GALLERY_PHOTOS } from '../utils/carPhotos';
+import { getThumbCandidates, getPhotoUrl, getBodyType, MAX_GALLERY_PHOTOS } from '../utils/carPhotos';
 
 /**
  * Simple inline SVG side-profile car silhouette per body type (6 types).
@@ -101,30 +101,19 @@ export const CarSilhouette = ({ type, className = '' }) => {
  */
 export const CarThumb = ({ car, variant = 'table', hoverPreview = false, badge = null }) => {
   const bodyType = getBodyType(car?.Estilo);
+  const candidates = getThumbCandidates(car, variant);
+  const carKey = `${car?.URL || ''}|${car?.ThumbURL || ''}|${Boolean(car?.IsSold)}`;
 
-  const candidates = [];
-  if (car?.URL) {
-    if (variant === 'card') {
-      const p = getPhotoUrl(car.URL, 1);
-      const t = getThumbUrl(car.URL);
-      if (p) candidates.push(p);
-      if (t) candidates.push(t);
-    } else {
-      const t = getThumbUrl(car.URL);
-      if (t) candidates.push(t);
-    }
-  }
-
-  // Adjust state during render when car.URL changes
-  const [prevUrl, setPrevUrl] = useState(car?.URL);
+  // Adjust state during render when car identity or thumbnail fields change
+  const [prevKey, setPrevKey] = useState(carKey);
   const [step, setStep] = useState(0);
   const [loadedSrc, setLoadedSrc] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
   const [previewCoords, setPreviewCoords] = useState({ top: 0, left: 0 });
   const [previewError, setPreviewError] = useState(false);
 
-  if (prevUrl !== car?.URL) {
-    setPrevUrl(car?.URL);
+  if (prevKey !== carKey) {
+    setPrevKey(carKey);
     setStep(0);
     setLoadedSrc(null);
     setShowPreview(false);
@@ -134,7 +123,7 @@ export const CarThumb = ({ car, variant = 'table', hoverPreview = false, badge =
   const timerRef = useRef(null);
   const thumbRef = useRef(null);
 
-  const previewUrl = getPhotoUrl(car?.URL, 1);
+  const previewUrl = car?.IsSold ? null : getPhotoUrl(car?.URL, 1);
 
   // Cleanup timer on unmount
   useEffect(() => {
@@ -266,25 +255,30 @@ const ChevronRight = () => (
  */
 export const CarGallery = ({ car }) => {
   const { t } = useLanguage();
-  const [prevUrl, setPrevUrl] = useState(car?.URL);
+  const carKey = `${car?.URL || ''}|${car?.ThumbURL || ''}|${Boolean(car?.IsSold)}`;
+  const skipProbe = !car?.URL || Boolean(car?.IsSold);
+
+  const [prevKey, setPrevKey] = useState(carKey);
   const [photos, setPhotos] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [probingDone, setProbingDone] = useState(false);
   const [loadedPhoto, setLoadedPhoto] = useState(null);
+  const [thumbFallbackError, setThumbFallbackError] = useState(false);
   const stripRef = useRef(null);
 
-  // Reset state during render if car.URL changes
-  if (prevUrl !== car?.URL) {
-    setPrevUrl(car?.URL);
+  // Reset state during render if car identity or sold/thumbnail fields change
+  if (prevKey !== carKey) {
+    setPrevKey(carKey);
     setPhotos([]);
     setCurrentIndex(0);
     setProbingDone(false);
     setLoadedPhoto(null);
+    setThumbFallbackError(false);
   }
 
-  // Sequential photo probing
+  // Sequential photo probing (skipped for sold listings where Crautos photos no longer exist)
   useEffect(() => {
-    if (!car?.URL) {
+    if (skipProbe) {
       return;
     }
 
@@ -326,24 +320,29 @@ export const CarGallery = ({ car }) => {
         activeImg.onerror = null;
       }
     };
-  }, [car?.URL]);
+  }, [car?.URL, skipProbe]);
+
+  const isDone = skipProbe || probingDone;
+  const displayPhotos = photos.length > 0
+    ? photos
+    : (isDone && car?.ThumbURL && !thumbFallbackError ? [car.ThumbURL] : []);
 
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (photos.length <= 1) return;
+      if (displayPhotos.length <= 1) return;
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
-        setCurrentIndex((prev) => (prev > 0 ? prev - 1 : photos.length - 1));
+        setCurrentIndex((prev) => (prev > 0 ? prev - 1 : displayPhotos.length - 1));
       } else if (e.key === 'ArrowRight') {
         e.preventDefault();
-        setCurrentIndex((prev) => (prev < photos.length - 1 ? prev + 1 : 0));
+        setCurrentIndex((prev) => (prev < displayPhotos.length - 1 ? prev + 1 : 0));
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [photos.length]);
+  }, [displayPhotos.length]);
 
   // Scroll active thumbnail into view
   useEffect(() => {
@@ -355,15 +354,15 @@ export const CarGallery = ({ car }) => {
   }, [currentIndex]);
 
   const bodyType = getBodyType(car?.Estilo);
-  const hasPhotos = photos.length > 0;
-  const currentPhoto = hasPhotos ? photos[currentIndex] : null;
+  const hasPhotos = displayPhotos.length > 0;
+  const currentPhoto = hasPhotos ? displayPhotos[currentIndex] : null;
   const isMainLoaded = loadedPhoto === currentPhoto && currentPhoto !== null;
 
   return (
     <div className="car-gallery">
       <div className="car-gallery-main">
         {!hasPhotos ? (
-          probingDone || !car?.URL ? (
+          isDone ? (
             <CarSilhouette type={bodyType} />
           ) : (
             <div className="car-thumb-skeleton" />
@@ -375,14 +374,19 @@ export const CarGallery = ({ car }) => {
               src={currentPhoto}
               alt={`${car?.Title || 'Car'} - photo ${currentIndex + 1}`}
               onLoad={() => setLoadedPhoto(currentPhoto)}
+              onError={() => {
+                if (photos.length === 0) {
+                  setThumbFallbackError(true);
+                }
+              }}
               style={{ opacity: isMainLoaded ? 1 : 0 }}
             />
-            {photos.length > 1 && (
+            {displayPhotos.length > 1 && (
               <>
                 <button
                   type="button"
                   className="car-gallery-arrow car-gallery-arrow--prev"
-                  onClick={() => setCurrentIndex((prev) => (prev > 0 ? prev - 1 : photos.length - 1))}
+                  onClick={() => setCurrentIndex((prev) => (prev > 0 ? prev - 1 : displayPhotos.length - 1))}
                   aria-label={t('prevPhoto')}
                 >
                   <ChevronLeft />
@@ -390,13 +394,13 @@ export const CarGallery = ({ car }) => {
                 <button
                   type="button"
                   className="car-gallery-arrow car-gallery-arrow--next"
-                  onClick={() => setCurrentIndex((prev) => (prev < photos.length - 1 ? prev + 1 : 0))}
+                  onClick={() => setCurrentIndex((prev) => (prev < displayPhotos.length - 1 ? prev + 1 : 0))}
                   aria-label={t('nextPhoto')}
                 >
                   <ChevronRight />
                 </button>
                 <div className="car-gallery-counter">
-                  {currentIndex + 1} / {photos.length}
+                  {currentIndex + 1} / {displayPhotos.length}
                 </div>
               </>
             )}
@@ -404,9 +408,9 @@ export const CarGallery = ({ car }) => {
         )}
       </div>
 
-      {photos.length > 1 && (
+      {displayPhotos.length > 1 && (
         <div className="car-gallery-strip" ref={stripRef}>
-          {photos.map((photoUrl, idx) => (
+          {displayPhotos.map((photoUrl, idx) => (
             <button
               key={photoUrl}
               type="button"

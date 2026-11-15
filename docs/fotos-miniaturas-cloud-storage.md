@@ -314,14 +314,16 @@ flowchart TD
   D -- ok --> S["thumb_status = 1"]
 ```
 
-- Concurrencia **baja y fija** (4 workers con una pausa de 250 ms): unas 16 descargas por segundo como máximo, muy por debajo de lo que ya hace el scraper (15 workers).
-- `ctx` con límite de tiempo: el paso no debe comerse el `--task-timeout` del job. Darle como máximo **10 minutos** en el job diario.
-- Log al final: `Thumbs: stored=… missing=… failed=… in …s`.
+- Concurrencia **baja y conservadora** (por defecto `2 workers` con pausa de `400 ms`): unas **3.5–4 descargas por segundo** reales (~18 KB/s), muy por debajo de lo que ya hace el scraper (15 workers) y con freno automático ante `403`/`429`.
+- `ctx` con límite de tiempo: el paso no debe comerse el `--task-timeout` del job. Darle como máximo **10 minutos** en el job diario (1,500 miniaturas tardan ~6 minutos).
+- Log al final: `Thumbs: stored=… missing=… failed=… skipped=… in …s`.
 
 ### 6.4 Integración con el scraper y flags (`main.go`)
 
-- Flag nuevo `-thumbs` (default `true`): al terminar `s.Run()`, si `THUMBS_BUCKET` está definida, corre `Runner.Run(ctx, 2000)`.
-- Flag nuevo `-backfill-thumbs`: corre solo el paso de miniaturas sobre **todos** los candidatos, incluidos los vendidos pendientes (sección 7), y termina.
+- Flag `-thumbs` (default `true`): al terminar `s.Run()`, si `THUMBS_BUCKET` está definida, corre `Runner.Run(ctx, *thumbsLimitFlag)` sobre autos **activos** únicamente.
+- Flag `-thumbs-only`: corre un solo lote de autos **activos** (`-thumbs-limit`) sin hacer scrape y termina (útil para probar lotes pequeños después de desplegar).
+- Flags de ritmo y tamaño: `-thumbs-limit` (default `1500`), `-thumbs-workers` (default `2`) y `-thumbs-delay` (default `400ms`).
+- Flag `-backfill-thumbs` (opcional): corre el paso de miniaturas sobre **todos** los candidatos, incluidos los vendidos pendientes, por tandas de `-thumbs-limit`, y termina.
 - Si `THUMBS_BUCKET` está vacía, el paso se salta con un log `Thumbs: disabled (THUMBS_BUCKET not set)`.
 
 ### 6.5 API
@@ -337,9 +339,19 @@ ThumbURL string `json:"ThumbURL,omitempty"`
 
 ---
 
-## 7. Backfill inicial
+## 7. Llenado inicial escalonado (recomendado) y lotes manuales
 
-Una sola vez, después de desplegar el código y crear el bucket:
+No hace falta correr un backfill masivo de una sola vez:
+
+- **Camino automático (recomendado):** al desplegar, el job diario de las 3:00 a. m. sincroniza hasta **1,500 autos activos por madrugada** (~6 min/noche a ~3.5–4 fotos/s ≈ ~18 KB/s), cubriendo todo el inventario activo (~4,500 autos) en **~3 noches** y omitiendo los ~6,000 vendidos viejos (cuyas fotos Crautos ya borró). Mientras tanto, cualquier auto activo sin miniatura en GCS sigue cayendo de forma transparente a la foto en vivo de Crautos.
+- **Prueba corta opcional (solo activos, ej. 200 autos en <1 min):**
+
+```powershell
+gcloud run jobs execute crautosdb-scrape-daily --region us-central1 `
+  --args="-serve=false,-scrape=false,-thumbs-only=true,-thumbs-limit=200" --wait
+```
+
+- **Backfill completo opcional (`-backfill-thumbs=true`):** si algún día quisieras intentar también autos marcados como vendidos:
 
 ```powershell
 gcloud run jobs execute crautosdb-scrape-daily --region us-central1 `
@@ -348,8 +360,6 @@ gcloud run jobs execute crautosdb-scrape-daily --region us-central1 `
 
 (También se puede correr en local con `THUMBS_BUCKET` y `gcloud auth application-default login`, apuntando `DATABASE_URL` a Turso.)
 
-- Candidatos del backfill: **todos** los `thumb_status = 0`, activos primero y después vendidos (los vendidos muy probablemente terminen en estado 2, pero vale la pena un intento).
-- Tiempo estimado: ~10.5k anuncios ÷ (4 workers × ~3/s) ≈ **15 minutos**. Si el job tiene `--task-timeout 1800s`, alcanza; si no, correrlo dos veces (es idempotente).
 - Verificación: `SELECT thumb_status, COUNT(*) FROM cars GROUP BY thumb_status;`
 
 ---
@@ -407,7 +417,7 @@ Orden:
 1. Paso 0 (derechos) aprobado.
 2. Crear el bucket y los permisos (sección 4).
 3. Desplegar backend y frontend con `THUMBS_BUCKET` en los jobs y **sin** `THUMBS_PUBLIC_BASE` en el servicio. Así el código nuevo corre, pero el sitio sigue usando Crautos.
-4. Ejecutar el backfill (sección 7) y revisar los conteos por estado.
+4. Probar un lote corto solo de activos (`--args="-serve=false,-scrape=false,-thumbs-only=true,-thumbs-limit=200"`) o dejar que el job nocturno llene 1,500 activos por madrugada (sección 7) y revisar los conteos por estado.
 5. Abrir un par de URLs del bucket en el navegador y revisar los headers (`Cache-Control`, `Content-Type`).
 6. Definir `THUMBS_PUBLIC_BASE` en el servicio web: desde ahí el sitio usa las miniaturas guardadas.
 
@@ -423,16 +433,16 @@ Después se marca el auto con `thumb_status = 2` para que no se vuelva a descarg
 
 ## 12. Checklist
 
-- [ ] Paso 0: términos de Crautos / permiso
-- [ ] Bucket, lectura pública y permiso de escritura para la cuenta de los jobs
-- [ ] Columnas, índice y migración (`db/db.go`) + `ThumbStatus` en `Car` y en los `Scan`
-- [ ] `db/thumbs.go`: `ThumbCandidates`, `SetThumbStatus`
-- [ ] Paquete `thumbs`: `CarID`, `Fetch`, `Store`, `GCSStore`, `MemStore`, `Runner`
-- [ ] Flags `-thumbs` y `-backfill-thumbs` en `main.go`
-- [ ] `ThumbURL` en el API
-- [ ] Variables de entorno en `deploy_gcp.ps1`
-- [ ] Frontend: `getThumbUrl(car)`, `getThumbCandidates`, `CarThumb`, respaldo en la galería
-- [ ] Tests (sección 10)
-- [ ] Backfill + verificación
-- [ ] Activar `THUMBS_PUBLIC_BASE`
-- [ ] Actualizar [ux-improvements.md](./ux-improvements.md) (mover a Hecho)
+- [ ] Paso 0: términos de Crautos / permiso (operativo antes de activar en producción)
+- [x] Bucket, lectura pública y permiso de escritura para la cuenta de los jobs (`deploy_gcp.ps1`)
+- [x] Columnas, índice y migración (`db/db.go`) + `ThumbStatus` en `Car` y en los `Scan` (`db/queries.go`)
+- [x] `db/thumbs.go`: `ThumbCandidates`, `ThumbBackfillCandidates`, `SetThumbStatus`
+- [x] Paquete `thumbs`: `CarID`, `Key`, `Fetch`, `Store`, `GCSStore`, `MemStore`, `Runner` (2 workers / 400 ms)
+- [x] Flags `-thumbs`, `-thumbs-only`, `-thumbs-limit`, `-thumbs-workers`, `-thumbs-delay` y `-backfill-thumbs` en `main.go`
+- [x] `ThumbURL` en el API (`api/market.go`, `api/opengraph.go`)
+- [x] Variables de entorno en `deploy_gcp.ps1` y `cloudbuild.yaml`
+- [x] Frontend: `getThumbUrl(car)`, `getThumbCandidates`, `CarThumb`, respaldo en `CarGallery`
+- [x] Tests (sección 10: `db/thumbs_test.go`, `thumbs/thumbs_test.go`, `api/thumbs_test.go`, `web/src/utils/carPhotos.test.js`)
+- [ ] Llenado escalonado / prueba corta en GCP (`-thumbs-only=true,-thumbs-limit=200` o dejar correr ~3 noches del job diario) y verificación de conteos
+- [x] Activar `THUMBS_PUBLIC_BASE` en `deploy_gcp.ps1` y `cloudbuild.yaml`
+- [x] Actualizar [ux-improvements.md](./ux-improvements.md) (mover a Hecho)

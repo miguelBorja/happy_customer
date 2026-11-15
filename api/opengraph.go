@@ -201,6 +201,8 @@ func (s *Server) renderCarMeta(r *http.Request, baseHTML, carURL string) string 
 			ogImage = "https://crautos.com/clasificados/usados/" + m[1] + "-1.jpg"
 			twitterCard = "summary_large_image"
 		}
+	} else if cm.ThumbURL != "" {
+		ogImage = cm.ThumbURL
 	}
 
 	canonicalURL := buildSEOURL(resolveBaseURL(r), "car", carURL)

@@ -41,6 +41,7 @@ type Car struct {
 	ScrapedAt        time.Time
 	LastSeenAt       time.Time
 	SoldAt           *time.Time
+	ThumbStatus      int `json:"-"`
 }
 
 const carColumns = `
@@ -751,7 +752,7 @@ func (d *DB) GetCars(f FilterParams) ([]Car, error) {
 		equip_sensores_frontales, equip_sunroof, equip_tapiceria_cuero, equip_turbo,
 		equip_vidrios_electricos, equip_vidrios_tintados, equip_volante_ajustable, equip_volante_multifuncional,
 		seller_name, seller_phone, seller_address, comment,
-		is_sold, scraped_at, last_seen_at, sold_at FROM cars WHERE 1=1`
+		is_sold, scraped_at, last_seen_at, sold_at, COALESCE(thumb_status, 0) FROM cars WHERE 1=1`
 
 	where, args := buildCarFilters(f)
 	q += where
@@ -824,7 +825,7 @@ func (d *DB) GetCars(f FilterParams) ([]Car, error) {
 			&c.Kilometraje, &c.Placa, &c.PrecioNegociable, &c.Provincia, &c.SeRecibe, &c.Transmision, &c.PagoImpuestos,
 			&e_aire_ac, &e_aire_climatizado, &e_alarma, &e_android_auto, &e_apple_carplay, &e_aros_lujo, &e_asiento_memoria, &e_asientos_electricos, &e_bluetooth, &e_bolsa_aire, &e_caja_dual, &e_cierre_central, &e_computadora, &e_control_crucero, &e_control_descenso, &e_radio_volante, &e_estabilidad, &e_camara_360, &e_camara_retroceso, &e_desempanador, &e_direccion, &e_espejos_electricos, &e_frenos_abs, &e_halogenos, &e_llave_inteligente, &e_xenon, &e_radio_usb, &e_retrovisores, &e_revision_tecnica, &e_sensor_lluvia, &e_sensores_retroceso, &e_sensores_frontales, &e_sunroof, &e_tapiceria_cuero, &e_turbo, &e_vidrios_electricos, &e_vidrios_tintados, &e_volante_ajustable, &e_volante_multifuncional,
 			&c.SellerName, &c.SellerPhone, &c.SellerAddress, &c.Comment,
-			&isSold, &scrapedAtStr, &lastSeenStr, &soldAtStr,
+			&isSold, &scrapedAtStr, &lastSeenStr, &soldAtStr, &c.ThumbStatus,
 		); err != nil {
 			return nil, err
 		}
@@ -1050,7 +1051,7 @@ func (d *DB) GetCarsByURLs(urls []string) ([]Car, error) {
 		equip_sensores_frontales, equip_sunroof, equip_tapiceria_cuero, equip_turbo,
 		equip_vidrios_electricos, equip_vidrios_tintados, equip_volante_ajustable, equip_volante_multifuncional,
 		seller_name, seller_phone, seller_address, comment,
-		is_sold, scraped_at, last_seen_at, sold_at FROM cars WHERE url IN (%s)
+		is_sold, scraped_at, last_seen_at, sold_at, COALESCE(thumb_status, 0) FROM cars WHERE url IN (%s)
 		ORDER BY year DESC, price ASC`, strings.Join(placeholders, ","))
 
 	rows, err := d.Query(d.queryFormat(q), args...)
@@ -1074,7 +1075,7 @@ func (d *DB) GetCarsByURLs(urls []string) ([]Car, error) {
 			&c.Kilometraje, &c.Placa, &c.PrecioNegociable, &c.Provincia, &c.SeRecibe, &c.Transmision, &c.PagoImpuestos,
 			&e_aire_ac, &e_aire_climatizado, &e_alarma, &e_android_auto, &e_apple_carplay, &e_aros_lujo, &e_asiento_memoria, &e_asientos_electricos, &e_bluetooth, &e_bolsa_aire, &e_caja_dual, &e_cierre_central, &e_computadora, &e_control_crucero, &e_control_descenso, &e_radio_volante, &e_estabilidad, &e_camara_360, &e_camara_retroceso, &e_desempanador, &e_direccion, &e_espejos_electricos, &e_frenos_abs, &e_halogenos, &e_llave_inteligente, &e_xenon, &e_radio_usb, &e_retrovisores, &e_revision_tecnica, &e_sensor_lluvia, &e_sensores_retroceso, &e_sensores_frontales, &e_sunroof, &e_tapiceria_cuero, &e_turbo, &e_vidrios_electricos, &e_vidrios_tintados, &e_volante_ajustable, &e_volante_multifuncional,
 			&c.SellerName, &c.SellerPhone, &c.SellerAddress, &c.Comment,
-			&isSold, &scrapedAtStr, &lastSeenStr, &soldAtStr,
+			&isSold, &scrapedAtStr, &lastSeenStr, &soldAtStr, &c.ThumbStatus,
 		); err != nil {
 			return nil, err
 		}

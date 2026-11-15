@@ -17,6 +17,7 @@ import (
 	"crautosdb/api"
 	"crautosdb/db"
 	"crautosdb/scraper"
+	"crautosdb/thumbs"
 )
 
 // loadDotEnv loads KEY=VALUE pairs from filename into the environment.
@@ -49,6 +50,44 @@ func loadDotEnv(filename string) {
 	}
 }
 
+func runThumbs(ctx context.Context, database *db.DB, backfill bool, limit, workers int, delay time.Duration) {
+	bucket := strings.TrimSpace(os.Getenv("THUMBS_BUCKET"))
+	if bucket == "" {
+		log.Println("Thumbs: disabled (THUMBS_BUCKET not set)")
+		return
+	}
+	store, err := thumbs.NewGCSStore(ctx, bucket)
+	if err != nil {
+		log.Printf("Warning: failed to initialize GCS thumbnail store: %v", err)
+		return
+	}
+	defer func() { _ = store.Close() }()
+
+	if limit <= 0 {
+		limit = 1500
+	}
+	runner := &thumbs.Runner{
+		DB:      database,
+		Store:   store,
+		Workers: workers,
+		Delay:   delay,
+	}
+	if backfill {
+		log.Println("Starting thumbnail backfill...")
+		if _, err := runner.RunBackfill(ctx, limit); err != nil && !errors.Is(err, context.Canceled) {
+			log.Printf("Warning: thumbnail backfill ended with error: %v", err)
+		}
+		return
+	}
+
+	log.Printf("Starting thumbnail sync (limit=%d, workers=%d, delay=%s)...", limit, workers, delay)
+	thumbCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+	defer cancel()
+	if _, err := runner.Run(thumbCtx, limit); err != nil && !errors.Is(err, context.Canceled) {
+		log.Printf("Warning: thumbnail sync ended with error: %v", err)
+	}
+}
+
 func main() {
 	loadDotEnv(".env")
 
@@ -56,6 +95,12 @@ func main() {
 	serveFlag := flag.Bool("serve", true, "Run the API server")
 	backfillFlag := flag.Bool("backfill", false, "Backfill seller info for existing cars")
 	backfillCommentsFlag := flag.Bool("backfill-comments", false, "Backfill comments for active cars")
+	thumbsFlag := flag.Bool("thumbs", true, "Download and store active listing thumbnails in GCS after scraping")
+	thumbsOnlyFlag := flag.Bool("thumbs-only", false, "Run one active-only thumbnail batch (-thumbs-limit) without scraping and exit")
+	backfillThumbsFlag := flag.Bool("backfill-thumbs", false, "Backfill listing thumbnails in GCS (including sold cars) and exit")
+	thumbsLimitFlag := flag.Int("thumbs-limit", 1500, "Maximum active/retryable thumbnails (or backfill batch size) per run")
+	thumbsWorkersFlag := flag.Int("thumbs-workers", 2, "Concurrent workers for thumbnail downloads")
+	thumbsDelayFlag := flag.Duration("thumbs-delay", 400*time.Millisecond, "Pause between thumbnail downloads per worker")
 	cleanupFlag := flag.Bool("cleanup", false, "Clean up whitespace and placeholder comments in existing car records")
 	defaultPort := os.Getenv("PORT")
 	if defaultPort == "" {
@@ -168,21 +213,32 @@ func main() {
 	}
 
 	var scraperDone chan struct{}
-	if *scrapeFlag || *backfillFlag || *backfillCommentsFlag {
+	if *scrapeFlag || *backfillFlag || *backfillCommentsFlag || *thumbsOnlyFlag || *backfillThumbsFlag {
 		runScraper := func() {
-			s := scraper.NewScraper(database, *forceScrapeFlag, *skipRefreshedHoursFlag)
+			if *scrapeFlag || *backfillFlag || *backfillCommentsFlag {
+				s := scraper.NewScraper(database, *forceScrapeFlag, *skipRefreshedHoursFlag)
 
-			if *backfillFlag && ctx.Err() == nil {
-				log.Println("Starting seller backfill...")
-				s.BackfillSellers(ctx)
+				if *backfillFlag && ctx.Err() == nil {
+					log.Println("Starting seller backfill...")
+					s.BackfillSellers(ctx)
+				}
+				if *backfillCommentsFlag && ctx.Err() == nil {
+					log.Println("Starting comment backfill...")
+					s.BackfillComments(ctx)
+				}
+				if *scrapeFlag && ctx.Err() == nil {
+					log.Println("Starting scraper...")
+					s.Run(ctx)
+					if *thumbsFlag && !*thumbsOnlyFlag && !*backfillThumbsFlag && ctx.Err() == nil {
+						runThumbs(ctx, database, false, *thumbsLimitFlag, *thumbsWorkersFlag, *thumbsDelayFlag)
+					}
+				}
 			}
-			if *backfillCommentsFlag && ctx.Err() == nil {
-				log.Println("Starting comment backfill...")
-				s.BackfillComments(ctx)
+			if *thumbsOnlyFlag && !*backfillThumbsFlag && ctx.Err() == nil {
+				runThumbs(ctx, database, false, *thumbsLimitFlag, *thumbsWorkersFlag, *thumbsDelayFlag)
 			}
-			if *scrapeFlag && ctx.Err() == nil {
-				log.Println("Starting scraper...")
-				s.Run(ctx)
+			if *backfillThumbsFlag && ctx.Err() == nil {
+				runThumbs(ctx, database, true, *thumbsLimitFlag, *thumbsWorkersFlag, *thumbsDelayFlag)
 			}
 		}
 

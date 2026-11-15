@@ -14,9 +14,35 @@ export const getCarId = (url) => {
   return match ? match[1] : null;
 };
 
-export const getThumbUrl = (url) => {
-  const id = getCarId(url);
+export const getThumbUrl = (carOrUrl) => {
+  if (carOrUrl && typeof carOrUrl === 'object') {
+    if (carOrUrl.ThumbURL) return carOrUrl.ThumbURL;
+    const id = getCarId(carOrUrl.URL);
+    return id ? `${PHOTO_BASE}/${id}-t.jpg` : null;
+  }
+  const id = getCarId(carOrUrl);
   return id ? `${PHOTO_BASE}/${id}-t.jpg` : null;
+};
+
+export const getThumbCandidates = (car, variant = 'table') => {
+  if (!car) return [];
+  if (car.IsSold) {
+    return car.ThumbURL ? [car.ThumbURL] : [];
+  }
+  const id = getCarId(car.URL);
+  const crautosThumb = id ? `${PHOTO_BASE}/${id}-t.jpg` : null;
+  const raw = variant === 'card'
+    ? [getPhotoUrl(car.URL, 1), car.ThumbURL, crautosThumb]
+    : [car.ThumbURL, crautosThumb];
+  const seen = new Set();
+  const candidates = [];
+  for (const src of raw) {
+    if (src && !seen.has(src)) {
+      seen.add(src);
+      candidates.push(src);
+    }
+  }
+  return candidates;
 };
 
 export const getPhotoUrl = (url, n = 1) => {
