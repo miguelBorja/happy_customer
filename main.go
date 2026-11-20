@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"crautosdb/alerts"
 	"crautosdb/api"
 	"crautosdb/db"
 	"crautosdb/scraper"
@@ -88,6 +89,17 @@ func runThumbs(ctx context.Context, database *db.DB, backfill bool, limit, worke
 	}
 }
 
+func runAlerts(ctx context.Context, database *db.DB) {
+	token := strings.TrimSpace(os.Getenv("TELEGRAM_BOT_TOKEN"))
+	if token == "" {
+		log.Println("Alerts: disabled (TELEGRAM_BOT_TOKEN not set)")
+		return
+	}
+	srv := &api.Server{DB: database}
+	client := alerts.NewTelegramClient(token)
+	srv.RunAlertsDigest(ctx, client, strings.TrimRight(strings.TrimSpace(os.Getenv("PUBLIC_BASE_URL")), "/"))
+}
+
 func main() {
 	loadDotEnv(".env")
 
@@ -98,6 +110,8 @@ func main() {
 	thumbsFlag := flag.Bool("thumbs", true, "Download and store active listing thumbnails in GCS after scraping")
 	thumbsOnlyFlag := flag.Bool("thumbs-only", false, "Run one active-only thumbnail batch (-thumbs-limit) without scraping and exit")
 	backfillThumbsFlag := flag.Bool("backfill-thumbs", false, "Backfill listing thumbnails in GCS (including sold cars) and exit")
+	alertsFlag := flag.Bool("alerts", true, "Send Telegram alerts after scraping when TELEGRAM_BOT_TOKEN is set")
+	alertsOnlyFlag := flag.Bool("alerts-only", false, "Evaluate and send pending Telegram alerts once and exit")
 	thumbsLimitFlag := flag.Int("thumbs-limit", 1500, "Maximum active/retryable thumbnails (or backfill batch size) per run")
 	thumbsWorkersFlag := flag.Int("thumbs-workers", 2, "Concurrent workers for thumbnail downloads")
 	thumbsDelayFlag := flag.Duration("thumbs-delay", 400*time.Millisecond, "Pause between thumbnail downloads per worker")
@@ -212,6 +226,11 @@ func main() {
 		}
 	}
 
+	if *alertsOnlyFlag && !*serveFlag {
+		runAlerts(ctx, database)
+		return
+	}
+
 	var scraperDone chan struct{}
 	if *scrapeFlag || *backfillFlag || *backfillCommentsFlag || *thumbsOnlyFlag || *backfillThumbsFlag {
 		runScraper := func() {
@@ -231,6 +250,9 @@ func main() {
 					s.Run(ctx)
 					if *thumbsFlag && !*thumbsOnlyFlag && !*backfillThumbsFlag && ctx.Err() == nil {
 						runThumbs(ctx, database, false, *thumbsLimitFlag, *thumbsWorkersFlag, *thumbsDelayFlag)
+					}
+					if *alertsFlag && ctx.Err() == nil {
+						runAlerts(ctx, database)
 					}
 				}
 			}
@@ -275,8 +297,26 @@ func main() {
 		mux.HandleFunc("/api/stats/detailed", server.HandleDetailedStats)
 		mux.HandleFunc("/api/visit", server.HandleRecordVisit)
 		mux.HandleFunc("/api/ai/compare", server.HandleAICompare)
+		mux.HandleFunc("/api/alerts", server.HandleAlerts)
+		mux.HandleFunc("/api/alerts/status", server.HandleAlertStatus)
+		mux.HandleFunc("/api/alerts/unsubscribe", server.HandleAlertUnsubscribe)
+		mux.HandleFunc("/api/alerts/telegram/webhook", server.HandleTelegramWebhook)
 		mux.HandleFunc("/api/sellers/top", server.HandleTopSellers)
 		mux.HandleFunc("/api/sellers/summary", server.HandleSellerSummary)
+
+		if token := strings.TrimSpace(os.Getenv("TELEGRAM_BOT_TOKEN")); token != "" {
+			tgClient := alerts.NewTelegramClient(token)
+			publicBase := strings.TrimRight(strings.TrimSpace(os.Getenv("PUBLIC_BASE_URL")), "/")
+			if publicBase != "" {
+				go func() {
+					if err := tgClient.SetWebhook(ctx, publicBase+"/api/alerts/telegram/webhook", strings.TrimSpace(os.Getenv("TELEGRAM_WEBHOOK_SECRET"))); err != nil {
+						log.Printf("Warning: failed to set Telegram webhook: %v", err)
+					}
+				}()
+			} else {
+				go api.StartTelegramPolling(ctx, tgClient, database, publicBase)
+			}
+		}
 		mux.HandleFunc("/sitemap.xml", server.HandleSitemap)
 		mux.HandleFunc("/robots.txt", server.HandleRobotsTxt)
 

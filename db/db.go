@@ -123,6 +123,7 @@ func (d *DB) migrate() error {
 		_, _ = d.Exec("ALTER TABLE cars ENABLE ROW LEVEL SECURITY")
 		_, _ = d.Exec("ALTER TABLE page_views ENABLE ROW LEVEL SECURITY")
 		_, _ = d.Exec("ALTER TABLE price_history ENABLE ROW LEVEL SECURITY")
+		_, _ = d.Exec("ALTER TABLE alert_subscriptions ENABLE ROW LEVEL SECURITY")
 	}
 	_, _ = d.Exec("UPDATE cars SET thumb_status = 0 WHERE thumb_status IS NULL")
 	_, _ = d.Exec("UPDATE cars SET thumb_attempts = 0 WHERE thumb_attempts IS NULL")
@@ -240,6 +241,20 @@ CREATE TABLE IF NOT EXISTS price_history (
     seen_at     DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_price_history_url ON price_history(url, seen_at);
+
+CREATE TABLE IF NOT EXISTS alert_subscriptions (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    channel           TEXT NOT NULL DEFAULT 'telegram',
+    target            TEXT NOT NULL DEFAULT '',
+    query             TEXT NOT NULL,
+    label             TEXT NOT NULL DEFAULT '',
+    connect_token     TEXT NOT NULL UNIQUE,
+    unsubscribe_token TEXT NOT NULL UNIQUE,
+    active            INTEGER NOT NULL DEFAULT 0,
+    last_notified_at  DATETIME,
+    created_at        DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_alert_subs_active ON alert_subscriptions(active, channel);
 `
 
 // seedPriceHistory records the current price of every car as its baseline the first time

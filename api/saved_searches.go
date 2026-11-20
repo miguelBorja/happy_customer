@@ -7,6 +7,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"crautosdb/db"
 )
 
 const maxDigestSearches = 15
@@ -24,6 +26,68 @@ type SearchDigestResult struct {
 	TotalCount int    `json:"totalCount"`
 	NewCount   int    `json:"newCount"`
 	DropCount  int    `json:"dropCount"`
+}
+
+// SavedSearchMatches holds the outcome of evaluating a saved search.
+type SavedSearchMatches struct {
+	TotalCount int
+	NewURLs    []string
+	DropURLs   []string
+}
+
+// EvaluateSavedSearch runs a saved filter query and reports the total matches plus the URLs
+// that are new or whose price dropped since the given timestamp.
+func (s *Server) EvaluateSavedSearch(stats *db.MarketIndex, rawQuery string, since time.Time, now time.Time) (SavedSearchMatches, error) {
+	var result SavedSearchMatches
+
+	raw := strings.TrimPrefix(strings.TrimSpace(rawQuery), "?")
+	q, _ := url.ParseQuery(raw)
+	f := parseFilterQuery(q)
+	if q.Get("isSold") == "" {
+		active := false
+		f.IsSold = &active
+	}
+	if stats != nil {
+		f.ExcludeURLs = stats.ActiveDuplicateURLs()
+	}
+
+	keys, err := s.DB.GetCarPriceKeys(f)
+	if err != nil {
+		return result, err
+	}
+
+	onlyGood := q.Get("deal") == "good"
+	onlyDrops := q.Get("priceDrop") == "true"
+	onlyMotivated := q.Get("motivated") == "true"
+	if onlyGood || onlyDrops || onlyMotivated {
+		allowedURLs := rankCatalogURLs(keys, stats, onlyGood, onlyDrops, onlyMotivated, false, f, now)
+		allowedSet := make(map[string]struct{}, len(allowedURLs))
+		for _, u := range allowedURLs {
+			allowedSet[u] = struct{}{}
+		}
+		filtered := keys[:0]
+		for _, k := range keys {
+			if _, ok := allowedSet[k.URL]; ok {
+				filtered = append(filtered, k)
+			}
+		}
+		keys = filtered
+	}
+
+	result.TotalCount = len(keys)
+
+	if !since.IsZero() {
+		for _, k := range keys {
+			if !k.ScrapedAt.IsZero() && k.ScrapedAt.After(since) {
+				result.NewURLs = append(result.NewURLs, k.URL)
+			}
+			if _, _, changedAt, ok := qualifyingPriceDrop(stats, k); ok && !changedAt.IsZero() && changedAt.After(since) {
+				result.DropURLs = append(result.DropURLs, k.URL)
+			}
+		}
+	}
+
+	return result, nil
 }
 
 // HandleSearchesDigest accepts up to 15 saved filter queries and returns total, new and drop counts.
@@ -59,61 +123,26 @@ func (s *Server) HandleSearchesDigest(w http.ResponseWriter, r *http.Request) {
 	results := make([]SearchDigestResult, 0, len(items))
 
 	for _, item := range items {
-		rawQuery := strings.TrimPrefix(strings.TrimSpace(item.Query), "?")
-		q, _ := url.ParseQuery(rawQuery)
-		f := parseFilterQuery(q)
-		if q.Get("isSold") == "" {
-			active := false
-			f.IsSold = &active
-		}
-		if stats != nil {
-			f.ExcludeURLs = stats.ActiveDuplicateURLs()
+		var sinceTime time.Time
+		if sinceStr := strings.TrimSpace(item.Since); sinceStr != "" {
+			if parsed, err := time.Parse(time.RFC3339, sinceStr); err == nil {
+				sinceTime = parsed
+			}
 		}
 
-		keys, err := s.DB.GetCarPriceKeys(f)
+		matches, err := s.EvaluateSavedSearch(stats, item.Query, sinceTime, time.Now())
 		if err != nil {
-			log.Printf("[API ERROR] GetCarPriceKeys (digest %s) failed: %v", item.ID, err)
+			log.Printf("[API ERROR] EvaluateSavedSearch (digest %s) failed: %v", item.ID, err)
 			respondError(w, http.StatusInternalServerError, "Failed to compute search digest")
 			return
 		}
 
-		onlyGood := q.Get("deal") == "good"
-		onlyDrops := q.Get("priceDrop") == "true"
-		onlyMotivated := q.Get("motivated") == "true"
-		if onlyGood || onlyDrops || onlyMotivated {
-			allowedURLs := rankCatalogURLs(keys, stats, onlyGood, onlyDrops, onlyMotivated, false, f, time.Now())
-			allowedSet := make(map[string]struct{}, len(allowedURLs))
-			for _, u := range allowedURLs {
-				allowedSet[u] = struct{}{}
-			}
-			filtered := keys[:0]
-			for _, k := range keys {
-				if _, ok := allowedSet[k.URL]; ok {
-					filtered = append(filtered, k)
-				}
-			}
-			keys = filtered
-		}
-
-		res := SearchDigestResult{
+		results = append(results, SearchDigestResult{
 			ID:         item.ID,
-			TotalCount: len(keys),
-		}
-
-		if sinceStr := strings.TrimSpace(item.Since); sinceStr != "" {
-			if sinceTime, err := time.Parse(time.RFC3339, sinceStr); err == nil {
-				for _, k := range keys {
-					if !k.ScrapedAt.IsZero() && k.ScrapedAt.After(sinceTime) {
-						res.NewCount++
-					}
-					if _, _, changedAt, ok := qualifyingPriceDrop(stats, k); ok && !changedAt.IsZero() && changedAt.After(sinceTime) {
-						res.DropCount++
-					}
-				}
-			}
-		}
-
-		results = append(results, res)
+			TotalCount: matches.TotalCount,
+			NewCount:   len(matches.NewURLs),
+			DropCount:  len(matches.DropURLs),
+		})
 	}
 
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
