@@ -33,15 +33,6 @@ func (c *capture) list() []string {
 	return out
 }
 
-func (c *capture) last() string {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if len(c.texts) == 0 {
-		return ""
-	}
-	return c.texts[len(c.texts)-1]
-}
-
 func newCaptureServer(t *testing.T, c *capture) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
