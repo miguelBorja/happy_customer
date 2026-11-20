@@ -75,7 +75,7 @@ func classifySellerType(displayName string, activeCount, totalCount int) string 
 		return "dealer"
 	}
 	fields := strings.FieldsFunc(lower, func(r rune) bool {
-		return !((r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == 'á' || r == 'é' || r == 'í' || r == 'ó' || r == 'ú' || r == 'ü' || r == 'ñ')
+		return (r < 'a' || r > 'z') && (r < '0' || r > '9') && r != 'á' && r != 'é' && r != 'í' && r != 'ó' && r != 'ú' && r != 'ü' && r != 'ñ'
 	})
 	for _, tok := range fields {
 		if _, ok := dealerNameTokens[tok]; ok {

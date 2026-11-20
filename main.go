@@ -97,7 +97,9 @@ func runAlerts(ctx context.Context, database *db.DB) {
 	}
 	srv := &api.Server{DB: database}
 	client := alerts.NewTelegramClient(token)
-	srv.RunAlertsDigest(ctx, client, strings.TrimRight(strings.TrimSpace(os.Getenv("PUBLIC_BASE_URL")), "/"))
+	if err := srv.RunAlertsDigest(ctx, client, strings.TrimRight(strings.TrimSpace(os.Getenv("PUBLIC_BASE_URL")), "/")); err != nil {
+		log.Printf("Warning: alerts digest failed: %v", err)
+	}
 }
 
 func main() {

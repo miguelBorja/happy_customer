@@ -66,10 +66,7 @@ func (r *Runner) RunBackfill(ctx context.Context, batchSize int) (Summary, error
 	}
 	start := time.Now()
 	var total Summary
-	for {
-		if ctx.Err() != nil {
-			break
-		}
+	for ctx.Err() == nil {
 		urls, err := r.DB.ThumbBackfillCandidates(batchSize)
 		if err != nil {
 			return total, err
