@@ -9,6 +9,8 @@ import MarketBadge from './MarketBadge';
 import { getMarketDeal, formatUSD, formatMarketReference, dealReason } from '../utils/marketDeal';
 import { useCompare } from '../hooks/useCompare';
 import { fetchPriceHistory } from '../api/client';
+import AlertSubscribeModal from './AlertSubscribeModal';
+import { buildCarAlertQuery, formatCarAlertLabel } from '../utils/carAlerts';
 import {
   summarizePriceHistory,
   formatChangeAge,
@@ -107,8 +109,12 @@ const CarDetailsModal = ({ isOpen, onClose, car, onFilterBySeller, onNegotiateWi
   const { isComparing, toggleCompare } = useCompare();
   const [historyState, setHistoryState] = useState({ url: null, points: [] });
   const [waIntentState, setWaIntentState] = useState({ url: null, intent: 'availability' });
+  const [alertUrlOpen, setAlertUrlOpen] = useState(null);
   const activeUrl = isOpen && car?.URL ? car.URL : null;
   const waIntent = waIntentState.url === activeUrl ? waIntentState.intent : 'availability';
+  const isAlertOpen = Boolean(alertUrlOpen && activeUrl && alertUrlOpen === activeUrl);
+  const carAlertQuery = activeUrl ? buildCarAlertQuery([activeUrl]).query : '';
+  const carAlertLabel = car ? formatCarAlertLabel(car) : '';
 
   useEffect(() => {
     if (!activeUrl) return undefined;
@@ -249,7 +255,9 @@ const CarDetailsModal = ({ isOpen, onClose, car, onFilterBySeller, onNegotiateWi
     return str !== '' && str !== '-';
   });
 
-  return createPortal(
+  return (
+    <>
+    {createPortal(
     <div 
       className={`details-modal-overlay ${isOpen ? 'open' : ''}`} 
       onClick={(e) => { e.stopPropagation(); onClose(); }}
@@ -546,6 +554,17 @@ const CarDetailsModal = ({ isOpen, onClose, car, onFilterBySeller, onNegotiateWi
             </span>
           </button>
 
+          {car?.URL && !car.IsSold && (
+            <button
+              type="button"
+              className="btn-modal-price-alert"
+              onClick={() => setAlertUrlOpen(car.URL)}
+            >
+              <span>📲</span>
+              <span>{t('carPriceAlertBtn')}</span>
+            </button>
+          )}
+
           {onNegotiateWithCopilot && (
             <button
               type="button"
@@ -592,6 +611,14 @@ const CarDetailsModal = ({ isOpen, onClose, car, onFilterBySeller, onNegotiateWi
       </div>
     </div>,
     document.body
+    )}
+    <AlertSubscribeModal
+      isOpen={isAlertOpen}
+      onClose={() => setAlertUrlOpen(null)}
+      query={carAlertQuery}
+      label={carAlertLabel}
+    />
+    </>
   );
 };
 

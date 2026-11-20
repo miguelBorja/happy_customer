@@ -2,6 +2,383 @@
    Extracted Component Styles (Navbar, Cards, Modals, Badges, Skeletons, AI)
    ========================================================================== */
 
+/* Telegram alert subscription modal */
+.alert-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(15, 23, 42, 0.68);
+  backdrop-filter: blur(10px);
+  z-index: 400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+[data-theme="light"] .alert-modal-overlay {
+  background-color: rgba(15, 23, 42, 0.45);
+}
+
+.alert-modal {
+  position: relative;
+  width: min(420px, 92vw);
+  background: var(--bg-card);
+  color: var(--text-main);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 2.25rem 1.5rem 1.5rem;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  text-align: center;
+}
+
+.alert-modal-close {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted);
+  font-size: 1.15rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.alert-modal-close:hover {
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="light"] .alert-modal-close {
+  background: #f1f5f9;
+}
+
+[data-theme="light"] .alert-modal-close:hover {
+  background: #e2e8f0;
+}
+
+.alert-modal-title {
+  margin: 0;
+  font-size: 1.25rem;
+  color: var(--text-main);
+}
+
+.alert-modal-label {
+  align-self: center;
+  display: inline-block;
+  max-width: 100%;
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.alert-modal-subtitle {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.alert-modal-telegram-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.7rem 1.2rem;
+  border-radius: 10px;
+  background: #2aabee;
+  color: #fff;
+  font-weight: 600;
+  text-decoration: none;
+  transition: filter 0.2s ease, transform 0.1s ease;
+}
+
+.alert-modal-telegram-btn:hover {
+  filter: brightness(1.08);
+}
+
+.alert-modal-telegram-btn:active {
+  transform: scale(0.98);
+}
+
+.alert-modal-waiting {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.alert-modal-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: alert-modal-spin 0.8s linear infinite;
+}
+
+@keyframes alert-modal-spin {
+  to { transform: rotate(360deg); }
+}
+
+.alert-modal-success {
+  padding: 0.85rem 1rem;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--success, #22c55e) 18%, transparent);
+  color: var(--success, #22c55e);
+  border: 1px solid color-mix(in srgb, var(--success, #22c55e) 45%, transparent);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.alert-modal-hint {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+  opacity: 0.85;
+}
+
+.btn-telegram-alert {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.8rem;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, #2aabee 45%, var(--border));
+  background: color-mix(in srgb, #2aabee 12%, transparent);
+  color: #2aabee;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.btn-telegram-alert:hover {
+  background: #2aabee;
+  color: #fff;
+}
+
+.saved-search-chip-alert {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, #2aabee 45%, var(--border));
+  background: color-mix(in srgb, #2aabee 10%, transparent);
+  color: #2aabee;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.saved-search-chip-alert:hover {
+  background: #2aabee;
+  color: #fff;
+}
+
+.fav-saved-alert-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.4rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.fav-saved-alert-btn:hover {
+  border-color: #2aabee;
+  color: #2aabee;
+}
+
+/* CarDetailsModal footer price alert button */
+.btn-modal-price-alert {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.62rem 1rem;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: color-mix(in srgb, #2aabee 16%, transparent);
+  color: #2aabee;
+  border: 1px solid color-mix(in srgb, #2aabee 45%, var(--border));
+  transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.btn-modal-price-alert:hover {
+  transform: translateY(-1px);
+  background: #2aabee;
+  color: #fff;
+  border-color: #2aabee;
+}
+
+[data-theme="light"] .btn-modal-price-alert {
+  background: color-mix(in srgb, #2aabee 10%, #ffffff);
+  border-color: color-mix(in srgb, #2aabee 40%, #e2e8f0);
+}
+
+/* Favorites controls list alert button */
+.fav-list-alert-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, #2aabee 45%, var(--border));
+  background: color-mix(in srgb, #2aabee 12%, transparent);
+  color: #2aabee;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.fav-list-alert-btn:hover {
+  background: #2aabee;
+  color: #fff;
+}
+
+@media (max-width: 640px) {
+  .fav-list-alert-btn {
+    padding: 0.4rem 0.65rem;
+    font-size: 0.76rem;
+  }
+}
+
+/* Per-card price alert button (Cards view) */
+.fav-card-alert-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  width: 100%;
+  margin-top: 0.45rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, #2aabee 40%, var(--border));
+  background: color-mix(in srgb, #2aabee 10%, transparent);
+  color: #2aabee;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.fav-card-alert-btn:hover {
+  background: #2aabee;
+  color: #fff;
+  border-color: #2aabee;
+}
+
+[data-theme="light"] .fav-card-alert-btn {
+  background: color-mix(in srgb, #2aabee 8%, #ffffff);
+}
+
+/* Compact table action alert button */
+.btn-alert-table {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 7px;
+  border: 1px solid color-mix(in srgb, #2aabee 40%, var(--border));
+  background: color-mix(in srgb, #2aabee 10%, transparent);
+  color: #2aabee;
+  font-size: 0.85rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.btn-alert-table:hover {
+  background: #2aabee;
+  color: #fff;
+  border-color: #2aabee;
+}
+
+/* Lazy-route Suspense fallback */
+.tab-loading-fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 3rem 1rem;
+}
+
+.tab-loading-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.75rem 1.25rem;
+  border-radius: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.tab-loading-spinner {
+  border-top-color: #2aabee;
+}
+
+.tab-loading-skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  width: 100%;
+  max-width: 900px;
+}
+
+.tab-loading-skeleton-box {
+  height: 180px;
+  border-radius: 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  animation: tab-loading-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes tab-loading-pulse {
+  0%, 100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
 /* Navbar Stats & Links */
 .navbar-stats-active {
   color: var(--success);

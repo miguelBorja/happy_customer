@@ -71,7 +71,8 @@ const FiltersModal = ({
   styles = [],
   hasActiveFilters = false,
   isSearchSaved = false,
-  onSaveSearch
+  onSaveSearch,
+  onOpenTelegramAlert
 }) => {
   const { t } = useLanguage();
 
@@ -532,6 +533,15 @@ const FiltersModal = ({
             >
               <BellIcon size={14} color="currentColor" />
               <span>{isSearchSaved ? t('searchSavedBtn') : t('saveSearchBtn')}</span>
+            </button>
+          )}
+          {hasActiveFilters && onOpenTelegramAlert && (
+            <button
+              type="button"
+              className="btn-telegram-alert"
+              onClick={onOpenTelegramAlert}
+            >
+              📲 {t('telegramAlertBtn')}
             </button>
           )}
           <button className="btn-primary" onClick={onClose}>

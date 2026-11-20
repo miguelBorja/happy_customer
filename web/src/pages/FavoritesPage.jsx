@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { fetchCarsByUrls } from '../api/client';
+import { buildCarAlertQuery, formatCarAlertLabel } from '../utils/carAlerts';
 import { useFavorites } from '../hooks/useFavorites';
 import { useSavedSearches } from '../hooks/useSavedSearches';
 import { useSeenCars } from '../hooks/useSeenCars';
@@ -18,6 +19,7 @@ import { useTableDensity } from '../hooks/useTableDensity';
 import { useCompare } from '../hooks/useCompare';
 import { CarThumb } from '../components/CarPhoto';
 import CarDetailsModal from '../components/CarDetailsModal';
+import AlertSubscribeModal from '../components/AlertSubscribeModal';
 import {
   StarIcon,
   CardsGridIcon,
@@ -33,6 +35,7 @@ const FavoritesPage = ({ viewMode, setViewMode, onApplySavedSearch, onFilterBySe
   const { savedSearches, digests, removeSearch, markSearchChecked } = useSavedSearches();
   const { isNew } = useSeenCars();
   const [selectedCar, setSelectedCar] = useState(null);
+  const [alertTarget, setAlertTarget] = useState(null);
   const [onlyDrops, setOnlyDrops] = useState(false);
   const { density, setDensity, showPhotos } = useTableDensity();
   const { isComparing, toggleCompare } = useCompare();
@@ -91,6 +94,23 @@ const FavoritesPage = ({ viewMode, setViewMode, onApplySavedSearch, onFilterBySe
 
   const shownCars = onlyDrops && droppedCars.length > 0 ? droppedCars : displayCars;
 
+  const activeFavCars = useMemo(() => displayCars.filter((c) => !c.IsSold && c.URL), [displayCars]);
+
+  const openCarAlert = (car) => {
+    const { query } = buildCarAlertQuery([car.URL]);
+    if (query) setAlertTarget({ query, label: formatCarAlertLabel(car) });
+  };
+
+  const openFavoritesListAlert = () => {
+    if (activeFavCars.length === 0) return;
+    if (activeFavCars.length === 1) {
+      openCarAlert(activeFavCars[0]);
+      return;
+    }
+    const { query, count } = buildCarAlertQuery(activeFavCars.map((c) => c.URL));
+    if (query) setAlertTarget({ query, label: t('favPriceAlertListLabel', { count }) });
+  };
+
   const activeFavs = displayCars.filter(c => !c.IsSold).length;
   const soldFavs = displayCars.filter(c => c.IsSold).length;
 
@@ -112,6 +132,17 @@ const FavoritesPage = ({ viewMode, setViewMode, onApplySavedSearch, onFilterBySe
         </div>
 
         <div className="favorites-controls">
+          {activeFavCars.length > 0 && (
+            <button
+              type="button"
+              className="btn-telegram-alert fav-list-alert-btn"
+              onClick={openFavoritesListAlert}
+              title={t('favPriceAlertListTitle')}
+            >
+              <span>📲</span>
+              <span>{t('carPriceAlertBtn')}</span>
+            </button>
+          )}
           {viewMode === 'table' && (
             <div className="table-density-toggle">
               <button
@@ -207,6 +238,15 @@ const FavoritesPage = ({ viewMode, setViewMode, onApplySavedSearch, onFilterBySe
                     )}
                     <button
                       type="button"
+                      className="fav-saved-alert-btn"
+                      onClick={() => setAlertTarget({ query: item.query, label: item.name })}
+                      title={t('telegramAlertTitle')}
+                      aria-label={t('telegramAlertTitle')}
+                    >
+                      📲 {t('telegramAlertBtn')}
+                    </button>
+                    <button
+                      type="button"
                       className="fav-saved-remove-btn"
                       onClick={() => removeSearch(item.id)}
                       aria-label={t('savedSearchRemove')}
@@ -267,6 +307,16 @@ const FavoritesPage = ({ viewMode, setViewMode, onApplySavedSearch, onFilterBySe
                     onOpenDetails={setSelectedCar}
                     onNegotiateWithCopilot={onNegotiateWithCopilot}
                   />
+                  {!car.IsSold && (
+                    <button
+                      type="button"
+                      className="fav-card-alert-btn"
+                      onClick={() => openCarAlert(car)}
+                      title={t('carPriceAlertBtn')}
+                    >
+                      📲 {t('carPriceAlertBtn')}
+                    </button>
+                  )}
                 </div>
               );
             })}
@@ -363,6 +413,17 @@ const FavoritesPage = ({ viewMode, setViewMode, onApplySavedSearch, onFilterBySe
                     </td>
                     <td className="text-right col-action">
                       <div className="col-action-inner">
+                        {!car.IsSold && (
+                          <button
+                            type="button"
+                            className="btn-alert-table"
+                            onClick={() => openCarAlert(car)}
+                            title={t('carPriceAlertBtn')}
+                            aria-label={t('carPriceAlertBtn')}
+                          >
+                            📲
+                          </button>
+                        )}
                         <button
                           type="button"
                           className={`btn-compare-table ${isComparing(car.URL) ? 'active' : ''}`}
@@ -409,6 +470,13 @@ const FavoritesPage = ({ viewMode, setViewMode, onApplySavedSearch, onFilterBySe
           onNegotiateWithCopilot={onNegotiateWithCopilot}
         />
       )}
+
+      <AlertSubscribeModal
+        isOpen={Boolean(alertTarget)}
+        onClose={() => setAlertTarget(null)}
+        query={alertTarget?.query || ''}
+        label={alertTarget?.label || ''}
+      />
     </div>
   );
 };

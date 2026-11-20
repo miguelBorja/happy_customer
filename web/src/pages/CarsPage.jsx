@@ -31,10 +31,11 @@ import {
 } from '../components/icons/AppIcons';
 import { CarThumb } from '../components/CarPhoto';
 import CarDetailsModal from '../components/CarDetailsModal';
+import AlertSubscribeModal from '../components/AlertSubscribeModal';
 import { ResultsSkeleton } from '../components/LoadingSkeletons';
 import { useTableDensity } from '../hooks/useTableDensity';
 import { useCompare } from '../hooks/useCompare';
-import { createDefaultFilters } from '../utils/urlState';
+import { createDefaultFilters, buildUrlSearch } from '../utils/urlState';
 
 const RENDER_STEP = 20;
 
@@ -79,6 +80,7 @@ const CarsPage = ({
   const { density, setDensity, showPhotos } = useTableDensity();
   const { isComparing, toggleCompare } = useCompare();
   const [selectedCar, setSelectedCar] = useState(null);
+  const [alertTarget, setAlertTarget] = useState(null);
 
   // The open car is driven by carUrl (App keeps it in the URL as ?car=...).
   // selectedCar only caches the last clicked/fetched car; openCar is derived from the URL.
@@ -611,6 +613,12 @@ const CarsPage = ({
   const activeTags = getActiveFilterTags();
   const hasActiveFilters = activeTags.length > 0;
 
+  const openAlertForCurrentFilters = () => {
+    const query = buildUrlSearch({ tab: 'browse', filters, clientSort, carUrl: null }).replace(/^\?/, '');
+    const label = activeTags.map(tag => tag.label).slice(0, 4).join(' · ') || 'Búsqueda personalizada';
+    setAlertTarget({ query, label });
+  };
+
   const quickSearches = [
     {
       id: 'optimalSort',
@@ -835,6 +843,15 @@ const CarsPage = ({
                 </button>
                 <button
                   type="button"
+                  className="saved-search-chip-alert"
+                  onClick={() => setAlertTarget({ query: item.query, label: item.name })}
+                  title={t('telegramAlertTitle')}
+                  aria-label={t('telegramAlertTitle')}
+                >
+                  📲
+                </button>
+                <button
+                  type="button"
                   className="saved-search-chip-remove"
                   onClick={() => removeSearch(item.id)}
                   aria-label={t('savedSearchRemove')}
@@ -866,6 +883,9 @@ const CarsPage = ({
             <BellIcon size={13} color="currentColor" />
             <span>{isSearchSaved(filters, clientSort) ? t('searchSavedBtn') : t('saveSearchBtn')}</span>
           </button>
+          <button type="button" className="btn-telegram-alert" onClick={openAlertForCurrentFilters}>
+            📲 {t('telegramAlertBtn')}
+          </button>
           <button className="btn-clear-all-tags" onClick={handleResetFilters}>
             {t('clearAll')}
           </button>
@@ -890,6 +910,7 @@ const CarsPage = ({
         hasActiveFilters={hasActiveFilters}
         isSearchSaved={isSearchSaved(filters, clientSort)}
         onSaveSearch={() => saveSearch({ filters, clientSort })}
+        onOpenTelegramAlert={openAlertForCurrentFilters}
       />
 
       {/* Results Container */}
@@ -1324,6 +1345,13 @@ const CarsPage = ({
           onNegotiateWithCopilot={onNegotiateWithCopilot}
         />
       )}
+
+      <AlertSubscribeModal
+        isOpen={Boolean(alertTarget)}
+        onClose={() => setAlertTarget(null)}
+        query={alertTarget?.query || ''}
+        label={alertTarget?.label || ''}
+      />
     </div>
   );
 };

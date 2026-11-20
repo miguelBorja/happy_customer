@@ -1,16 +1,18 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense } from 'react';
 import CarsPage from './pages/CarsPage';
-import FavoritesPage from './pages/FavoritesPage';
-import StatsPage from './pages/StatsPage';
-import AboutPage from './pages/AboutPage';
-import BargainsPage from './pages/BargainsPage';
-import ValuatePage from './pages/ValuatePage';
-import AICopilotWindow from './components/AICopilotWindow';
-import CompareWidget from './components/CompareWidget';
 import WelcomeBanner from './components/WelcomeBanner';
 import { fetchStats, recordVisit } from './api/client';
 import { useFavorites } from './hooks/useFavorites';
 import { useSavedSearches } from './hooks/useSavedSearches';
+import { useCompare } from './hooks/useCompare';
+
+const FavoritesPage = lazy(() => import('./pages/FavoritesPage'));
+const StatsPage = lazy(() => import('./pages/StatsPage'));
+const AboutPage = lazy(() => import('./pages/AboutPage'));
+const BargainsPage = lazy(() => import('./pages/BargainsPage'));
+const ValuatePage = lazy(() => import('./pages/ValuatePage'));
+const AICopilotWindow = lazy(() => import('./components/AICopilotWindow'));
+const CompareWidget = lazy(() => import('./components/CompareWidget'));
 import { useLanguage } from './context/LanguageContext';
 import { useTheme } from './hooks/useTheme';
 import { trackPageView } from './utils/analytics';
@@ -43,6 +45,7 @@ function App() {
   const [stats, setStats] = useState({ total: 0, active: 0, sold: 0, visits: 0 });
   const { favCount } = useFavorites();
   const { totalAlerts } = useSavedSearches();
+  const { compareCars, isCompareOpen } = useCompare();
   const { toggleLanguage, t } = useLanguage();
   const { isLight, toggleTheme } = useTheme();
   const [browseViewMode, setBrowseViewMode] = useState(() => {
@@ -144,6 +147,7 @@ function App() {
   const [isCopilotOpen, setIsCopilotOpen] = useState(false);
   const [isCopilotMinimized, setIsCopilotMinimized] = useState(false);
   const [isCopilotExpanded, setIsCopilotExpanded] = useState(false);
+  const [hasOpenedCopilot, setHasOpenedCopilot] = useState(false);
   const [attachedCars, setAttachedCars] = useState([]);
 
   const handleAddCarToCopilot = (car) => {
@@ -156,6 +160,7 @@ function App() {
       }
       return [...prev, car];
     });
+    setHasOpenedCopilot(true);
     setIsCopilotOpen(true);
     setIsCopilotMinimized(false);
   };
@@ -170,6 +175,7 @@ function App() {
 
   const handleToggleCopilot = () => {
     if (!isCopilotOpen) {
+      setHasOpenedCopilot(true);
       setIsCopilotOpen(true);
       setIsCopilotMinimized(false);
     } else if (isCopilotMinimized) {
@@ -247,6 +253,7 @@ function App() {
 
   const handleAnalyzeWithCopilot = useCallback((carsToAnalyze) => {
     setAttachedCars(carsToAnalyze.slice(0, MAX_COPILOT_CARS));
+    setHasOpenedCopilot(true);
     setIsCopilotOpen(true);
     setIsCopilotMinimized(false);
   }, []);
@@ -257,6 +264,7 @@ function App() {
       const rest = prev.filter((c) => c.URL !== car.URL);
       return [car, ...rest].slice(0, MAX_COPILOT_CARS);
     });
+    setHasOpenedCopilot(true);
     setIsCopilotOpen(true);
     setIsCopilotMinimized(false);
   }, []);
@@ -315,6 +323,20 @@ function App() {
     }
     document.title = nextTitle;
   }, [activeTab, filters, valuateParams, t]);
+
+  const tabFallback = (
+    <div className="tab-loading-fallback" role="status" aria-live="polite">
+      <div className="tab-loading-card">
+        <span className="alert-modal-spinner tab-loading-spinner" aria-hidden="true" />
+        <span>{t('loadingView')}</span>
+      </div>
+      <div className="tab-loading-skeleton-grid" aria-hidden="true">
+        <div className="tab-loading-skeleton-box" />
+        <div className="tab-loading-skeleton-box" />
+        <div className="tab-loading-skeleton-box" />
+      </div>
+    </div>
+  );
 
   const renderPage = () => {
     switch (activeTab) {
@@ -483,7 +505,7 @@ function App() {
             onOpenValuate={() => handleOpenValuate()}
           />
         )}
-        {renderPage()}
+        <Suspense fallback={tabFallback}>{renderPage()}</Suspense>
       </main>
 
       <nav className="bottom-nav">
@@ -549,21 +571,29 @@ function App() {
         </button>
       </nav>
 
-      <CompareWidget onAnalyzeWithCopilot={handleAnalyzeWithCopilot} />
+      {(compareCars.length > 0 || isCompareOpen) && (
+        <Suspense fallback={null}>
+          <CompareWidget onAnalyzeWithCopilot={handleAnalyzeWithCopilot} />
+        </Suspense>
+      )}
 
-      <AICopilotWindow 
-        isOpen={isCopilotOpen}
-        onClose={() => setIsCopilotOpen(false)}
-        attachedCars={attachedCars}
-        onAddCar={handleAddCarToCopilot}
-        onRemoveCar={handleRemoveCarFromCopilot}
-        onClearCars={handleClearCopilotCars}
-        onSetAttachedCars={setAttachedCars}
-        isMinimized={isCopilotMinimized}
-        onToggleMinimize={() => setIsCopilotMinimized(prev => !prev)}
-        isExpanded={isCopilotExpanded}
-        onToggleExpand={() => setIsCopilotExpanded(prev => !prev)}
-      />
+      {(hasOpenedCopilot || isCopilotOpen) && (
+        <Suspense fallback={null}>
+          <AICopilotWindow 
+            isOpen={isCopilotOpen}
+            onClose={() => setIsCopilotOpen(false)}
+            attachedCars={attachedCars}
+            onAddCar={handleAddCarToCopilot}
+            onRemoveCar={handleRemoveCarFromCopilot}
+            onClearCars={handleClearCopilotCars}
+            onSetAttachedCars={setAttachedCars}
+            isMinimized={isCopilotMinimized}
+            onToggleMinimize={() => setIsCopilotMinimized(prev => !prev)}
+            isExpanded={isCopilotExpanded}
+            onToggleExpand={() => setIsCopilotExpanded(prev => !prev)}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

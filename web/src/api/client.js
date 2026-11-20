@@ -271,3 +271,22 @@ export const fetchSellerSummary = async (name, signal) => {
   if (!res.ok) throw new Error('Failed to fetch seller summary');
   return res.json();
 };
+
+export const createAlertSubscription = async (query, label) => {
+  const res = await fetch(`${BASE_URL}/alerts`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ channel: 'telegram', query, label }),
+  });
+  if (!res.ok) throw new Error('Failed to create alert subscription');
+  return res.json();
+};
+
+export const fetchAlertStatus = async (connectToken, signal) => {
+  const res = await fetch(
+    `${BASE_URL}/alerts/status?token=${encodeURIComponent(connectToken)}`,
+    { signal },
+  );
+  if (!res.ok) throw new Error('Failed to fetch alert status');
+  return res.json();
+};
